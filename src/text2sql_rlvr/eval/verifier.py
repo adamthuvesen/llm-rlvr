@@ -88,11 +88,6 @@ def execution_match(
     return MatchResult(matched=True, reason="match")
 
 
-def is_match(predicted_sql: str, gold_sql: str, db_path: str | Path, **kwargs) -> bool:
-    """Thin boolean wrapper around `execution_match`."""
-    return execution_match(predicted_sql, gold_sql, db_path, **kwargs).matched
-
-
 def _resolve_db_paths(db_path: str | Path, db_dir: str | Path | None) -> list[Path]:
     if db_dir is None:
         return [Path(db_path)]
