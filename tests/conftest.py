@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+from text2sql_rlvr.eval.provenance import DecodingConfig, GenerationProvenance
+
 
 def _build(path: Path, rows: list[tuple[int, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -32,3 +34,25 @@ def test_suite_dir(tmp_path: Path) -> Path:
     _build(d / "inst0.sqlite", [(1, "x"), (2, "y")])
     _build(d / "inst1.sqlite", [(5, "p"), (6, "q"), (7, "r")])
     return d
+
+
+@pytest.fixture
+def scoring_root(tmp_path: Path) -> Path:
+    """A Spider-style `database/<db_id>/<db_id>.sqlite` root for the verifier to resolve."""
+    root = tmp_path / "database"
+    _build(root / "concert" / "concert.sqlite", [(1, "x"), (2, "y")])
+    return root
+
+
+@pytest.fixture
+def provenance() -> GenerationProvenance:
+    """A minimal provenance record for building test completion sets."""
+    return GenerationProvenance(
+        model="test-model",
+        backend="transformers",
+        dataset="spider",
+        dataset_revision="testrev",
+        split="dev",
+        n_examples=2,
+        decoding=DecodingConfig(),
+    )
