@@ -19,6 +19,8 @@ _FENCE = re.compile(r"```([^\n`]*)\n(.*?)```", re.DOTALL)
 _OPEN_FENCE = re.compile(r"```([^\n`]*)\n(.*)\Z", re.DOTALL)
 _ANSWER = re.compile(r"<answer>\s*(.*?)</answer>", re.DOTALL | re.IGNORECASE)
 _SQL_KEYWORDS = ("select", "with", "insert", "update", "delete", "create")
+_THINK_OPEN = re.compile(r"<think>", re.IGNORECASE)
+_THINK_CLOSE = re.compile(r"</think>", re.IGNORECASE)
 
 
 def _lang_is_sql(lang: str) -> bool:
@@ -27,6 +29,24 @@ def _lang_is_sql(lang: str) -> bool:
 
 def _looks_like_sql(body: str) -> bool:
     return body.strip().lower().startswith(_SQL_KEYWORDS)
+
+
+def well_formed(text: str) -> bool:
+    """True iff `text` is exactly one `<think>…</think>` block then one closed ```sql block.
+
+    The trained output format (and the SFT format-rate metric): a single think block, followed by
+    a single sql-tagged fenced query. Anything else — missing/duplicated think tags, zero or
+    multiple fences, a non-sql fence, or a fence before the reasoning — is malformed.
+    """
+    opens = [m.start() for m in _THINK_OPEN.finditer(text)]
+    closes = [m.start() for m in _THINK_CLOSE.finditer(text)]
+    if len(opens) != 1 or len(closes) != 1 or closes[0] < opens[0]:
+        return False
+    fences = list(_FENCE.finditer(text))
+    if len(fences) != 1:
+        return False
+    fence = fences[0]
+    return _lang_is_sql(fence.group(1)) and fence.start() > closes[0]
 
 
 def extract_sql(text: str) -> str | None:

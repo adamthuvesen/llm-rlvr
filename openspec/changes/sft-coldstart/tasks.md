@@ -1,14 +1,14 @@
 ## 1. Dependencies + module scaffold
 
 - [x] 1.1 Add a `train` optional-dependency extra (`trl>=1.3` — prefer 1.5.1 — `peft`, `accelerate`) keyed off the existing `gpu` extra; resolve `uv.lock`; verify TRL ↔ transformers 5.x ↔ vLLM compatibility against the current pins (vllm 0.22.1 / torch 2.11.0 / transformers 5.10.2) and record the working triple.
-- [ ] 1.2 Scaffold `src/text2sql_rlvr/train/` (package `__init__`, frozen Pydantic record types for an SFT example + dataset/checkpoint provenance).
+- [x] 1.2 Scaffold `src/text2sql_rlvr/train/` (package `__init__`, frozen Pydantic record types for an SFT example + dataset/checkpoint provenance).
 
 ## 2. Cold-start trace dataset (coldstart-trace-dataset)
 
-- [ ] 2.1 Candidate generation: reuse the prompt builder + vLLM backend to sample `N` (default 8) completions per Spider-train question (`SamplingParams(n=N, temperature≈0.8, top_p 0.95, seed)`); raise loudly if pointed at a dev/test pool (train-only guard).
-- [ ] 2.2 Execution-filter + selection: score each candidate against the Spider-train DBs with the Stage-0 verifier; keep only candidates that are execution-correct **and** parse to one `<think>` + one ```sql```; select one per question (default: shortest), dedup exact.
-- [ ] 2.3 Serialize the SFT dataset (chat messages + selected completion, JSONL) plus a provenance manifest (base model + revision, sampling config, dataset revision + DB checksum, kept/total counts).
-- [ ] 2.4 Tests: filter drops execution-incorrect and malformed candidates; one-per-question selection picks the shortest and dedups; the train-only guard raises on a dev pool; manifest carries the required fields (unit, fixtures — no GPU).
+- [x] 2.1 Candidate generation: reuse the prompt builder + vLLM backend to sample `N` (default 8) completions per Spider-train question (`SamplingParams(n=N, temperature≈0.8, top_p 0.95, seed)`); raise loudly if pointed at a dev/test pool (train-only guard).
+- [x] 2.2 Execution-filter + selection: score each candidate against the Spider-train DBs with the Stage-0 verifier; keep only candidates that are execution-correct **and** parse to one `<think>` + one ```sql```; select one per question (default: shortest), dedup exact.
+- [x] 2.3 Serialize the SFT dataset (chat messages + selected completion, JSONL) plus a provenance manifest (base model + revision, sampling config, dataset revision + DB checksum, kept/total counts).
+- [x] 2.4 Tests: filter drops execution-incorrect and malformed candidates; one-per-question selection picks the shortest and dedups; the train-only guard raises on a dev pool; manifest carries the required fields (unit, fixtures — no GPU).
 
 ## 3. LoRA SFT trainer (sft-training)
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from text2sql_rlvr.eval.parsing import extract_sql
+from text2sql_rlvr.eval.parsing import extract_sql, well_formed
 
 
 def test_sql_block() -> None:
@@ -43,3 +43,24 @@ def test_unterminated_fence_is_recovered() -> None:
 def test_non_sql_fenced_block_is_not_returned_as_sql() -> None:
     # A stray non-SQL code block must read as no_sql, not be mis-scored as a wrong query.
     assert extract_sql("output:\n```\nfoo bar baz\n```") is None
+
+
+def test_well_formed_canonical_trace() -> None:
+    assert well_formed("<think>reason</think>\n```sql\nSELECT 1\n```") is True
+    assert well_formed("<think>r</think>\n```sqlite\nSELECT 1\n```") is True
+
+
+def test_well_formed_rejects_missing_or_duplicated_think() -> None:
+    assert well_formed("```sql\nSELECT 1\n```") is False
+    assert well_formed("<think>a</think><think>b</think>\n```sql\nSELECT 1\n```") is False
+
+
+def test_well_formed_rejects_wrong_fences() -> None:
+    assert well_formed("<think>r</think>\n```python\nprint(1)\n```") is False  # non-sql fence
+    assert well_formed("<think>r</think>\n```sql\nA\n```\n```sql\nB\n```") is False  # two fences
+    assert well_formed("<think>r</think>\n```sql\nSELECT 1") is False  # unterminated
+    assert well_formed("<think>r</think> no fence at all") is False
+
+
+def test_well_formed_requires_think_before_query() -> None:
+    assert well_formed("```sql\nSELECT 1\n```\n<think>after</think>") is False
