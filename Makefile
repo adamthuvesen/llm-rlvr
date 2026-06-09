@@ -20,5 +20,8 @@ test-integration:  ## Run the network/HuggingFace/model integration tests
 
 check: lint test  ## The Stage-0 gate: lint + unit tests
 
+data:  ## Fetch + verify + extract the pinned Spider databases (HF mirror; see RUNBOOK)
+	uv run python -c "from text2sql_rlvr.data import ensure_spider_databases as e; print('Spider DBs at', e().database_root)"
+
 eval:  ## Reproduce the baseline number from a committed completion set (see RUNBOOK)
 	uv run text2sql-rlvr score --completions runs/baseline --out results/baseline.json

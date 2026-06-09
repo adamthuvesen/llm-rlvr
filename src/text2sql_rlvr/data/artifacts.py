@@ -30,7 +30,13 @@ class ArchivePin(BaseModel):
     sha256: str  # computed against the canonical Yale bytes; mismatch fails loudly
 
 
-# Finalize in R1: point at the chosen HF mirror commit that ships `database/*.sqlite`, with the
-# SHA256 computed from the canonical Yale archive. Left None so nothing silently fetches an
-# unverified archive.
-SPIDER_DB_ARCHIVE: ArchivePin | None = None
+# Self-hosted (design R1): no third-party mirror ships the Spider SQLite databases, so we re-host
+# the canonical Yale `spider_data.zip` (CC-BY-SA-4.0) on our own HF dataset repo, pinned by the
+# immutable commit SHA. The SHA256 is the hard trust anchor (computed from the Yale download,
+# 2026-06). Yale Drive id 1403EGqzIDoHMdQF4c9Bkyl7dZLZ5Wt6J is the documented provenance origin.
+SPIDER_DB_ARCHIVE: ArchivePin | None = ArchivePin(
+    repo="HAL-9001/spider-databases",
+    filename="spider_data.zip",
+    revision="4a01bbac6520cd35b216db9e1724e5e1ada60aa4",
+    sha256="00636695dabed6b5f4b8328a16b13e069a2f16591d5efcce57660669c85b121b",
+)

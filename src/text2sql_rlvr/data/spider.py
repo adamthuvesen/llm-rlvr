@@ -10,14 +10,26 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import zipfile
 from pathlib import Path
 from typing import Any
 
-from text2sql_rlvr.data.artifacts import SPIDER_HF_REPO, SPIDER_HF_REVISION
+from text2sql_rlvr._base import Frozen
+from text2sql_rlvr.data.artifacts import (
+    SPIDER_DB_ARCHIVE,
+    SPIDER_HF_REPO,
+    SPIDER_HF_REVISION,
+)
 from text2sql_rlvr.data.models import Column, DatabaseSchema, Example, ForeignKey, Table
 
 # Spider's parquet "dev" split is named `validation`.
 _SPLIT_ALIASES = {"dev": "validation", "validation": "validation", "train": "train"}
+
+# Points at an already-extracted `spider_data/` dir — an offline escape hatch that skips the
+# download (e.g. for the very first baseline run before the HF mirror is uploaded).
+_SPIDER_ROOT_ENV = "TEXT2SQL_SPIDER_ROOT"
+_DEFAULT_CACHE = Path("data/spider")
 
 
 def parse_schema(entry: dict[str, Any]) -> DatabaseSchema:
@@ -126,3 +138,55 @@ def resolve_database(db_id: str, db_root: str | Path) -> Path:
             "separate checksummed artifact — see RUNBOOK.md / design R1."
         )
     return path
+
+
+class SpiderDatabases(Frozen):
+    """The local Spider data tree: the extracted root, its `database/` dir, and `tables.json`."""
+
+    root: Path
+    database_root: Path
+    tables_json: Path
+
+
+def ensure_spider_databases(cache_dir: str | Path | None = None) -> SpiderDatabases:
+    """Return the local Spider databases, fetching + verifying + extracting if needed.
+
+    Resolution order:
+      1. ``$TEXT2SQL_SPIDER_ROOT`` — an already-extracted ``spider_data/`` dir (offline hatch);
+      2. the pinned, checksummed ``SPIDER_DB_ARCHIVE`` from HF, downloaded + verified + extracted.
+    """
+    override = os.environ.get(_SPIDER_ROOT_ENV)
+    if override:
+        return _spider_databases_at(Path(override))
+
+    if SPIDER_DB_ARCHIVE is None:
+        raise RuntimeError(
+            f"SPIDER_DB_ARCHIVE is not pinned; set ${_SPIDER_ROOT_ENV} or finalize design R1"
+        )
+
+    cache = Path(cache_dir) if cache_dir is not None else _DEFAULT_CACHE
+    extracted = cache / "spider_data"
+    if not extracted.exists():
+        from huggingface_hub import hf_hub_download
+
+        archive = hf_hub_download(
+            repo_id=SPIDER_DB_ARCHIVE.repo,
+            filename=SPIDER_DB_ARCHIVE.filename,
+            revision=SPIDER_DB_ARCHIVE.revision,
+            repo_type="dataset",
+        )
+        verify_sha256(archive, SPIDER_DB_ARCHIVE.sha256)
+        cache.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(archive) as bundle:
+            bundle.extractall(cache)
+    return _spider_databases_at(extracted)
+
+
+def _spider_databases_at(root: Path) -> SpiderDatabases:
+    database_root = root / "database"
+    tables_json = root / "tables.json"
+    if not database_root.is_dir() or not tables_json.is_file():
+        raise FileNotFoundError(
+            f"expected a spider_data layout at {root} (database/ + tables.json)"
+        )
+    return SpiderDatabases(root=root, database_root=database_root, tables_json=tables_json)
