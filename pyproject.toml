@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "text2sql-rlvr"
+version = "0.1.0"
+description = "A self-correcting text-to-SQL agent trained with RL (GRPO + verifiable execution reward)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Adam Thuvesen", email = "adam.thuvesen@mentimeter.com" }]
+
+# The CPU eval/verifier/data layer. Deliberately light so the whole Stage-0 foundation
+# installs and tests on a CPU box without the GPU training stack.
+dependencies = [
+    "pydantic>=2.7,<3",
+    "datasets>=3.0",
+    "huggingface-hub>=0.25",
+    # The vendored Test-Suite SQL Eval (third_party/) imports these two; everything else
+    # it needs is stdlib. nltk/process_sql.py (component match) is NOT vendored — we only
+    # use the execution-match path.
+    "sqlparse>=0.5",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+# Completion generation. transformers+torch only, so the base-model baseline can run on a
+# Mac/CPU box for a dev slice; the vLLM GPU backend is imported lazily and ships with `gpu`.
+generate = [
+    "transformers>=4.48",
+    "torch>=2.4",
+]
+gpu = [
+    "text2sql-rlvr[generate]",
+    "vllm",
+]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "pre-commit>=3.8",
+]
+
+[project.scripts]
+text2sql-rlvr = "text2sql_rlvr.eval.cli:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# The vendored evaluator is upstream code; do not lint or reformat it.
+extend-exclude = ["src/text2sql_rlvr/third_party"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "N", "PTH", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["text2sql_rlvr"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -m 'not integration'"
+markers = [
+    "integration: hits the network / HuggingFace / a real model; deselected by default",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/text2sql_rlvr"]

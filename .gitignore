@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+
+# Project artifacts
+/runs/
+/results/*.json
+# Datasets / databases are pinned + fetched, never committed
+/data/spider/
+/data/bird/
+*.sqlite
+*.sqlite3
