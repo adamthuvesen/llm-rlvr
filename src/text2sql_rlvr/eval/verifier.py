@@ -16,8 +16,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
-
+from text2sql_rlvr._base import Frozen
 from text2sql_rlvr.env.sandbox import ExecutionResult, SqliteSandbox
 from text2sql_rlvr.third_party.test_suite_sql_eval.exec_eval import (
     postprocess,
@@ -34,9 +33,7 @@ MatchReason = Literal["match", "pred_error", "denotation_mismatch", "trivial_emp
 _VERIFY_ROW_CAP = 100_000
 
 
-class VerifierConfig(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
+class VerifierConfig(Frozen):
     keep_distinct: bool = True
     timeout_s: float = 30.0
     # Above this column count, skip the (potentially explosive) column-permutation search and
@@ -47,9 +44,7 @@ class VerifierConfig(BaseModel):
     guard_trivial_empty: bool = False
 
 
-class MatchResult(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
+class MatchResult(Frozen):
     matched: bool
     reason: MatchReason
 

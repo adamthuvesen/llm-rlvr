@@ -10,17 +10,15 @@ until then `SPIDER_DB_ARCHIVE` is None and the resolver requires an explicit, ch
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from text2sql_rlvr._base import Frozen
 
 # Resolved 2026-06 from the HF API; parquet train+validation, no databases (confirms D2).
 SPIDER_HF_REPO = "xlangai/spider"
 SPIDER_HF_REVISION = "0c350918f3f29ec754f1181c65cdce76cd6c133c"
 
 
-class ArchivePin(BaseModel):
+class ArchivePin(Frozen):
     """A pinned, checksummed downloadable archive (the trust anchor is the SHA256)."""
-
-    model_config = ConfigDict(frozen=True)
 
     # Where to fetch from. `repo` is an HF dataset id and `filename` a file within it; a bare
     # local path may be passed to the resolver instead for an offline/Yale-sourced archive.

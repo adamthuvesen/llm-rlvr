@@ -13,15 +13,14 @@ from pathlib import Path
 from typing import Any, Literal
 
 import sqlparse
-from pydantic import BaseModel, ConfigDict
+
+from text2sql_rlvr._base import Frozen
 
 ErrorType = Literal["syntax", "operational", "read_only", "timeout", "multi_statement"]
 
 
-class ExecutionResult(BaseModel):
+class ExecutionResult(Frozen):
     """A successful read-only execution: the rows (capped) and whether the cap was hit."""
-
-    model_config = ConfigDict(frozen=True)
 
     rows: tuple[tuple[Any, ...], ...]
     truncated: bool = False
@@ -31,10 +30,8 @@ class ExecutionResult(BaseModel):
         return len(self.rows)
 
 
-class ExecutionError(BaseModel):
+class ExecutionError(Frozen):
     """A failed execution, classified — never a raw traceback to the caller."""
-
-    model_config = ConfigDict(frozen=True)
 
     error_type: ErrorType
     message: str
