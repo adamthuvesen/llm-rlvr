@@ -1,0 +1,48 @@
+# baseline-evaluation Specification
+
+## Purpose
+TBD - created by archiving change eval-foundation. Update Purpose after archive.
+## Requirements
+### Requirement: Measure base-model execution accuracy
+The system SHALL produce zero-shot and few-shot execution-accuracy numbers for
+Qwen2.5-Coder-3B-Instruct on **full Spider-dev and BIRD-dev** using the execution-match verifier,
+with BIRD-dev reported as the headline benchmark. The headline `CompletionSet`s SHALL be committed so
+the numbers are re-derivable on CPU.
+
+#### Scenario: Zero-shot baseline on full Spider-dev
+- **WHEN** the baseline is run zero-shot on the full Spider-dev split
+- **THEN** it generates SQL for each example, scores it with the verifier, and reports an aggregate
+  execution-accuracy number.
+
+#### Scenario: Few-shot baseline reported separately
+- **WHEN** the baseline is run few-shot
+- **THEN** it reports a distinct execution-accuracy number, with the few-shot exemplar policy
+  recorded.
+
+#### Scenario: BIRD-dev reported as the headline
+- **WHEN** the baseline run includes BIRD-dev
+- **THEN** a BIRD-dev execution-accuracy number is reported using the same verifier and committed as
+  the headline reference artifact.
+
+### Requirement: Separate model-free scoring from generation
+The system SHALL write model completions to a stored artifact and score them in a separate,
+model-free step, so scoring runs on a CPU box without a generation backend.
+
+#### Scenario: Re-scoring a stored completion set is deterministic
+- **WHEN** a stored completion set is scored twice
+- **THEN** the reported execution-accuracy number is identical both times.
+
+### Requirement: Record full provenance for the baseline number
+The system SHALL record, with every baseline result, the dataset revision and database-archive
+checksum, the model and its revision, the decoding configuration, the git commit (and dirty flag),
+and the relevant library versions.
+
+#### Scenario: Baseline result is reproducible from its provenance
+- **WHEN** a baseline result is produced
+- **THEN** its provenance captures dataset revision + checksum, model + revision, decoding settings,
+  git commit/dirty, and library versions sufficient to reproduce the run.
+
+#### Scenario: Decoding settings are recorded for later comparison
+- **WHEN** the baseline is generated with a given decoding configuration (e.g. greedy vs sampled)
+- **THEN** that configuration is recorded so later RL-vs-baseline comparisons use matching decoding.
+
