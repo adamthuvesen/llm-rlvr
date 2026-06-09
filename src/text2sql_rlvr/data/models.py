@@ -46,10 +46,15 @@ class DatabaseSchema(_Frozen):
 
 
 class Example(_Frozen):
-    """One NL→SQL example. `db_id` resolves to a schema + a `.sqlite` file at load time."""
+    """One NL→SQL example. `db_id` resolves to a schema + a `.sqlite` file at load time.
+
+    `evidence` is BIRD's external-knowledge hint (None for Spider); when present it is included in
+    the prompt.
+    """
 
     db_id: str
     question: str
     gold_sql: str
     split: str
     dataset: str = "spider"
+    evidence: str | None = None

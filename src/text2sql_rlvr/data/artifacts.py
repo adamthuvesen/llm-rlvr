@@ -40,3 +40,13 @@ SPIDER_DB_ARCHIVE: ArchivePin | None = ArchivePin(
     revision="4a01bbac6520cd35b216db9e1724e5e1ada60aa4",
     sha256="00636695dabed6b5f4b8328a16b13e069a2f16591d5efcce57660669c85b121b",
 )
+
+# BIRD-dev, self-hosted like Spider (canonical BIRD `dev.zip`, 2024-06-27: dev.json +
+# dev_tables.json + nested dev_databases.zip). NOTE: BIRD is CC-BY-NC-4.0 (non-commercial), unlike
+# Spider's CC-BY-SA. SHA256 is the trust anchor; pin `revision` to the upload commit SHA.
+BIRD_ARCHIVE: ArchivePin | None = ArchivePin(
+    repo="HAL-9001/bird-dev",
+    filename="dev.zip",
+    revision="837584317bf7e3d86a3f6d257bd5553b7e03e171",
+    sha256="cdd6d19faeb45a23970b98d3ef6c40a87987c95459c2cf12076897a60cf5a630",
+)
