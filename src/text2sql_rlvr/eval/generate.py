@@ -8,6 +8,7 @@ model call (`_run_backend`) is exercised only by the real baseline run / integra
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 from text2sql_rlvr.data.models import DatabaseSchema, Example
 from text2sql_rlvr.data.schema import serialize_schema
@@ -53,13 +54,20 @@ def generate(
     few_shot_k: int = 0,
     few_shot_seed: int = 0,
     prompt_style: str = "cot",
+    adapter_path: str | Path | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> CompletionSet:
-    """Generate one completion per example and assemble a provenance-stamped `CompletionSet`."""
+    """Generate one completion per example and assemble a provenance-stamped `CompletionSet`.
+
+    `adapter_path` loads a LoRA adapter over the base model (the SFT checkpoint); the base
+    path with no adapter is byte-identical to before.
+    """
     exemplars = select_exemplars(train_pool, schemas, k=few_shot_k, seed=few_shot_seed)
     prompts = build_prompts(examples, schemas, exemplars, style=prompt_style)
-    raw_texts = _run_backend(prompts, model=model, backend=backend, decoding=decoding)
+    raw_texts = _run_backend(
+        prompts, model=model, backend=backend, decoding=decoding, adapter_path=adapter_path
+    )
     provenance = build_generation_provenance(
         model=model,
         backend=backend,
@@ -74,6 +82,7 @@ def generate(
         few_shot_seed=few_shot_seed if few_shot_k else None,
         few_shot_exemplars=tuple((e.db_id, e.question) for e in exemplars),
         prompt_style=prompt_style,
+        adapter=str(adapter_path) if adapter_path is not None else None,
         commit=commit,
         dirty=dirty,
     )
@@ -86,17 +95,22 @@ def _run_backend(
     model: str,
     backend: str,
     decoding: DecodingConfig,
+    adapter_path: str | Path | None = None,
 ) -> list[str]:
     """Dispatch to a generation backend (lazy imports). Returns one raw completion per prompt."""
     if backend == "transformers":
-        return _run_transformers(prompts, model=model, decoding=decoding)
+        return _run_transformers(prompts, model=model, decoding=decoding, adapter_path=adapter_path)
     if backend == "vllm":
-        return _run_vllm(prompts, model=model, decoding=decoding)
+        return _run_vllm(prompts, model=model, decoding=decoding, adapter_path=adapter_path)
     raise ValueError(f"unknown backend {backend!r}; expected 'transformers' or 'vllm'")
 
 
 def _run_transformers(
-    prompts: Sequence[Messages], *, model: str, decoding: DecodingConfig
+    prompts: Sequence[Messages],
+    *,
+    model: str,
+    decoding: DecodingConfig,
+    adapter_path: str | Path | None = None,
 ) -> list[str]:
     # Lazy imports: the GPU/CPU model stack is only needed at generation time.
     import torch
@@ -112,6 +126,10 @@ def _run_transformers(
     )
     tokenizer = AutoTokenizer.from_pretrained(model)
     lm = AutoModelForCausalLM.from_pretrained(model, torch_dtype="auto").to(device)
+    if adapter_path is not None:
+        from peft import PeftModel  # lazy import: train extra only
+
+        lm = PeftModel.from_pretrained(lm, str(adapter_path))
     lm.eval()
 
     sampling = decoding.temperature > 0
@@ -135,15 +153,29 @@ def _run_transformers(
     return outputs
 
 
-def _run_vllm(prompts: Sequence[Messages], *, model: str, decoding: DecodingConfig) -> list[str]:
+def _run_vllm(
+    prompts: Sequence[Messages],
+    *,
+    model: str,
+    decoding: DecodingConfig,
+    adapter_path: str | Path | None = None,
+) -> list[str]:
     from vllm import LLM, SamplingParams  # lazy import: GPU backend only
 
-    llm = LLM(model=model)
+    chat_kwargs: dict[str, object] = {}
+    if adapter_path is not None:
+        from vllm.lora.request import LoRARequest
+
+        # max_lora_rank must cover the decided rank range (D3: 32-64).
+        llm = LLM(model=model, enable_lora=True, max_lora_rank=64)
+        chat_kwargs["lora_request"] = LoRARequest("adapter", 1, str(adapter_path))
+    else:
+        llm = LLM(model=model)
     params = SamplingParams(
         temperature=decoding.temperature,
         top_p=decoding.top_p,
         max_tokens=decoding.max_new_tokens,
         seed=decoding.seed,
     )
-    results = llm.chat(list(prompts), params)
+    results = llm.chat(list(prompts), params, **chat_kwargs)
     return [result.outputs[0].text for result in results]

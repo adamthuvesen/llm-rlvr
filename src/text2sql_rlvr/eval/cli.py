@@ -37,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         help="checksum of the Spider DB archive, recorded in provenance (5.4)",
     )
     gen.add_argument("--backend", choices=["transformers", "vllm"], default="transformers")
+    gen.add_argument("--adapter", default=None, help="LoRA adapter dir to load over the base")
     gen.add_argument("--out", required=True, help="output CompletionSet path")
     gen.add_argument("--few-shot-k", type=int, default=0)
     gen.add_argument("--few-shot-seed", type=int, default=0)
@@ -79,6 +80,7 @@ def _cmd_score(args: argparse.Namespace) -> int:
         write_json(report, args.out)
     print(
         f"execution_accuracy={report.execution_accuracy:.4f} "
+        f"well_formed_rate={report.well_formed_rate:.4f} "
         f"({report.n_correct}/{report.n}; gold_errors={report.n_gold_errors})"
     )
     return 0
@@ -113,6 +115,7 @@ def _cmd_generate(args: argparse.Namespace) -> int:
         few_shot_k=args.few_shot_k,
         few_shot_seed=args.few_shot_seed,
         prompt_style=args.prompt_style,
+        adapter_path=args.adapter,
     )
     path = write_completion_set(completion_set, args.out)
     print(f"wrote {len(completion_set.items)} completions -> {path}")

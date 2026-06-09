@@ -35,6 +35,8 @@ class GenerationProvenance(Frozen):
     decoding: DecodingConfig = Field(default_factory=DecodingConfig)
     model_revision: str | None = None
     db_archive_sha256: str | None = None
+    # LoRA adapter loaded over the base (the SFT checkpoint); None = the plain base model.
+    adapter: str | None = None
     prompt_style: str = "cot"
     few_shot_k: int = 0
     few_shot_seed: int | None = None
@@ -87,6 +89,7 @@ def build_generation_provenance(
     decoding: DecodingConfig,
     model_revision: str | None = None,
     db_archive_sha256: str | None = None,
+    adapter: str | None = None,
     prompt_style: str = "cot",
     few_shot_k: int = 0,
     few_shot_seed: int | None = None,
@@ -109,6 +112,7 @@ def build_generation_provenance(
         decoding=decoding,
         model_revision=model_revision,
         db_archive_sha256=db_archive_sha256,
+        adapter=adapter,
         prompt_style=prompt_style,
         few_shot_k=few_shot_k,
         few_shot_seed=few_shot_seed,

@@ -82,12 +82,17 @@ def baseline(
     few_shot_k: int = 0,
     few_shot_seed: int = 0,
     prompt_style: str = "cot",
+    adapter: str | None = None,
     limit: int | None = None,
     max_new_tokens: int = 512,
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> str:
-    """Generate the base-model baseline for one dataset on the GPU; persist to the Volume."""
+    """Generate base or base+adapter completions for one dataset on the GPU; persist to Volume.
+
+    `adapter` is a LoRA adapter dir relative to the runs Volume (e.g. `sft/sft-r32`) — that is
+    how the SFT checkpoint is evaluated with the identical pipeline.
+    """
     from pathlib import Path
 
     from text2sql_rlvr.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
@@ -134,12 +139,14 @@ def baseline(
         few_shot_k=few_shot_k,
         few_shot_seed=few_shot_seed,
         prompt_style=prompt_style,
+        adapter_path=(Path(RUNS_DIR) / adapter) if adapter else None,
         commit=commit,
         dirty=dirty,
     )
     shot = f"fs{few_shot_k}" if few_shot_k else "zs"
     style_tag = "" if prompt_style == "cot" else f"-{prompt_style}"
-    name = f"{dataset}-{split}-{shot}{style_tag}" + (f"-n{limit}" if limit else "")
+    adapter_tag = f"-{Path(adapter).name}" if adapter else ""
+    name = f"{dataset}-{split}-{shot}{style_tag}{adapter_tag}" + (f"-n{limit}" if limit else "")
     out = write_completion_set(completion_set, Path(RUNS_DIR) / f"{name}.json")
     runs.commit()
     print(f"wrote {len(completion_set.items)} completions -> {out}")
@@ -234,6 +241,7 @@ def main(
     few_shot_k: int = 0,
     few_shot_seed: int = 0,
     prompt_style: str = "cot",
+    adapter: str | None = None,
     limit: int | None = None,
     max_new_tokens: int = 512,
     spawn: bool = False,
@@ -245,6 +253,7 @@ def main(
         "few_shot_k": few_shot_k,
         "few_shot_seed": few_shot_seed,
         "prompt_style": prompt_style,
+        "adapter": adapter,
         "limit": limit,
         "max_new_tokens": max_new_tokens,
         # The image strips .git, so compute git state locally and pass it into provenance.

@@ -8,7 +8,7 @@ from text2sql_rlvr.eval.completions import (
     read_completion_set,
     write_completion_set,
 )
-from text2sql_rlvr.eval.parsing import extract_sql
+from text2sql_rlvr.eval.parsing import extract_sql, well_formed
 from text2sql_rlvr.eval.prompt import FewShotExemplar, build_messages, select_exemplars
 from text2sql_rlvr.eval.provenance import (
     DecodingConfig,
@@ -35,5 +35,6 @@ __all__ = [
     "read_completion_set",
     "score_completion_set",
     "select_exemplars",
+    "well_formed",
     "write_completion_set",
 ]

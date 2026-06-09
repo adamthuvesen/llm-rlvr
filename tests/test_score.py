@@ -51,3 +51,29 @@ def test_missing_sql_counts_as_no_sql(provenance: GenerationProvenance, scoring_
     report = score_completion_set(_completion_set(provenance, None), scoring_root)
     assert report.n_correct == 0
     assert report.reasons["no_sql"] == 1
+
+
+def test_well_formed_rate_counts_trained_format_only(
+    provenance: GenerationProvenance, scoring_root: Path
+) -> None:
+    well = "<think>count</think>\n```sql\nSELECT a FROM t\n```"
+    bare = "SELECT a FROM t"  # correct SQL, but not the trained shape
+    items = tuple(
+        ProblemCompletions(
+            example=EXAMPLE,
+            samples=(GenerationSample(text=text, sql="SELECT a FROM t"),),
+        )
+        for text in (well, bare)
+    )
+    report = score_completion_set(CompletionSet(provenance=provenance, items=items), scoring_root)
+    assert report.well_formed_rate == 0.5
+    assert report.execution_accuracy == 1.0  # format and accuracy are independent metrics
+
+
+def test_raw_sql_completions_score_zero_format_rate(
+    provenance: GenerationProvenance, scoring_root: Path
+) -> None:
+    # The pre-existing fixture style (bare SQL text): scoring unchanged, format rate 0.
+    report = score_completion_set(_completion_set(provenance, "SELECT a FROM t"), scoring_root)
+    assert report.execution_accuracy == 1.0
+    assert report.well_formed_rate == 0.0

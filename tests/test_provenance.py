@@ -16,6 +16,29 @@ def test_provenance_round_trips(provenance: GenerationProvenance) -> None:
     assert restored == provenance
 
 
+def test_adapter_identity_recorded_when_present() -> None:
+    from text2sql_rlvr.eval.provenance import DecodingConfig
+
+    prov = build_generation_provenance(
+        model="m",
+        backend="vllm",
+        dataset="spider",
+        dataset_revision="rev",
+        split="dev",
+        n_examples=1,
+        decoding=DecodingConfig(),
+        adapter="/runs/sft/sft-r32",
+    )
+    assert prov.adapter == "/runs/sft/sft-r32"
+
+
+def test_no_adapter_provenance_defaults_to_none(provenance: GenerationProvenance) -> None:
+    # The base (no-adapter) path is unchanged, and pre-adapter artifacts still validate.
+    assert provenance.adapter is None
+    restored = GenerationProvenance.model_validate_json(provenance.model_dump_json())
+    assert restored.adapter is None
+
+
 def test_library_versions_includes_this_package() -> None:
     versions = library_versions()
     assert versions["text2sql-rlvr"] != "not-installed"
@@ -58,6 +81,7 @@ def test_provenance_records_resolved_exemplars() -> None:
 def test_score_report_round_trips(provenance: GenerationProvenance) -> None:
     report = ScoreReport(
         execution_accuracy=0.5,
+        well_formed_rate=0.5,
         n=2,
         n_correct=1,
         n_gold_errors=0,

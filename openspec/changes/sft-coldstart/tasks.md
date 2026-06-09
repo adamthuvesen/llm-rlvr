@@ -24,10 +24,10 @@
 
 ## 5. Adapter evaluation (baseline-evaluation, modified)
 
-- [ ] 5.1 `eval/generate.py`: load a LoRA adapter over the base — vLLM via `enable_lora` + `LoRARequest`, transformers via `PeftModel.from_pretrained` — threading an `adapter_path` through `generate()`, the eval CLI, and the Modal generation function; the base path (no adapter) stays byte-identical.
-- [ ] 5.2 `eval/provenance.py`: record the adapter identity (+ LoRA config) in `GenerationProvenance`, back-compatible default when no adapter is used.
-- [ ] 5.3 Well-formed-format rate: compute the fraction of completions parsing to exactly one `<think>` block + one ```sql``` fence in the score path; surface it on the `ScoreReport`.
-- [ ] 5.4 Tests: adapter identity recorded in provenance; format-rate computed correctly on fixtures; base (no-adapter) provenance + scoring unchanged (unit).
+- [x] 5.1 `eval/generate.py`: load a LoRA adapter over the base — vLLM via `enable_lora` + `LoRARequest`, transformers via `PeftModel.from_pretrained` — threading an `adapter_path` through `generate()`, the eval CLI, and the Modal generation function; the base path (no adapter) stays byte-identical.
+- [x] 5.2 `eval/provenance.py`: record the adapter identity (+ LoRA config) in `GenerationProvenance`, back-compatible default when no adapter is used.
+- [x] 5.3 Well-formed-format rate: compute the fraction of completions parsing to exactly one `<think>` block + one ```sql``` fence in the score path; surface it on the `ScoreReport`.
+- [x] 5.4 Tests: adapter identity recorded in provenance; format-rate computed correctly on fixtures; base (no-adapter) provenance + scoring unchanged (unit).
 
 ## 6. Run the cold-start
 
