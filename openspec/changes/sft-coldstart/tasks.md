@@ -12,10 +12,10 @@
 
 ## 3. LoRA SFT trainer (sft-training)
 
-- [ ] 3.1 `train/sft.py`: build the TRL `SFTConfig` + PEFT `LoraConfig` (`target_modules='all-linear'`, rank 32 / alpha 64 / dropout 0.05, bf16, LR ≈1e-4, cosine, warmup 0.03, ≤3 epochs, max_seq_len 2048) and load the trace dataset.
-- [ ] 3.2 Completion-only loss: mask the prompt (schema + question + instruction) via the chat template's assistant-only masking, so loss is computed only over the `<think>`+SQL completion.
-- [ ] 3.3 Adapter-checkpoint provenance: record base model + revision, LoRA config, trace-dataset hash/identity, library versions (TRL/peft/transformers), git commit + dirty.
-- [ ] 3.4 Tests: the config builder resolves `all-linear` target modules and the completion-only collator masks the prompt tokens; provenance fields present (unit, no GPU).
+- [x] 3.1 `train/sft.py`: build the TRL `SFTConfig` + PEFT `LoraConfig` (`target_modules='all-linear'`, rank 32 / alpha 64 / dropout 0.05, bf16, LR ≈1e-4, cosine, warmup 0.03, ≤3 epochs, max_seq_len 2048) and load the trace dataset.
+- [x] 3.2 Completion-only loss: mask the prompt (schema + question + instruction) via the chat template's assistant-only masking, so loss is computed only over the `<think>`+SQL completion.
+- [x] 3.3 Adapter-checkpoint provenance: record base model + revision, LoRA config, trace-dataset hash/identity, library versions (TRL/peft/transformers), git commit + dirty.
+- [x] 3.4 Tests: the config builder resolves `all-linear` target modules and the completion-only collator masks the prompt tokens; provenance fields present (unit, no GPU).
 
 ## 4. Modal SFT training function (modal_app)
 
