@@ -1,0 +1,24 @@
+{
+  "base_model": "Qwen/Qwen2.5-Coder-3B-Instruct",
+  "base_model_revision": null,
+  "sampling": {
+    "temperature": 0.8,
+    "top_p": 0.95,
+    "max_new_tokens": 1024,
+    "seed": 0,
+    "n": 8
+  },
+  "dataset": "spider",
+  "dataset_revision": "0c350918f3f29ec754f1181c65cdce76cd6c133c",
+  "db_archive_sha256": "00636695dabed6b5f4b8328a16b13e069a2f16591d5efcce57660669c85b121b",
+  "selection": "shortest",
+  "counts": {
+    "n_questions": 7000,
+    "n_candidates": 56000,
+    "n_eligible": 4450,
+    "n_kept": 2971,
+    "n_gold_errors": 1
+  },
+  "git_commit": "615193450f32642188d5d022ad17d8474eaf6747",
+  "git_dirty": true
+}
