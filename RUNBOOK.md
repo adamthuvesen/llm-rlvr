@@ -50,34 +50,52 @@ uv run text2sql-rlvr score --completions runs/baseline_3b_dev50.json \
   --db-root data/spider/spider_data/database --out results/baseline_3b_dev50.json
 ```
 
-Recorded result (Coder-3B-Instruct, 50-example dev slice, greedy):
+The 50-example slice above is a **local smoke** (n=50 has a wide CI); the headline numbers come from
+the full-dev Modal GPU pass below.
 
-| Setting | Spider-dev EX | reasons |
-| --- | --- | --- |
-| zero-shot | **0.76** (38/50) | match 38, denotation_mismatch 7, pred_error 5 |
-| few-shot (k=3) | **0.74** (37/50) | match 37, denotation_mismatch 10, pred_error 3 |
+## The headline baseline (full dev + BIRD — Modal GPU)
 
-The zero-shot number matches SQL-R1's published base (~77% Spider-dev). Few-shot is flat-to-slightly
-lower, as expected: the exemplars are fixed random cross-schema demonstrations (a clean reference,
-**not** a retriever), so they shouldn't lift a strong instruct model. n=50 has a wide CI — this is
-the wiring-at-scale proof, not the final figure. The chosen exemplars are recorded in each run's
-provenance (`few_shot_exemplars`), drawn from `train` only (leakage-guarded).
-
-## Reproduce the committed number (CPU only, no model)
-
-`make eval` re-scores the committed `CompletionSet` at `results/baseline/completions.json` against
-the fetched databases — deterministic, so a clean checkout reproduces it exactly:
+`modal_app.py` runs the same `generate()` on a single A100 via vLLM and writes the `CompletionSet`
+to a Modal Volume. Run with the `modal` CLI (`uv tool install modal`); public HF data/model, no token.
 
 ```bash
-make data && make eval     # -> execution_accuracy=0.7600 (38/50)
+modal run modal_app.py --dataset spider --limit 8                # day-1 smoke first
+modal run --detach modal_app.py --dataset spider --spawn         # Spider-dev zero-shot (<think>)
+modal run --detach modal_app.py --dataset spider --few-shot-k 3 --spawn
+modal run --detach modal_app.py --dataset spider --prompt-style direct --spawn
+modal run --detach modal_app.py --dataset bird --spawn           # BIRD-dev (headline)
+modal run --detach modal_app.py --dataset bird --prompt-style direct --spawn
+
+# pull a result from the Volume and score on CPU
+modal volume get text2sql-runs spider-dev-zs.json ./runs/spider-dev-zs.json
+uv run text2sql-rlvr score --completions runs/spider-dev-zs.json --db-root data/spider/spider_data/database
 ```
 
-## The proper run (full dev + BIRD — GPU)
+**Recorded base-model baseline** (Qwen2.5-Coder-3B-Instruct, greedy, full dev):
 
-A full Spider-dev (1034) pass on MPS is hours; run it on a GPU. Same commands, drop `--limit`, and
-use `--backend vllm` on a GPU box (`uv sync --extra gpu`). Report **BIRD-dev** alongside Spider —
-the base is already ~76% on Spider, so the legible RL headroom is on BIRD (design decision). This
-GPU pass is the Stage-2-onward baseline; wire it through Modal when the training runner lands.
+| Benchmark | `<think>` zero-shot | direct zero-shot | few-shot k=3 (`<think>`) |
+| --- | --- | --- | --- |
+| Spider-dev (1034) | 0.625 | **0.669** | 0.677 |
+| BIRD-dev (1534) | 0.313 | **0.351** | — |
+
+**Methodology — two prompt styles, on purpose.** The un-trained base reasons *counterproductively*:
+the `<think>` chain-of-thought prompt depresses it (long rambling answers, ~1200 chars), while the
+**direct** "output only SQL" prompt and the few-shot demonstrations both suppress the reasoning
+(~130-char answers) and score higher. So we report two base numbers:
+- **direct** (0.669 / 0.351) — the fair, literature-comparable standalone base capability;
+- **`<think>` matched** (0.625 / 0.313) — the before-RL anchor, since the RL model will use `<think>`.
+
+Reporting both prevents an artificially-low baseline from inflating the later RL gain. (Both sit
+below SQL-R1's ~77% base, which adds schema-linking + a tuned harness we deliberately keep minimal.)
+BIRD few-shot is deferred (it needs BIRD-train exemplars — a small follow-up).
+
+## Reproduce the committed numbers (CPU only, no model)
+
+Every headline number is a deterministic re-score of a committed `CompletionSet`:
+
+```bash
+make data && make eval     # re-derives the full table above
+```
 
 ## Verify the verifier (parity)
 
