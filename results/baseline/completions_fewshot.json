@@ -1,0 +1,795 @@
+{
+  "provenance": {
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "backend": "transformers",
+    "dataset": "spider",
+    "dataset_revision": "0c350918f3f29ec754f1181c65cdce76cd6c133c",
+    "split": "dev",
+    "n_examples": 50,
+    "decoding": {
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "max_new_tokens": 512,
+      "seed": 0
+    },
+    "model_revision": null,
+    "db_archive_sha256": "00636695dabed6b5f4b8328a16b13e069a2f16591d5efcce57660669c85b121b",
+    "few_shot_k": 3,
+    "few_shot_seed": 0,
+    "few_shot_exemplars": [
+      [
+        "tracking_orders",
+        "List the count and id of each product in all the orders."
+      ],
+      [
+        "assets_maintenance",
+        "How many engineers did each staff contact? List both the contact staff name and number of engineers contacted."
+      ],
+      [
+        "roller_coaster",
+        "What is the average speed of roller coasters?"
+      ]
+    ],
+    "git_commit": "c4fd0f97d9a2e93e82b3f2fe977f0fd5888206d2",
+    "git_dirty": true,
+    "library_versions": {
+      "text2sql-rlvr": "0.1.0",
+      "transformers": "5.10.2",
+      "torch": "2.11.0",
+      "vllm": "not-installed",
+      "datasets": "5.0.0"
+    }
+  },
+  "items": [
+    {
+      "example": {
+        "db_id": "world_1",
+        "question": "What are the name, independence year, and surface area of the country with the smallest population?",
+        "gold_sql": "SELECT Name ,  SurfaceArea ,  IndepYear FROM country ORDER BY Population LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Name ,  IndepYear ,  SurfaceArea FROM country ORDER BY Population ASC LIMIT 1\n```",
+          "sql": "SELECT Name ,  IndepYear ,  SurfaceArea FROM country ORDER BY Population ASC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "orchestra",
+        "question": "What are years of founding for orchestras that have had more than a single performance?",
+        "gold_sql": "SELECT Year_of_Founded FROM orchestra AS T1 JOIN performance AS T2 ON T1.Orchestra_ID  =  T2.Orchestra_ID GROUP BY T2.Orchestra_ID HAVING COUNT(*)  >  1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Year_of_Founded FROM orchestra WHERE Orchestra_ID IN (SELECT Orchestra_ID FROM performance GROUP BY Orchestra_ID HAVING COUNT(*) > 1)\n```",
+          "sql": "SELECT Year_of_Founded FROM orchestra WHERE Orchestra_ID IN (SELECT Orchestra_ID FROM performance GROUP BY Orchestra_ID HAVING COUNT(*) > 1)"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "pets_1",
+        "question": "What is the first name and gender of the all the students who have more than one pet?",
+        "gold_sql": "SELECT T1.fname ,  T1.sex FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid GROUP BY T1.stuid HAVING count(*)  >  1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT T1.fname ,  T1.sex FROM Student AS T1 JOIN Has_Pet AS T2 ON T1.StuID  =  T2.StuID GROUP BY T1.StuID HAVING count(*)  >  1\n```",
+          "sql": "SELECT T1.fname ,  T1.sex FROM Student AS T1 JOIN Has_Pet AS T2 ON T1.StuID  =  T2.StuID GROUP BY T1.StuID HAVING count(*)  >  1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "student_transcripts_tracking",
+        "question": "For each semester, what is the name and id of the one with the most students registered?",
+        "gold_sql": "SELECT T1.semester_name ,  T1.semester_id FROM Semesters AS T1 JOIN Student_Enrolment AS T2 ON T1.semester_id  =  T2.semester_id GROUP BY T1.semester_id ORDER BY count(*) DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT T2.semester_name ,  T2.semester_id FROM Semesters AS T2 JOIN Student_Enrolment AS T3 ON T2.semester_id  =  T3.semester_id GROUP BY T2.semester_id ORDER BY count(*) DESC LIMIT 1\n```",
+          "sql": "SELECT T2.semester_name ,  T2.semester_id FROM Semesters AS T2 JOIN Student_Enrolment AS T3 ON T2.semester_id  =  T3.semester_id GROUP BY T2.semester_id ORDER BY count(*) DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "dog_kennels",
+        "question": "What are the email, cell phone and home phone of each professional?",
+        "gold_sql": "SELECT email_address ,  cell_number ,  home_phone FROM professionals",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT email_address ,  cell_number ,  home_phone FROM professionals\n```",
+          "sql": "SELECT email_address ,  cell_number ,  home_phone FROM professionals"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "orchestra",
+        "question": "Return the record companies of orchestras, sorted descending by the years in which they were founded.",
+        "gold_sql": "SELECT Record_Company FROM orchestra ORDER BY Year_of_Founded DESC",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Record_Company FROM orchestra ORDER BY Year_of_Founded DESC\n```",
+          "sql": "SELECT Record_Company FROM orchestra ORDER BY Year_of_Founded DESC"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "tvshow",
+        "question": "What is Weekly Rank of TV series with Episode \"A Love of a Lifetime\"?",
+        "gold_sql": "SELECT Weekly_Rank FROM TV_series WHERE Episode = \"A Love of a Lifetime\";",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Weekly_Rank FROM TV_series WHERE Episode  =  'A Love of a Lifetime'\n```",
+          "sql": "SELECT Weekly_Rank FROM TV_series WHERE Episode  =  'A Love of a Lifetime'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "dog_kennels",
+        "question": "How much does the most recent treatment cost?",
+        "gold_sql": "SELECT cost_of_treatment FROM Treatments ORDER BY date_of_treatment DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT max(cost_of_treatment) FROM treatments\n```",
+          "sql": "SELECT max(cost_of_treatment) FROM treatments"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "world_1",
+        "question": "What is the number of distinct languages used around the world?",
+        "gold_sql": "SELECT count(DISTINCT LANGUAGE) FROM countrylanguage",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT count(DISTINCT Language) FROM countrylanguage\n```",
+          "sql": "SELECT count(DISTINCT Language) FROM countrylanguage"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "wta_1",
+        "question": "List the names of all winners who played in both 2013 and 2016.",
+        "gold_sql": "SELECT winner_name FROM matches WHERE YEAR  =  2013 INTERSECT SELECT winner_name FROM matches WHERE YEAR  =  2016",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT DISTINCT T1.winner_name FROM matches AS T1 JOIN rankings AS T2 ON T1.winner_id  =  T2.player_id WHERE T2.ranking_date LIKE '2013%' INTERSECT SELECT DISTINCT T1.winner_name FROM matches AS T1 JOIN rankings AS T2 ON T1.winner_id  =  T2.player_id WHERE T2.ranking_date LIKE '2016%'\n```",
+          "sql": "SELECT DISTINCT T1.winner_name FROM matches AS T1 JOIN rankings AS T2 ON T1.winner_id  =  T2.player_id WHERE T2.ranking_date LIKE '2013%' INTERSECT SELECT DISTINCT T1.winner_name FROM matches AS T1 JOIN rankings AS T2 ON T1.winner_id  =  T2.player_id WHERE T2.ranking_date LIKE '2016%'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "real_estate_properties",
+        "question": "What are the names of properties that are either houses or apartments with more than 1 room?",
+        "gold_sql": "SELECT property_name FROM Properties WHERE property_type_code  =  \"House\" UNION SELECT property_name FROM Properties WHERE property_type_code  =  \"Apartment\" AND room_count  >  1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT property_name FROM Properties WHERE (property_type_code = 'HSE' OR property_type_code = 'APT') AND room_count > 1\n```",
+          "sql": "SELECT property_name FROM Properties WHERE (property_type_code = 'HSE' OR property_type_code = 'APT') AND room_count > 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "employee_hire_evaluation",
+        "question": "Find the name of the shops that do not hire any employee.",
+        "gold_sql": "SELECT name FROM shop WHERE shop_id NOT IN (SELECT shop_id FROM hiring)",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Name FROM shop WHERE Shop_ID NOT IN (SELECT Shop_ID FROM hiring)\n```",
+          "sql": "SELECT Name FROM shop WHERE Shop_ID NOT IN (SELECT Shop_ID FROM hiring)"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "student_transcripts_tracking",
+        "question": "How many different addresses do the students currently live?",
+        "gold_sql": "SELECT count(DISTINCT current_address_id) FROM Students",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT count(DISTINCT current_address_id) FROM Students\n```",
+          "sql": "SELECT count(DISTINCT current_address_id) FROM Students"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "employee_hire_evaluation",
+        "question": "Which shops run with no employees? Find the shop names",
+        "gold_sql": "SELECT name FROM shop WHERE shop_id NOT IN (SELECT shop_id FROM hiring)",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Name FROM shop WHERE Shop_ID NOT IN (SELECT Shop_ID FROM hiring)\n```",
+          "sql": "SELECT Name FROM shop WHERE Shop_ID NOT IN (SELECT Shop_ID FROM hiring)"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "Give the airline with abbreviation 'UAL'.",
+        "gold_sql": "SELECT Airline FROM AIRLINES WHERE Abbreviation  =  \"UAL\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Airline FROM airlines WHERE Abbreviation = 'UAL'\n```",
+          "sql": "SELECT Airline FROM airlines WHERE Abbreviation = 'UAL'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "student_transcripts_tracking",
+        "question": "What is the zip code of the address in the city Port Chelsea?",
+        "gold_sql": "SELECT zip_postcode FROM Addresses WHERE city  =  'Port Chelsea'",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT zip_postcode FROM addresses WHERE city = 'Port Chelsea'\n```",
+          "sql": "SELECT zip_postcode FROM addresses WHERE city = 'Port Chelsea'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "cre_Doc_Template_Mgt",
+        "question": "What are the ids, names, and descriptions for all documents?",
+        "gold_sql": "SELECT document_id ,  document_name ,  document_description FROM Documents",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT T2.Document_ID ,  T2.Document_Name ,  T2.Document_Description FROM Documents AS T1 JOIN Templates AS T2 ON T1.Template_ID  =  T2.Template_ID\n```",
+          "sql": "SELECT T2.Document_ID ,  T2.Document_Name ,  T2.Document_Description FROM Documents AS T1 JOIN Templates AS T2 ON T1.Template_ID  =  T2.Template_ID"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "tvshow",
+        "question": "which countries' tv channels are not playing any cartoon written by Todd Casey?",
+        "gold_sql": "SELECT country FROM TV_Channel EXCEPT SELECT T1.country FROM TV_Channel AS T1 JOIN cartoon AS T2 ON T1.id = T2.Channel WHERE T2.written_by  =  'Todd Casey'",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Country FROM TV_Channel WHERE id NOT IN (SELECT Channel FROM Cartoon WHERE Written_by = 'Todd Casey')\n```",
+          "sql": "SELECT Country FROM TV_Channel WHERE id NOT IN (SELECT Channel FROM Cartoon WHERE Written_by = 'Todd Casey')"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "What are the names of airports in Aberdeen?",
+        "gold_sql": "SELECT AirportName FROM AIRPORTS WHERE City = \"Aberdeen\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT AirportName FROM airports WHERE City = 'Aberdeen'\n```",
+          "sql": "SELECT AirportName FROM airports WHERE City = 'Aberdeen'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "car_1",
+        "question": "Which distinctive models are produced by maker with the full name General Motors or weighing more than 3500?",
+        "gold_sql": "SELECT DISTINCT T2.Model FROM CAR_NAMES AS T1 JOIN MODEL_LIST AS T2 ON T1.Model  =  T2.Model JOIN CAR_MAKERS AS T3 ON T2.Maker  =  T3.Id JOIN CARS_DATA AS T4 ON T1.MakeId  =  T4.Id WHERE T3.FullName  =  'General Motors' OR T4.weight  >  3500;",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT DISTINCT T2.Model FROM car_makers AS T1 JOIN model_list AS T2 ON T1.Id  =  T2.Maker WHERE T1.FullName  =  'General Motors' OR T2.Make  >  3500\n```",
+          "sql": "SELECT DISTINCT T2.Model FROM car_makers AS T1 JOIN model_list AS T2 ON T1.Id  =  T2.Maker WHERE T1.FullName  =  'General Motors' OR T2.Make  >  3500"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "poker_player",
+        "question": "Give the nationality that is most common across all people.",
+        "gold_sql": "SELECT Nationality FROM people GROUP BY Nationality ORDER BY COUNT(*) DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Nationality FROM people GROUP BY Nationality ORDER BY COUNT(*) DESC LIMIT 1\n```",
+          "sql": "SELECT Nationality FROM people GROUP BY Nationality ORDER BY COUNT(*) DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "dog_kennels",
+        "question": "How many dogs went through any treatments?",
+        "gold_sql": "SELECT count(DISTINCT dog_id) FROM Treatments",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT count(DISTINCT dog_id) FROM Treatments\n```",
+          "sql": "SELECT count(DISTINCT dog_id) FROM Treatments"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "Count the number of flights into ATO.",
+        "gold_sql": "SELECT count(*) FROM FLIGHTS WHERE DestAirport  =  \"ATO\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT count(*) FROM flights WHERE DestAirport  =  'ATO'\n```",
+          "sql": "SELECT count(*) FROM flights WHERE DestAirport  =  'ATO'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "world_1",
+        "question": "What is the average life expectancy in African countries that are republics?",
+        "gold_sql": "SELECT avg(LifeExpectancy) FROM country WHERE Continent  =  \"Africa\" AND GovernmentForm  =  \"Republic\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT avg(T1.LifeExpectancy) FROM country AS T1 JOIN countrylanguage AS T2 ON T1.Code  =  T2.CountryCode WHERE T1.Continent  =  'Africa' AND T1.GovernmentForm  =  'Republic'\n```",
+          "sql": "SELECT avg(T1.LifeExpectancy) FROM country AS T1 JOIN countrylanguage AS T2 ON T1.Code  =  T2.CountryCode WHERE T1.Continent  =  'Africa' AND T1.GovernmentForm  =  'Republic'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "network_1",
+        "question": "What are the names of high schoolers who have 3 or more friends?",
+        "gold_sql": "SELECT T2.name FROM Friend AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id GROUP BY T1.student_id HAVING count(*)  >=  3",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT T1.name FROM Highschooler AS T1 JOIN Friend AS T2 ON T1.ID  =  T2.student_id GROUP BY T1.ID HAVING COUNT(T2.friend_id) >= 3\n```",
+          "sql": "SELECT T1.name FROM Highschooler AS T1 JOIN Friend AS T2 ON T1.ID  =  T2.student_id GROUP BY T1.ID HAVING COUNT(T2.friend_id) >= 3"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "poker_player",
+        "question": "How many poker players are there?",
+        "gold_sql": "SELECT count(*) FROM poker_player",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT count(*) FROM poker_player\n```",
+          "sql": "SELECT count(*) FROM poker_player"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "museum_visit",
+        "question": "find the names of museums which have more staff than the minimum staff number of all museums opened after 2010.",
+        "gold_sql": "SELECT name FROM museum WHERE num_of_staff  >  (SELECT min(num_of_staff) FROM museum WHERE open_year  >  2010)",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Name FROM museum WHERE Num_of_Staff  >  ( SELECT min(Num_of_Staff) FROM museum WHERE Open_Year  >  '2010' )\n```",
+          "sql": "SELECT Name FROM museum WHERE Num_of_Staff  >  ( SELECT min(Num_of_Staff) FROM museum WHERE Open_Year  >  '2010' )"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "network_1",
+        "question": "What is the name of the high schooler who has the greatest number of likes?",
+        "gold_sql": "SELECT T2.name FROM Likes AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id GROUP BY T1.student_id ORDER BY count(*) DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT T1.name FROM Highschooler AS T1 JOIN Likes AS T2 ON T1.ID  =  T2.student_id GROUP BY T1.name ORDER BY count(*) DESC LIMIT 1\n```",
+          "sql": "SELECT T1.name FROM Highschooler AS T1 JOIN Likes AS T2 ON T1.ID  =  T2.student_id GROUP BY T1.name ORDER BY count(*) DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "student_transcripts_tracking",
+        "question": "Who are enrolled in 2 degree programs in one semester? List the first name, middle name and last name and the id.",
+        "gold_sql": "SELECT T1.first_name ,  T1.middle_name ,  T1.last_name ,  T1.student_id FROM Students AS T1 JOIN Student_Enrolment AS T2 ON T1.student_id  =  T2.student_id GROUP BY T1.student_id HAVING count(*)  =  2",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT T1.first_name ,  T1.middle_name ,  T1.last_name ,  T1.student_id FROM Students AS T1 JOIN Student_Enrolment AS T2 ON T1.student_id  =  T2.student_id GROUP BY T1.student_id HAVING COUNT(T2.degree_program_id)  =  2\n```",
+          "sql": "SELECT T1.first_name ,  T1.middle_name ,  T1.last_name ,  T1.student_id FROM Students AS T1 JOIN Student_Enrolment AS T2 ON T1.student_id  =  T2.student_id GROUP BY T1.student_id HAVING COUNT(T2.degree_program_id)  =  2"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "car_1",
+        "question": "What is the average weight of cars each year?",
+        "gold_sql": "SELECT avg(Weight) ,  YEAR FROM CARS_DATA GROUP BY YEAR;",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT avg(Weight) ,  Year FROM cars_data GROUP BY Year\n```",
+          "sql": "SELECT avg(Weight) ,  Year FROM cars_data GROUP BY Year"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "concert_singer",
+        "question": "Show the stadium names without any concert.",
+        "gold_sql": "SELECT name FROM stadium WHERE stadium_id NOT IN (SELECT stadium_id FROM concert)",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Name FROM stadium WHERE Stadium_ID NOT IN (SELECT Stadium_ID FROM concert)\n```",
+          "sql": "SELECT Name FROM stadium WHERE Stadium_ID NOT IN (SELECT Stadium_ID FROM concert)"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "How many flights do we have?",
+        "gold_sql": "SELECT count(*) FROM FLIGHTS",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT count(*) FROM flights\n```",
+          "sql": "SELECT count(*) FROM flights"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "world_1",
+        "question": "What is the language spoken by the largest percentage of people in each country?",
+        "gold_sql": "SELECT LANGUAGE ,  CountryCode ,  max(Percentage) FROM countrylanguage GROUP BY CountryCode",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT T2.Language FROM country AS T1 JOIN countrylanguage AS T2 ON T1.Code  =  T2.CountryCode ORDER BY T2.Percentage DESC LIMIT 1\n```",
+          "sql": "SELECT T2.Language FROM country AS T1 JOIN countrylanguage AS T2 ON T1.Code  =  T2.CountryCode ORDER BY T2.Percentage DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "concert_singer",
+        "question": "Show name, country, age for all singers ordered by age from the oldest to the youngest.",
+        "gold_sql": "SELECT name ,  country ,  age FROM singer ORDER BY age DESC",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Name ,  Country ,  Age FROM singer ORDER BY Age DESC\n```",
+          "sql": "SELECT Name ,  Country ,  Age FROM singer ORDER BY Age DESC"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "singer",
+        "question": "What is the name of the singer with the largest net worth?",
+        "gold_sql": "SELECT Name FROM singer ORDER BY Net_Worth_Millions DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Name FROM singer ORDER BY Net_Worth_Millions DESC LIMIT 1\n```",
+          "sql": "SELECT Name FROM singer ORDER BY Net_Worth_Millions DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "poker_player",
+        "question": "What are the names of people who are not from Russia?",
+        "gold_sql": "SELECT Name FROM people WHERE Nationality != \"Russia\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Name FROM people WHERE Nationality != 'Russia'\n```",
+          "sql": "SELECT Name FROM people WHERE Nationality != 'Russia'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "battle_death",
+        "question": "What are the ids and names of the battles that led to more than 10 people killed in total.",
+        "gold_sql": "SELECT T1.id ,  T1.name FROM battle AS T1 JOIN ship AS T2 ON T1.id  =  T2.lost_in_battle JOIN death AS T3 ON T2.id  =  T3.caused_by_ship_id GROUP BY T1.id HAVING sum(T3.killed)  >  10",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT T1.id ,  T1.name FROM battle AS T1 JOIN death AS T2 ON T1.id  =  T2.caused_by_ship_id WHERE T2.killed  >  10\n```",
+          "sql": "SELECT T1.id ,  T1.name FROM battle AS T1 JOIN death AS T2 ON T1.id  =  T2.caused_by_ship_id WHERE T2.killed  >  10"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "poker_player",
+        "question": "Return the birth date of the poker player with the lowest earnings.",
+        "gold_sql": "SELECT T1.Birth_Date FROM people AS T1 JOIN poker_player AS T2 ON T1.People_ID  =  T2.People_ID ORDER BY T2.Earnings ASC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Birth_Date FROM people WHERE People_ID = (SELECT People_ID FROM poker_player ORDER BY Earnings ASC LIMIT 1)\n```",
+          "sql": "SELECT Birth_Date FROM people WHERE People_ID = (SELECT People_ID FROM poker_player ORDER BY Earnings ASC LIMIT 1)"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "car_1",
+        "question": "What is the average weight and year for each year?",
+        "gold_sql": "SELECT avg(Weight) ,  YEAR FROM CARS_DATA GROUP BY YEAR;",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT avg(Weight) ,  avg(Year) FROM cars_data GROUP BY Year\n```",
+          "sql": "SELECT avg(Weight) ,  avg(Year) FROM cars_data GROUP BY Year"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "course_teach",
+        "question": "What is the hometown of the youngest teacher?",
+        "gold_sql": "SELECT Hometown FROM teacher ORDER BY Age ASC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Hometown FROM teacher ORDER BY Age ASC LIMIT 1\n```",
+          "sql": "SELECT Hometown FROM teacher ORDER BY Age ASC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "wta_1",
+        "question": "What is the first name and country code of the oldest player?",
+        "gold_sql": "SELECT first_name ,  country_code FROM players ORDER BY birth_date LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT first_name ,  country_code FROM players ORDER BY birth_date DESC LIMIT 1\n```",
+          "sql": "SELECT first_name ,  country_code FROM players ORDER BY birth_date DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "wta_1",
+        "question": "What is the first name, country code, and birth date of the player with the most winner rank points across all matches?",
+        "gold_sql": "SELECT T1.first_name ,  T1.country_code ,  T1.birth_date FROM players AS T1 JOIN matches AS T2 ON T1.player_id  =  T2.winner_id ORDER BY T2.winner_rank_points DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT T1.first_name ,  T1.country_code ,  T1.birth_date FROM players AS T1 JOIN rankings AS T2 ON T1.player_id  =  T2.player_id ORDER BY T2.ranking_points DESC LIMIT 1\n```",
+          "sql": "SELECT T1.first_name ,  T1.country_code ,  T1.birth_date FROM players AS T1 JOIN rankings AS T2 ON T1.player_id  =  T2.player_id ORDER BY T2.ranking_points DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "employee_hire_evaluation",
+        "question": "Give me all the information about hiring.",
+        "gold_sql": "SELECT * FROM hiring",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT * FROM hiring\n```",
+          "sql": "SELECT * FROM hiring"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "network_1",
+        "question": "What is the lowest grade of students who do not have any friends?",
+        "gold_sql": "SELECT min(grade) FROM Highschooler WHERE id NOT IN (SELECT T1.student_id FROM Friend AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id)",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT min(grade) FROM Highschooler WHERE ID NOT IN (SELECT friend_id FROM Friend)\n```",
+          "sql": "SELECT min(grade) FROM Highschooler WHERE ID NOT IN (SELECT friend_id FROM Friend)"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "Give the airport code and airport name corresonding to the city Anthony.",
+        "gold_sql": "SELECT AirportCode ,  AirportName FROM AIRPORTS WHERE city  =  \"Anthony\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT T2.AirportCode ,  T2.AirportName FROM airports AS T1 JOIN flights AS T2 ON T1.AirportCode  =  T2.SourceAirport WHERE T1.City  =  'Anthony'\n```",
+          "sql": "SELECT T2.AirportCode ,  T2.AirportName FROM airports AS T1 JOIN flights AS T2 ON T1.AirportCode  =  T2.SourceAirport WHERE T1.City  =  'Anthony'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "car_1",
+        "question": "What is the number of carsw ith over 6 cylinders?",
+        "gold_sql": "SELECT COUNT(*) FROM CARS_DATA WHERE Cylinders  >  6;",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT COUNT(*) FROM cars_data WHERE Cylinders > 6\n```",
+          "sql": "SELECT COUNT(*) FROM cars_data WHERE Cylinders > 6"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "poker_player",
+        "question": "What is the money rank of the poker player with the highest earnings?",
+        "gold_sql": "SELECT Money_Rank FROM poker_player ORDER BY Earnings DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Money_Rank FROM poker_player ORDER BY Earnings DESC LIMIT 1\n```",
+          "sql": "SELECT Money_Rank FROM poker_player ORDER BY Earnings DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "singer",
+        "question": "List the name of singers in ascending order of net worth.",
+        "gold_sql": "SELECT Name FROM singer ORDER BY Net_Worth_Millions ASC",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT Name FROM singer ORDER BY Net_Worth_Millions ASC\n```",
+          "sql": "SELECT Name FROM singer ORDER BY Net_Worth_Millions ASC"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "Which city has most number of departing flights?",
+        "gold_sql": "SELECT T1.City FROM AIRPORTS AS T1 JOIN FLIGHTS AS T2 ON T1.AirportCode  =  T2.SourceAirport GROUP BY T1.City ORDER BY count(*) DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT T2.City FROM flights AS T1 JOIN airports AS T2 ON T1.SourceAirport  =  T2.AirportCode GROUP BY T2.City ORDER BY count(*) DESC LIMIT 1\n```",
+          "sql": "SELECT T2.City FROM flights AS T1 JOIN airports AS T2 ON T1.SourceAirport  =  T2.AirportCode GROUP BY T2.City ORDER BY count(*) DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "tvshow",
+        "question": "What is minimum and maximum share of TV series?",
+        "gold_sql": "SELECT max(SHARE) , min(SHARE) FROM TV_series;",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "```sql\nSELECT min(Share) ,  max(Share) FROM TV_series\n```",
+          "sql": "SELECT min(Share) ,  max(Share) FROM TV_series"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "execution_accuracy": 0.76,
+  "n": 50,
+  "n_correct": 38,
+  "n_gold_errors": 0,
+  "reasons": {
+    "match": 38,
+    "denotation_mismatch": 7,
+    "pred_error": 5
+  },
+  "verifier": {
+    "keep_distinct": true,
+    "timeout_s": 30.0,
+    "max_permutation_cols": 6,
+    "guard_trivial_empty": false
+  },
+  "provenance": {
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "backend": "transformers",
+    "dataset": "spider",
+    "dataset_revision": "0c350918f3f29ec754f1181c65cdce76cd6c133c",
+    "split": "dev",
+    "n_examples": 50,
+    "decoding": {
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "max_new_tokens": 512,
+      "seed": 0
+    },
+    "model_revision": null,
+    "db_archive_sha256": "00636695dabed6b5f4b8328a16b13e069a2f16591d5efcce57660669c85b121b",
+    "few_shot_k": 0,
+    "few_shot_seed": null,
+    "few_shot_exemplars": [],
+    "git_commit": "c4fd0f97d9a2e93e82b3f2fe977f0fd5888206d2",
+    "git_dirty": true,
+    "library_versions": {
+      "text2sql-rlvr": "0.1.0",
+      "transformers": "5.10.2",
+      "torch": "2.11.0",
+      "vllm": "not-installed",
+      "datasets": "5.0.0"
+    }
+  }
+}

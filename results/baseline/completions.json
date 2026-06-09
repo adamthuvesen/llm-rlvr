@@ -1,0 +1,782 @@
+{
+  "provenance": {
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "backend": "transformers",
+    "dataset": "spider",
+    "dataset_revision": "0c350918f3f29ec754f1181c65cdce76cd6c133c",
+    "split": "dev",
+    "n_examples": 50,
+    "decoding": {
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "max_new_tokens": 512,
+      "seed": 0
+    },
+    "model_revision": null,
+    "db_archive_sha256": "00636695dabed6b5f4b8328a16b13e069a2f16591d5efcce57660669c85b121b",
+    "few_shot_k": 0,
+    "few_shot_seed": null,
+    "few_shot_exemplars": [],
+    "git_commit": "c4fd0f97d9a2e93e82b3f2fe977f0fd5888206d2",
+    "git_dirty": true,
+    "library_versions": {
+      "text2sql-rlvr": "0.1.0",
+      "transformers": "5.10.2",
+      "torch": "2.11.0",
+      "vllm": "not-installed",
+      "datasets": "5.0.0"
+    }
+  },
+  "items": [
+    {
+      "example": {
+        "db_id": "world_1",
+        "question": "What are the name, independence year, and surface area of the country with the smallest population?",
+        "gold_sql": "SELECT Name ,  SurfaceArea ,  IndepYear FROM country ORDER BY Population LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the country with the smallest population from the `country` table and retrieve its name, independence year, and surface area. Here's a step-by-step breakdown of how to construct the SQL query:\n\n1. **Identify the relevant columns**: We need to select the `Name`, `IndepYear`, and `SurfaceArea` columns from the `country` table.\n\n2. **Determine the sorting order**: To find the country with the smallest population, we need to sort the results in ascending order based on the `Population` column.\n\n3. **Limit the result set**: Since we only want the country with the smallest population, we can limit the result set to 1 row using the `LIMIT` clause.\n\n4. **Construct the SQL query**: Combining these steps, the SQL query will be\n\nTherefore, the final query is:\n\n```sql\nSELECT Name, IndepYear, SurfaceArea FROM country ORDER BY Population ASC LIMIT 1;\n```",
+          "sql": "SELECT Name, IndepYear, SurfaceArea FROM country ORDER BY Population ASC LIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "orchestra",
+        "question": "What are years of founding for orchestras that have had more than a single performance?",
+        "gold_sql": "SELECT Year_of_Founded FROM orchestra AS T1 JOIN performance AS T2 ON T1.Orchestra_ID  =  T2.Orchestra_ID GROUP BY T2.Orchestra_ID HAVING COUNT(*)  >  1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the years of founding for orchestras that have performed more than once. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `orchestra` table to get the years of founding and the `performance` table to count the number of performances per orchestra.\n\n2. **Join the tables**: We join the `orchestra` table with the `performance` table on the `Orchestra_ID` column to link each orchestra with its performances.\n\n3. **Group the results**: We group the results by `Orchestra_ID` to aggregate the performances for each orchestra.\n\n4. **Filter the results**: We filter the grouped results to include only those orchestras that have more than one performance.\n\n5. **Select the required columns**: We select the `Year_of_Founded` column from the `orchestra` table for the filtered results.\n\nHere's the SQL query that implements these steps:\n\n```sql\nSELECT T1.Year_of_Founded\nFROM orchestra AS T1\nJOIN performance AS T2 ON T1.Orchestra_ID = T2.Orchestra_ID\nGROUP BY T1.Orchestra_ID\nHAVING COUNT(T2.Performance_ID) > 1;\n```\n\nThis query will return the years of founding for orchestras that have had more than a single performance.",
+          "sql": "SELECT T1.Year_of_Founded\nFROM orchestra AS T1\nJOIN performance AS T2 ON T1.Orchestra_ID = T2.Orchestra_ID\nGROUP BY T1.Orchestra_ID\nHAVING COUNT(T2.Performance_ID) > 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "pets_1",
+        "question": "What is the first name and gender of the all the students who have more than one pet?",
+        "gold_sql": "SELECT T1.fname ,  T1.sex FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid GROUP BY T1.stuid HAVING count(*)  >  1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find students who have more than one pet and then retrieve their first names and genders. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `Student` table for the first names and genders, and the `Has_Pet` table to count the number of pets each student has.\n\n2. **Join the tables**: We join the `Student` table with the `Has_Pet` table on the `StuID` column to link each student with their pets.\n\n3. **Group by student**: We group the results by `StuID` to aggregate the number of pets for each student.\n\n4. **Filter students with more than one pet**: We use a `HAVING` clause to filter out students who have only one pet.\n\n5. **Select the required columns**: Finally, we select the `Fname` and `Sex` columns from the `Student` table for the filtered students.\n\nHere's the SQL query that implements these steps:\n\n```sql\nSELECT T1.Fname, T1.Sex\nFROM Student AS T1\nJOIN Has_Pet AS T2 ON T1.StuID = T2.StuID\nGROUP BY T1.StuID\nHAVING COUNT(T2.PetID) > 1;\n```\n\nThis query will return the first names and genders of all students who have more than one pet.",
+          "sql": "SELECT T1.Fname, T1.Sex\nFROM Student AS T1\nJOIN Has_Pet AS T2 ON T1.StuID = T2.StuID\nGROUP BY T1.StuID\nHAVING COUNT(T2.PetID) > 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "student_transcripts_tracking",
+        "question": "For each semester, what is the name and id of the one with the most students registered?",
+        "gold_sql": "SELECT T1.semester_name ,  T1.semester_id FROM Semesters AS T1 JOIN Student_Enrolment AS T2 ON T1.semester_id  =  T2.semester_id GROUP BY T1.semester_id ORDER BY count(*) DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to follow these steps:\n\n1. **Join Tables**: We need to join multiple tables to get the required information. The main tables involved are `Semesters`, `Student_Enrolment`, and `Students`.\n\n2. **Group By Semester**: We will group the results by `semester_id` to aggregate the number of students enrolled in each semester.\n\n3. **Count Students**: For each semester, we will count the number of students enrolled.\n\n4. **Order and Limit**: We will order the results by the count of students in descending order and limit the output to the top result, which will be the semester with the most students.\n\n5. **Select Required Columns**: Finally, we will select the `semester_name` and `semester_id` from the `Semesters` table for the semester with the most students.\n\nHere's the SQL query that accomplishes this:\n\n```sql\nSELECT \n    s.semester_name,\n    s.semester_id\nFROM \n    Semesters s\nJOIN \n    Student_Enrolment se ON s.semester_id = se.semester_id\nGROUP BY \n    s.semester_id\nORDER BY \n    COUNT(se.student_id) DESC\nLIMIT 1;\n```\n\nThis query joins the `Semesters` table with the `Student_Enrolment` table on the `semester_id` column, groups the results by `semester_id`, counts the number of students enrolled in each semester, orders the results by the count in descending order, and limits the output to the top result.",
+          "sql": "SELECT \n    s.semester_name,\n    s.semester_id\nFROM \n    Semesters s\nJOIN \n    Student_Enrolment se ON s.semester_id = se.semester_id\nGROUP BY \n    s.semester_id\nORDER BY \n    COUNT(se.student_id) DESC\nLIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "dog_kennels",
+        "question": "What are the email, cell phone and home phone of each professional?",
+        "gold_sql": "SELECT email_address ,  cell_number ,  home_phone FROM professionals",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to select the required columns from the \"Professionals\" table. Here's a step-by-step breakdown of how the query is derived:\n\n1. **Identify the relevant table**: The information about professionals is stored in the \"Professionals\" table.\n\n2. **Specify the columns**: We need to retrieve the email address, cell phone, and home phone of each professional.\n\n3. **Construct the SQL query**: \n   - Use the `SELECT` statement to specify the columns we want to retrieve.\n   - Use the `FROM` clause to indicate the table from which to retrieve the data.\n   - No additional conditions or joins are needed for this query.\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT email_address, cell_number, home_phone FROM Professionals;\n```",
+          "sql": "SELECT email_address, cell_number, home_phone FROM Professionals;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "orchestra",
+        "question": "Return the record companies of orchestras, sorted descending by the years in which they were founded.",
+        "gold_sql": "SELECT Record_Company FROM orchestra ORDER BY Year_of_Founded DESC",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to retrieve the `Record_Company` from the `orchestra` table and sort the results by the `Year_of_Founded` column in descending order. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The information about record companies is stored in the `orchestra` table.\n\n2. **Select the required column**: We need to select the `Record_Company` column from the `orchestra` table.\n\n3. **Order the results**: To sort the results by the `Year_of_Founded` column in descending order, we use the `ORDER BY` clause with the `DESC` keyword.\n\n4. **Construct the query**: Combining the above steps, the SQL query is constructed as follows\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT Record_Company FROM orchestra ORDER BY Year_of_Founded DESC\n```",
+          "sql": "SELECT Record_Company FROM orchestra ORDER BY Year_of_Founded DESC"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "tvshow",
+        "question": "What is Weekly Rank of TV series with Episode \"A Love of a Lifetime\"?",
+        "gold_sql": "SELECT Weekly_Rank FROM TV_series WHERE Episode = \"A Love of a Lifetime\";",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to join the `TV_series` table with the `TV_Channel` table using the common column `Channel`. Then, we can filter the results to only include the row where the `Episode` is \"A Love of a Lifetime\". Finally, we select the `Weekly_Rank` from the `TV_series` table.\n\n<think>\n1. We need to find the `Weekly_Rank` of a specific TV series episode.\n2. The episode title is \"A Love of a Lifetime\".\n3. The `TV_series` table contains the episode information, and the `TV_Channel` table contains the channel information.\n4. We need to join these two tables on the `Channel` column to link the episode to its corresponding channel.\n5. After joining, we can filter the results to only include the row where the `Episode` is \"A Love of a Lifetime\".\n6. Finally, we select the `Weekly_Rank` from the `TV_series` table.\n</think>\n\n```sql\nSELECT T1.Weekly_Rank FROM TV_series AS T1 INNER JOIN TV_Channel AS T2 ON T1.Channel = T2.id WHERE T1.Episode = 'A Love of a Lifetime'\n```",
+          "sql": "SELECT T1.Weekly_Rank FROM TV_series AS T1 INNER JOIN TV_Channel AS T2 ON T1.Channel = T2.id WHERE T1.Episode = 'A Love of a Lifetime'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "dog_kennels",
+        "question": "How much does the most recent treatment cost?",
+        "gold_sql": "SELECT cost_of_treatment FROM Treatments ORDER BY date_of_treatment DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the most recent treatment date and then retrieve the corresponding cost from the `Treatments` table. Here's a step-by-step breakdown of how to construct the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `Treatments` table to get the treatment costs and the `Dogs` table to filter treatments based on the most recent date.\n\n2. **Join the tables**: Since we need to link treatments to their respective dogs, we will join the `Treatments` table with the `Dogs` table on the `dog_id` field.\n\n3. **Filter by the most recent date**: To find the most recent treatment, we need to order the results by the `date_of_treatment` field in descending order and limit the result to the first row.\n\n4. **Select the cost**: Once we have the most recent treatment, we can select the `cost_of_treatment` field from the `Treatments` table.\n\nHere's the final SQL query:\n\n```sql\nSELECT T1.cost_of_treatment\nFROM Treatments AS T1\nJOIN Dogs AS T2 ON T1.dog_id = T2.dog_id\nORDER BY T1.date_of_treatment DESC\nLIMIT 1;\n```\n\nThis query will return the cost of the most recent treatment.",
+          "sql": "SELECT T1.cost_of_treatment\nFROM Treatments AS T1\nJOIN Dogs AS T2 ON T1.dog_id = T2.dog_id\nORDER BY T1.date_of_treatment DESC\nLIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "world_1",
+        "question": "What is the number of distinct languages used around the world?",
+        "gold_sql": "SELECT count(DISTINCT LANGUAGE) FROM countrylanguage",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to determine the number of distinct languages spoken across all countries in the database. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The `countrylanguage` table contains information about the languages spoken in each country.\n\n2. **Determine the column of interest**: We are interested in the `Language` column, which lists the language spoken in each country.\n\n3. **Use the DISTINCT keyword**: To find the number of distinct languages, we use the `DISTINCT` keyword in the `SELECT` statement. This will ensure that each language is counted only once, even if it appears multiple times in the table.\n\n4. **Count the distinct languages**: Use the `COUNT` function to count the number of distinct languages.\n\n5. **Write the SQL query**: Combine the above steps into a single SQL query.\n\nTherefore, the final query is:\n\n```sql\nSELECT COUNT(DISTINCT Language) FROM countrylanguage;\n```",
+          "sql": "SELECT COUNT(DISTINCT Language) FROM countrylanguage;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "wta_1",
+        "question": "List the names of all winners who played in both 2013 and 2016.",
+        "gold_sql": "SELECT winner_name FROM matches WHERE YEAR  =  2013 INTERSECT SELECT winner_name FROM matches WHERE YEAR  =  2016",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find players who have won matches in both the year 2013 and the year 2016. Here's a step-by-step approach to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `matches` table to get information about the winners and their years, and the `players` table to get the player names.\n\n2. **Join the tables**: We will join the `matches` table with the `players` table on the `winner_id` field to link each match winner to their name.\n\n3. **Filter by year**: We will use the `WHERE` clause to filter the results to include only matches from the years 2013 and 2016.\n\n4. **Group by player**: Since we want to list the names of all winners who played in both years, we will group the results by `winner_id`.\n\n5. **Count distinct years**: For each player, we will count the number of distinct years they have won matches. If this count is 2, it means they have won matches in both 2013 and 2016.\n\n6. **Select the player names**: Finally, we will select the names of the players who meet the criteria.\n\nHere's the SQL query that implements these steps:\n\n```sql\nSELECT DISTINCT T2.first_name, T2.last_name\nFROM matches AS T1\nJOIN players AS T2 ON T1.winner_id = T2.player_id\nWHERE T1.year IN (2013, 2016)\nGROUP BY T1.winner_id\nHAVING COUNT(DISTINCT T1.year) = 2;\n```\n\nThis query will return the names of all winners who have played in both the year 2013 and the year 2016.",
+          "sql": "SELECT DISTINCT T2.first_name, T2.last_name\nFROM matches AS T1\nJOIN players AS T2 ON T1.winner_id = T2.player_id\nWHERE T1.year IN (2013, 2016)\nGROUP BY T1.winner_id\nHAVING COUNT(DISTINCT T1.year) = 2;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "real_estate_properties",
+        "question": "What are the names of properties that are either houses or apartments with more than 1 room?",
+        "gold_sql": "SELECT property_name FROM Properties WHERE property_type_code  =  \"House\" UNION SELECT property_name FROM Properties WHERE property_type_code  =  \"Apartment\" AND room_count  >  1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to join multiple tables and filter the results based on the given conditions. Here's a step-by-step breakdown of how the query is derived:\n\n1. **Identify the relevant tables**: We need to access information from the `Properties` table to get the property names, and information from the `Other_Property_Features` table to check for other available features.\n\n2. **Join the tables**: We need to join the `Properties` table with the `Other_Property_Features` table on the `property_id` column to link each property with its other available features.\n\n3. **Filter by property type**: We need to filter the results to include only properties that are either houses or apartments. This can be done using the `property_type_code` column in the `Properties` table.\n\n4. **Filter by room count**: We need to filter the results to include only properties with more than 1 room. This can be done using the `room_count` column in the `Properties` table.\n\n5. **Select the desired columns**: We need to select the `property_name` column from the `Properties` table to get the names of the properties that meet the criteria.\n\nHere's the final SQL query:\n\n```sql\nSELECT T1.property_name\nFROM Properties AS T1\nJOIN Other_Property_Features AS T2 ON T1.property_id = T2.property_id\nWHERE T1.property_type_code IN ('HSE', 'APT') AND T1.room_count > 1;\n```\n\nThis query will return the names of properties that are either houses or apartments with more than 1 room.",
+          "sql": "SELECT T1.property_name\nFROM Properties AS T1\nJOIN Other_Property_Features AS T2 ON T1.property_id = T2.property_id\nWHERE T1.property_type_code IN ('HSE', 'APT') AND T1.room_count > 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "employee_hire_evaluation",
+        "question": "Find the name of the shops that do not hire any employee.",
+        "gold_sql": "SELECT name FROM shop WHERE shop_id NOT IN (SELECT shop_id FROM hiring)",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the names of shops that have no employees associated with them. This involves checking for shops that do not appear in the `hiring` table, as the `hiring` table contains records of employees hired by each shop.\n\nHere's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `shop` table to get the names of the shops and the `hiring` table to check which shops have employees.\n\n2. **Determine the join condition**: Since we want to find shops that do not have employees, we need to join the `shop` table with the `hiring` table on the `Shop_ID` column, which is common to both tables.\n\n3. **Use a LEFT JOIN**: A LEFT JOIN will return all rows from the `shop` table and the matched rows from the `hiring` table. If there is no match, the result is NULL on the side of the `hiring` table.\n\n4. **Filter the results**: We need to filter the results to only include shops that do not have any matching rows in the `hiring` table. This can be done using the `WHERE` clause with a condition that checks if the `Employee_ID` is NULL.\n\n5. **Select the desired columns**: Finally, we select the `Name` column from the `shop` table to get the names of the shops that do not hire any employees.\n\nHere's the resulting SQL query:\n\n```sql\nSELECT T1.Name FROM shop AS T1 LEFT JOIN hiring AS T2 ON T1.Shop_ID = T2.Shop_ID WHERE T2.Employee_ID IS NULL\n```\n\nThis query will return the names of the shops that do not have any employees associated with them.",
+          "sql": "SELECT T1.Name FROM shop AS T1 LEFT JOIN hiring AS T2 ON T1.Shop_ID = T2.Shop_ID WHERE T2.Employee_ID IS NULL"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "student_transcripts_tracking",
+        "question": "How many different addresses do the students currently live?",
+        "gold_sql": "SELECT count(DISTINCT current_address_id) FROM Students",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to determine the number of unique current addresses for students. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The information about students' current addresses is stored in the `Students` table.\n\n2. **Determine the column of interest**: The column that contains the current address is `current_address_id`.\n\n3. **Use a DISTINCT clause**: To find the number of unique addresses, we use the `DISTINCT` keyword to eliminate duplicate values from the `current_address_id` column.\n\n4. **Count the distinct values**: We use the `COUNT` function to count the number of unique `current_address_id` values.\n\n5. **Write the SQL query**: Combine the above steps into a single SQL query.\n\nTherefore, the final query is:\n\n```sql\nSELECT COUNT(DISTINCT current_address_id) FROM Students;\n```",
+          "sql": "SELECT COUNT(DISTINCT current_address_id) FROM Students;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "employee_hire_evaluation",
+        "question": "Which shops run with no employees? Find the shop names",
+        "gold_sql": "SELECT name FROM shop WHERE shop_id NOT IN (SELECT shop_id FROM hiring)",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the shop IDs that have no associated employees. We can achieve this by using a LEFT JOIN between the `shop` table and the `hiring` table on the `Shop_ID` column. The LEFT JOIN will return all rows from the `shop` table and the matched rows from the `hiring` table. If there is no match, the result is NULL on the side of the `hiring` table.\n\nHere's the step-by-step reasoning:\n\n1. **Identify the tables involved**: We need to access the `shop` table to get the shop names and the `hiring` table to check for employee associations.\n\n2. **Determine the join condition**: The `shop` table and the `hiring` table are related through the `Shop_ID` column. This is the common column used for the join.\n\n3. **Use a LEFT JOIN**: A LEFT JOIN will return all rows from the `shop` table and the matched rows from the `hiring` table. If there is no match, the result is NULL on the side of the `hiring` table.\n\n4. **Filter for shops with no employees**: We need to filter the results to only include shops where the `Employee_ID` is NULL in the `hiring` table. This indicates that the shop has no employees.\n\n5. **Select the required columns**: We only need the `Name` column from the `shop` table.\n\n6. **Write the SQL query**: Based on the above steps, the SQL query can be written as follows\n\nTherefore, the final query is:\n\n```sql\nSELECT T1.Name FROM shop AS T1 LEFT JOIN hiring AS T2 ON T1.Shop_ID = T2.Shop_ID WHERE T2.Employee_ID IS NULL\n```",
+          "sql": "SELECT T1.Name FROM shop AS T1 LEFT JOIN hiring AS T2 ON T1.Shop_ID = T2.Shop_ID WHERE T2.Employee_ID IS NULL"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "Give the airline with abbreviation 'UAL'.",
+        "gold_sql": "SELECT Airline FROM AIRLINES WHERE Abbreviation  =  \"UAL\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the airline with the abbreviation 'UAL' from the `airlines` table. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The information about airlines is stored in the `airlines` table.\n\n2. **Determine the column to filter by**: We need to filter the records based on the `Abbreviation` column, which contains the abbreviation for each airline.\n\n3. **Specify the condition**: We want to find the record where the `Abbreviation` is 'UAL'.\n\n4. **Write the SQL query**: We use the `SELECT` statement to retrieve the `Airline` column from the `airlines` table where the `Abbreviation` is 'UAL'.\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT Airline FROM airlines WHERE Abbreviation = 'UAL';\n```",
+          "sql": "SELECT Airline FROM airlines WHERE Abbreviation = 'UAL';"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "student_transcripts_tracking",
+        "question": "What is the zip code of the address in the city Port Chelsea?",
+        "gold_sql": "SELECT zip_postcode FROM Addresses WHERE city  =  'Port Chelsea'",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the zip code associated with the address in the city of Port Chelsea. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `Addresses` table to get the zip code and the `Cities` table to filter by the city name.\n\n2. **Determine the join condition**: Since the `Addresses` table does not have a direct column for the city, we need to join it with the `Cities` table on the city name.\n\n3. **Specify the columns to select**: We only need the `zip_postcode` from the `Addresses` table.\n\n4. **Apply the filter**: We need to filter the results to only include addresses in the city of Port Chelsea.\n\n5. **Write the SQL query**: Based on the above steps, the SQL query can be written as follows\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT T1.zip_postcode FROM Addresses AS T1 INNER JOIN Cities AS T2 ON T1.city = T2.city_name WHERE T2.city_name = 'Port Chelsea'\n```",
+          "sql": "SELECT T1.zip_postcode FROM Addresses AS T1 INNER JOIN Cities AS T2 ON T1.city = T2.city_name WHERE T2.city_name = 'Port Chelsea'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "cre_Doc_Template_Mgt",
+        "question": "What are the ids, names, and descriptions for all documents?",
+        "gold_sql": "SELECT document_id ,  document_name ,  document_description FROM Documents",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to retrieve the `Document_ID`, `Document_Name`, and `Document_Description` from the `Documents` table. Here's a step-by-step breakdown of how to construct the SQL query:\n\n1. **Identify the relevant table**: The information about documents is stored in the `Documents` table.\n\n2. **Determine the required columns**: We need to select the `Document_ID`, `Document_Name`, and `Document_Description` columns.\n\n3. **Construct the SELECT statement**: Use the `SELECT` statement to specify the columns we want to retrieve.\n\n4. **Specify the table**: Use the `FROM` clause to indicate the table from which to retrieve the data.\n\n5. **Combine the elements**: Combine the `SELECT`, `FROM`, and any other necessary clauses to form the complete SQL query.\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT Document_ID, Document_Name, Document_Description FROM Documents;\n```",
+          "sql": "SELECT Document_ID, Document_Name, Document_Description FROM Documents;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "tvshow",
+        "question": "which countries' tv channels are not playing any cartoon written by Todd Casey?",
+        "gold_sql": "SELECT country FROM TV_Channel EXCEPT SELECT T1.country FROM TV_Channel AS T1 JOIN cartoon AS T2 ON T1.id = T2.Channel WHERE T2.written_by  =  'Todd Casey'",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the countries of TV channels that do not have any cartoons written by Todd Casey. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access information from the `TV_Channel`, `TV_series`, and `Cartoon` tables.\n\n2. **Determine the join conditions**: \n   - Join `TV_Channel` with `TV_series` on the `id` column to link channels to their series.\n   - Join `TV_series` with `Cartoon` on the `Channel` column to link series to their cartoons.\n\n3. **Filter for cartoons written by Todd Casey**: Use a WHERE clause to filter the results to only include cartoons where the `Written_by` is 'Todd Casey'.\n\n4. **Select distinct countries**: Use DISTINCT to ensure that each country is listed only once, even if there are multiple channels in that country.\n\n5. **Exclude channels with cartoons by Todd Casey**: Use a NOT IN clause to exclude channels that have any cartoons written by Todd Casey.\n\nHere's the final SQL query:\n\n```sql\nSELECT DISTINCT T1.Country FROM TV_Channel AS T1\nJOIN TV_series AS T2 ON T1.id = T2.Channel\nJOIN Cartoon AS T3 ON T2.id = T3.Channel\nWHERE T3.Written_by = 'Todd Casey'\nEXCEPT\nSELECT T1.Country FROM TV_Channel AS T1\nJOIN TV_series AS T2 ON T1.id = T2.Channel\nJOIN Cartoon AS T3 ON T2.id = T3.Channel;\n```\n\nThis query first selects all distinct countries where there are cartoons written by Todd Casey, then excludes those countries from the list of all countries.",
+          "sql": "SELECT DISTINCT T1.Country FROM TV_Channel AS T1\nJOIN TV_series AS T2 ON T1.id = T2.Channel\nJOIN Cartoon AS T3 ON T2.id = T3.Channel\nWHERE T3.Written_by = 'Todd Casey'\nEXCEPT\nSELECT T1.Country FROM TV_Channel AS T1\nJOIN TV_series AS T2 ON T1.id = T2.Channel\nJOIN Cartoon AS T3 ON T2.id = T3.Channel;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "What are the names of airports in Aberdeen?",
+        "gold_sql": "SELECT AirportName FROM AIRPORTS WHERE City = \"Aberdeen\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the airport names in Aberdeen from the `airports` table. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The information about airports is stored in the `airports` table.\n\n2. **Determine the required columns**: We need to retrieve the `AirportName` column, which contains the names of the airports.\n\n3. **Specify the condition**: We are interested in airports located in Aberdeen, so we need to filter the results based on the `City` column.\n\n4. **Construct the SQL query**:\n   - Use the `SELECT` statement to specify the column we want to retrieve (`AirportName`).\n   - Use the `FROM` clause to specify the table we are querying (`airports`).\n   - Use the `WHERE` clause to filter the results based on the city name (`Aberdeen`).\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT AirportName FROM airports WHERE City = 'Aberdeen';\n```",
+          "sql": "SELECT AirportName FROM airports WHERE City = 'Aberdeen';"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "car_1",
+        "question": "Which distinctive models are produced by maker with the full name General Motors or weighing more than 3500?",
+        "gold_sql": "SELECT DISTINCT T2.Model FROM CAR_NAMES AS T1 JOIN MODEL_LIST AS T2 ON T1.Model  =  T2.Model JOIN CAR_MAKERS AS T3 ON T2.Maker  =  T3.Id JOIN CARS_DATA AS T4 ON T1.MakeId  =  T4.Id WHERE T3.FullName  =  'General Motors' OR T4.weight  >  3500;",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to join multiple tables to find the distinct models produced by General Motors or those weighing more than 3500 pounds. Here's a step-by-step breakdown of how to construct the query:\n\n1. **Identify the relevant tables**: We need to access information from `car_makers`, `model_list`, and `car_names` tables.\n\n2. **Join the tables**: \n   - Join `car_makers` with `model_list` on the `Id` field to get the model names.\n   - Join the result with `car_names` on the `MakeId` field to get the car names.\n\n3. **Filter the results**:\n   - Filter the results to include only those models produced by General Motors (`FullName = 'General Motors'`).\n   - Filter the results to include only those cars weighing more than 3500 pounds (`Weight > 3500`).\n\n4. **Select distinct models**: Use the `DISTINCT` keyword to ensure that each model is listed only once.\n\nHere's the final SQL query:\n\n```sql\nSELECT DISTINCT T3.Model\nFROM car_makers AS T1\nJOIN model_list AS T2 ON T1.Id = T2.Maker\nJOIN car_names AS T3 ON T2.ModelId = T3.MakeId\nWHERE T1.FullName = 'General Motors' OR T3.Weight > 3500;\n```\n\nThis query will return a list of distinct models produced by General Motors or those weighing more than 3500 pounds.",
+          "sql": "SELECT DISTINCT T3.Model\nFROM car_makers AS T1\nJOIN model_list AS T2 ON T1.Id = T2.Maker\nJOIN car_names AS T3 ON T2.ModelId = T3.MakeId\nWHERE T1.FullName = 'General Motors' OR T3.Weight > 3500;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "poker_player",
+        "question": "Give the nationality that is most common across all people.",
+        "gold_sql": "SELECT Nationality FROM people GROUP BY Nationality ORDER BY COUNT(*) DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the nationality that appears most frequently in the `people` table. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The information about nationalities is stored in the `people` table.\n\n2. **Determine the column of interest**: The column that contains the nationalities is `Nationality`.\n\n3. **Group the data**: To find the most common nationality, we need to group the data by the `Nationality` column.\n\n4. **Count the occurrences**: For each nationality, we need to count how many times it appears in the table.\n\n5. **Order the results**: We want to order the results in descending order based on the count of occurrences, so the nationality with the highest count comes first.\n\n6. **Limit the results**: Since we are only interested in the most common nationality, we can limit the results to the top row.\n\nHere's the SQL query that implements these steps:\n\n```sql\nSELECT Nationality\nFROM people\nGROUP BY Nationality\nORDER BY COUNT(*) DESC\nLIMIT 1;\n```\n\nThis query will return the nationality that appears most frequently in the `people` table.",
+          "sql": "SELECT Nationality\nFROM people\nGROUP BY Nationality\nORDER BY COUNT(*) DESC\nLIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "dog_kennels",
+        "question": "How many dogs went through any treatments?",
+        "gold_sql": "SELECT count(DISTINCT dog_id) FROM Treatments",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to determine how many unique dogs have had at least one treatment recorded in the database. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `Dogs` table to get the list of dogs and the `Treatments` table to check which dogs have received treatments.\n\n2. **Determine the join condition**: The `Dogs` table has a foreign key `dog_id` that references the `dog_id` in the `Treatments` table. This allows us to join these two tables based on this common column.\n\n3. **Select the distinct dog IDs**: Since we are interested in the number of unique dogs, we need to select distinct `dog_id` values from the `Treatments` table.\n\n4. **Count the distinct dog IDs**: Finally, we use the `COUNT` function to count the number of distinct `dog_id` values, which gives us the total number of dogs that have received at least one treatment.\n\nHere's the SQL query that implements these steps:\n\n```sql\nSELECT COUNT(DISTINCT T1.dog_id) AS number_of_dogs_with_treatments\nFROM Treatments AS T1\nJOIN Dogs AS T2 ON T1.dog_id = T2.dog_id;\n```\n\nThis query will return the number of unique dogs that have had at least one treatment recorded in the database.",
+          "sql": "SELECT COUNT(DISTINCT T1.dog_id) AS number_of_dogs_with_treatments\nFROM Treatments AS T1\nJOIN Dogs AS T2 ON T1.dog_id = T2.dog_id;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "Count the number of flights into ATO.",
+        "gold_sql": "SELECT count(*) FROM FLIGHTS WHERE DestAirport  =  \"ATO\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to count the number of flights that have ATO as their destination airport. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `flights` table to get information about the flights and the `airports` table to filter by the destination airport.\n\n2. **Determine the join condition**: The `flights` table has a foreign key `DestAirport` that references the `AirportCode` in the `airports` table. This allows us to join these two tables based on this common column.\n\n3. **Specify the join type**: Since we want to count all flights that have ATO as their destination, we use an INNER JOIN to combine rows from both tables where the join condition is met.\n\n4. **Filter the results**: We add a WHERE clause to filter the results to only include rows where the `City` in the `airports` table is 'ATO'.\n\n5. **Count the results**: Finally, we use the COUNT function to count the number of rows that meet the criteria.\n\nHere's the resulting SQL query:\n\n```sql\nSELECT COUNT(T1.FlightNo) AS FlightCount\nFROM flights AS T1\nINNER JOIN airports AS T2 ON T1.DestAirport = T2.AirportCode\nWHERE T2.City = 'ATO';\n```\n\nThis query will return the number of flights that have ATO as their destination airport.",
+          "sql": "SELECT COUNT(T1.FlightNo) AS FlightCount\nFROM flights AS T1\nINNER JOIN airports AS T2 ON T1.DestAirport = T2.AirportCode\nWHERE T2.City = 'ATO';"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "world_1",
+        "question": "What is the average life expectancy in African countries that are republics?",
+        "gold_sql": "SELECT avg(LifeExpectancy) FROM country WHERE Continent  =  \"Africa\" AND GovernmentForm  =  \"Republic\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to follow these steps:\n\n1. **Identify the relevant tables**: We need to access data from the `country` table to filter by continent and government form, and from the `countrylanguage` table to get the average life expectancy.\n\n2. **Join the tables**: Since we need to link countries with their languages, we will join the `country` table with the `countrylanguage` table on the `Code` column.\n\n3. **Filter by continent and government form**: We will use a `WHERE` clause to filter the results to only include African countries with a government form of \"Republic\".\n\n4. **Calculate the average life expectancy**: We will use the `AVG()` function to calculate the average life expectancy of the filtered countries.\n\nHere's the SQL query that implements these steps:\n\n```sql\nSELECT AVG(T2.LifeExpectancy) AS AverageLifeExpectancy\nFROM country AS T1\nJOIN countrylanguage AS T2 ON T1.Code = T2.CountryCode\nWHERE T1.Continent = 'Africa' AND T1.GovernmentForm = 'Republic';\n```\n\nThis query will return the average life expectancy of all African countries that are republics.",
+          "sql": "SELECT AVG(T2.LifeExpectancy) AS AverageLifeExpectancy\nFROM country AS T1\nJOIN countrylanguage AS T2 ON T1.Code = T2.CountryCode\nWHERE T1.Continent = 'Africa' AND T1.GovernmentForm = 'Republic';"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "network_1",
+        "question": "What are the names of high schoolers who have 3 or more friends?",
+        "gold_sql": "SELECT T2.name FROM Friend AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id GROUP BY T1.student_id HAVING count(*)  >=  3",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the names of high schoolers who have at least 3 friends. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `Highschooler` table to get the names of the high schoolers and the `Friend` table to count the number of friends each high schooler has.\n\n2. **Join the tables**: Since a high schooler can have multiple friends and a friend can be associated with multiple high schoolers, we need to join the `Highschooler` table with the `Friend` table on the `ID` column.\n\n3. **Group the results**: We need to group the results by the `ID` column of the `Highschooler` table to count the number of friends for each high schooler.\n\n4. **Filter the results**: We need to filter the results to only include high schoolers who have 3 or more friends.\n\n5. **Select the required columns**: We need to select the `name` column from the `Highschooler` table to get the names of the high schoolers who meet the criteria.\n\nHere's the SQL query that implements these steps:\n\n```sql\nSELECT T1.name\nFROM Highschooler AS T1\nJOIN Friend AS T2 ON T1.ID = T2.student_id\nGROUP BY T1.ID\nHAVING COUNT(T2.friend_id) >= 3;\n```\n\nThis query joins the `Highschooler` table with the `Friend` table on the `ID` column, groups the results by the `ID` column of the `Highschooler` table, filters the results to only include high schoolers who have 3 or more friends using the `HAVING` clause, and selects the `name` column from the `Highschooler` table to get the names of the high schoolers who meet the criteria.",
+          "sql": "SELECT T1.name\nFROM Highschooler AS T1\nJOIN Friend AS T2 ON T1.ID = T2.student_id\nGROUP BY T1.ID\nHAVING COUNT(T2.friend_id) >= 3;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "poker_player",
+        "question": "How many poker players are there?",
+        "gold_sql": "SELECT count(*) FROM poker_player",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to count the total number of rows in the `poker_player` table. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The question is about poker players, so we need to focus on the `poker_player` table.\n\n2. **Determine the operation**: We want to find the total number of poker players, which means we need to count all the rows in the table.\n\n3. **Use the COUNT function**: In SQL, the `COUNT` function is used to count the number of rows that match a specified condition. If no condition is specified, it counts all rows in the table.\n\n4. **Write the query**: The basic SQL query to count all rows in a table is `SELECT COUNT(*) FROM table_name`. In this case, the table name is `poker_player`.\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT COUNT(*) FROM poker_player;\n```",
+          "sql": "SELECT COUNT(*) FROM poker_player;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "museum_visit",
+        "question": "find the names of museums which have more staff than the minimum staff number of all museums opened after 2010.",
+        "gold_sql": "SELECT name FROM museum WHERE num_of_staff  >  (SELECT min(num_of_staff) FROM museum WHERE open_year  >  2010)",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "Let's approach this step-by-step:\n\n1. **Identify the relevant tables**: We need to access information from the `museum` table to get the number of staff and the opening year, and from the `visit` table to filter museums based on their opening year.\n\n2. **Determine the condition for opening year**: The question specifies that we are interested in museums opened after 2010. This can be represented as `T1.Open_Year > '2010'`.\n\n3. **Find the minimum number of staff**: To find the minimum number of staff among museums opened after 2010, we need to use a subquery. The subquery will select the minimum `Num_of_Staff` from the `museum` table where the `Open_Year` is greater than 2010.\n\n4. **Join the tables**: We need to join the `museum` table (aliased as `T1`) with the `visit` table (aliased as `T2`) on the `Museum_ID` column to link each museum with its visits.\n\n5. **Filter museums with more staff**: We need to filter the results to include only those museums where the `Num_of_Staff` is greater than the minimum number of staff found in the subquery.\n\n6. **Select the desired columns**: Finally, we select the `Name` column from the `museum` table to get the names of the museums that meet the criteria.\n\nHere's the SQL query that implements these steps:\n\n```sql\nSELECT T1.Name \nFROM museum AS T1 \nJOIN visit AS T2 ON T1.Museum_ID = T2.Museum_ID \nWHERE T1.Num_of_Staff > (SELECT MIN(Num_of_Staff) FROM museum WHERE Open_Year > '2010')\n```\n\nThis query will return the names of museums that have more staff than the minimum number of staff of all museums opened after 2010.",
+          "sql": "SELECT T1.Name \nFROM museum AS T1 \nJOIN visit AS T2 ON T1.Museum_ID = T2.Museum_ID \nWHERE T1.Num_of_Staff > (SELECT MIN(Num_of_Staff) FROM museum WHERE Open_Year > '2010')"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "network_1",
+        "question": "What is the name of the high schooler who has the greatest number of likes?",
+        "gold_sql": "SELECT T2.name FROM Likes AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id GROUP BY T1.student_id ORDER BY count(*) DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the high schooler with the highest number of likes. This involves counting the number of likes each high schooler has and then selecting the one with the maximum count. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `Highschooler` table to get the names of the high schoolers and the `Likes` table to count the number of likes each high schooler has.\n\n2. **Join the tables**: Since we need to link each high schooler with their likes, we will join the `Highschooler` table with the `Likes` table on the `ID` column.\n\n3. **Group the results**: We will group the results by the `ID` of the high schooler to count the number of likes for each individual.\n\n4. **Order the results**: We will order the grouped results in descending order based on the count of likes to get the high schooler with the most likes at the top.\n\n5. **Limit the results**: Since we are only interested in the high schooler with the greatest number of likes, we will limit the results to the first row.\n\nHere's the SQL query that implements these steps:\n\n```sql\nSELECT T1.name\nFROM Highschooler AS T1\nJOIN Likes AS T2 ON T1.ID = T2.student_id\nGROUP BY T1.ID\nORDER BY COUNT(T2.liked_id) DESC\nLIMIT 1;\n```\n\nThis query will return the name of the high schooler who has the greatest number of likes.",
+          "sql": "SELECT T1.name\nFROM Highschooler AS T1\nJOIN Likes AS T2 ON T1.ID = T2.student_id\nGROUP BY T1.ID\nORDER BY COUNT(T2.liked_id) DESC\nLIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "student_transcripts_tracking",
+        "question": "Who are enrolled in 2 degree programs in one semester? List the first name, middle name and last name and the id.",
+        "gold_sql": "SELECT T1.first_name ,  T1.middle_name ,  T1.last_name ,  T1.student_id FROM Students AS T1 JOIN Student_Enrolment AS T2 ON T1.student_id  =  T2.student_id GROUP BY T1.student_id HAVING count(*)  =  2",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find students who are enrolled in exactly two degree programs within the same semester. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access information from the `Students`, `Student_Enrolment`, and `Degree_Programs` tables.\n\n2. **Join the tables**: We will join these tables based on their relationships:\n   - `Students` is joined with `Student_Enrolment` on the `student_id` field.\n   - `Student_Enrolment` is joined with `Degree_Programs` on the `degree_program_id` field.\n\n3. **Group by student**: We need to group the results by `student_id` to count the number of degree programs each student is enrolled in.\n\n4. **Filter by semester**: We need to filter the results to only include students enrolled in the same semester.\n\n5. **Count degree programs**: We use the `COUNT` function to count the number of degree programs each student is enrolled in.\n\n6. **Select the required columns**: We select the `first_name`, `middle_name`, `last_name`, and `student_id` columns.\n\n7. **Add a condition**: We add a condition to filter the results to only include students enrolled in exactly two degree programs.\n\nHere's the final SQL query:\n\n```sql\nSELECT \n    T1.first_name, \n    T1.middle_name, \n    T1.last_name, \n    T1.student_id\nFROM \n    Students AS T1\nJOIN \n    Student_Enrolment AS T2 ON T1.student_id = T2.student_id\nJOIN \n    Degree_Programs AS T3 ON T2.degree_program_id = T3.degree_program_id\nGROUP BY \n    T1.student_id\nHAVING \n    COUNT(T3.degree_program_id) = 2;\n```\n\nThis query will return the first name, middle name, last name, and student ID of students who are enrolled in exactly two degree programs in the same semester.",
+          "sql": "SELECT \n    T1.first_name, \n    T1.middle_name, \n    T1.last_name, \n    T1.student_id\nFROM \n    Students AS T1\nJOIN \n    Student_Enrolment AS T2 ON T1.student_id = T2.student_id\nJOIN \n    Degree_Programs AS T3 ON T2.degree_program_id = T3.degree_program_id\nGROUP BY \n    T1.student_id\nHAVING \n    COUNT(T3.degree_program_id) = 2;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "car_1",
+        "question": "What is the average weight of cars each year?",
+        "gold_sql": "SELECT avg(Weight) ,  YEAR FROM CARS_DATA GROUP BY YEAR;",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to calculate the average weight of cars for each year. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `cars_data` table to get the weight of each car and the `cars_names` table to get the year of each car.\n\n2. **Join the tables**: Since the `cars_data` table contains the weight of the cars and the `cars_names` table contains the year of the cars, we need to join these two tables based on the `Id` column, which is common to both tables.\n\n3. **Group the results by year**: To calculate the average weight for each year, we need to group the results by the `Year` column.\n\n4. **Calculate the average weight**: For each group (i.e., each year), we need to calculate the average weight using the `AVG()` function.\n\n5. **Write the SQL query**: Based on the above steps, the SQL query can be written as follows\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT T2.Year, AVG(T1.Weight) AS AverageWeight\nFROM cars_data AS T1\nJOIN cars_names AS T2 ON T1.Id = T2.MakeId\nGROUP BY T2.Year;\n```",
+          "sql": "SELECT T2.Year, AVG(T1.Weight) AS AverageWeight\nFROM cars_data AS T1\nJOIN cars_names AS T2 ON T1.Id = T2.MakeId\nGROUP BY T2.Year;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "concert_singer",
+        "question": "Show the stadium names without any concert.",
+        "gold_sql": "SELECT name FROM stadium WHERE stadium_id NOT IN (SELECT stadium_id FROM concert)",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the stadium names that do not have any associated concerts. This involves identifying stadiums that are not present in the `concert` table. Here's a step-by-step approach to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `stadium` table to get the stadium names and the `concert` table to check for associations.\n\n2. **Determine the join condition**: The `stadium` table has a foreign key `Stadium_ID` that references the `Stadium_ID` in the `concert` table. This is the common column we will use to join these two tables.\n\n3. **Use a LEFT JOIN**: A LEFT JOIN will return all records from the `stadium` table and the matched records from the `concert` table. If there is no match, the result is NULL on the side of the `concert` table.\n\n4. **Filter the results**: We want to find stadiums that do not have any concerts, which means we need to filter out the rows where the `concert_ID` is not NULL.\n\n5. **Select the required columns**: We only need the `Name` column from the `stadium` table.\n\nHere's the SQL query implementing the above steps:\n\n```sql\nSELECT T1.Name\nFROM stadium AS T1\nLEFT JOIN concert AS T2 ON T1.Stadium_ID = T2.Stadium_ID\nWHERE T2.concert_ID IS NULL;\n```\n\nThis query will return the names of stadiums that do not have any associated concerts.",
+          "sql": "SELECT T1.Name\nFROM stadium AS T1\nLEFT JOIN concert AS T2 ON T1.Stadium_ID = T2.Stadium_ID\nWHERE T2.concert_ID IS NULL;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "How many flights do we have?",
+        "gold_sql": "SELECT count(*) FROM FLIGHTS",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to count the total number of rows in the \"flights\" table. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The information about flights is stored in the \"flights\" table.\n\n2. **Determine the operation**: We need to count the number of rows in this table. In SQL, the `COUNT(*)` function is used to count all rows in a table.\n\n3. **Construct the query**: We will use the `SELECT` statement to specify the operation and the `FROM` clause to indicate the table from which to retrieve the data.\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT COUNT(*) FROM flights;\n```",
+          "sql": "SELECT COUNT(*) FROM flights;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "world_1",
+        "question": "What is the language spoken by the largest percentage of people in each country?",
+        "gold_sql": "SELECT LANGUAGE ,  CountryCode ,  max(Percentage) FROM countrylanguage GROUP BY CountryCode",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the language spoken by the largest percentage of people in each country. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `countrylanguage` table to get the language percentages and the `country` table to get the country names.\n\n2. **Join the tables**: We need to join the `countrylanguage` table with the `country` table on the `CountryCode` field to link each language percentage to its corresponding country.\n\n3. **Group by country**: We need to group the results by country to calculate the total percentage of people speaking each language in each country.\n\n4. **Order by percentage**: We need to order the results by the percentage of people speaking each language in descending order to get the language with the largest percentage at the top.\n\n5. **Limit the results**: We only need the top result for each country, which is the language with the largest percentage.\n\nHere's the SQL query that implements these steps:\n\n```sql\nSELECT \n    c.Name AS CountryName,\n    cl.Language AS Language,\n    cl.Percentage AS Percentage\nFROM \n    countrylanguage cl\nJOIN \n    country c ON cl.CountryCode = c.Code\nGROUP BY \n    c.Name, cl.Language\nORDER BY \n    cl.Percentage DESC\nLIMIT 1;\n```\n\nThis query will return the language spoken by the largest percentage of people in each country. The `LIMIT 1` clause ensures that only the top result (the language with the largest percentage) is returned for each country.",
+          "sql": "SELECT \n    c.Name AS CountryName,\n    cl.Language AS Language,\n    cl.Percentage AS Percentage\nFROM \n    countrylanguage cl\nJOIN \n    country c ON cl.CountryCode = c.Code\nGROUP BY \n    c.Name, cl.Language\nORDER BY \n    cl.Percentage DESC\nLIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "concert_singer",
+        "question": "Show name, country, age for all singers ordered by age from the oldest to the youngest.",
+        "gold_sql": "SELECT name ,  country ,  age FROM singer ORDER BY age DESC",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "Let's approach this step-by-step:\n\n1. **Identify the relevant table**: The information about singers, including their names, countries, and ages, is stored in the `singer` table.\n\n2. **Determine the required columns**: We need to select the `Name`, `Country`, and `Age` columns from the `singer` table.\n\n3. **Specify the sorting order**: The question asks us to order the results by age from the oldest to the youngest. In SQL, this can be achieved using the `ORDER BY` clause with the `DESC` keyword (for descending order).\n\n4. **Construct the SQL query**: Based on the above steps, the SQL query can be constructed as follows\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT Name, Country, Age FROM singer ORDER BY Age DESC;\n```",
+          "sql": "SELECT Name, Country, Age FROM singer ORDER BY Age DESC;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "singer",
+        "question": "What is the name of the singer with the largest net worth?",
+        "gold_sql": "SELECT Name FROM singer ORDER BY Net_Worth_Millions DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the singer with the highest net worth from the `singer` table. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The information about singers, including their net worth, is stored in the `singer` table.\n\n2. **Determine the column of interest**: We are interested in the `Name` column, which contains the names of the singers.\n\n3. **Sort the data**: To find the singer with the largest net worth, we need to sort the data in descending order based on the `Net_Worth_Millions` column.\n\n4. **Limit the results**: Since we are only interested in the singer with the largest net worth, we can limit the results to the top row using the `LIMIT` clause.\n\n5. **Construct the query**: Combining these steps, the SQL query will be\n\nTherefore, the final query is:\n\n```sql\nSELECT Name FROM singer ORDER BY Net_Worth_Millions DESC LIMIT 1;\n```",
+          "sql": "SELECT Name FROM singer ORDER BY Net_Worth_Millions DESC LIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "poker_player",
+        "question": "What are the names of people who are not from Russia?",
+        "gold_sql": "SELECT Name FROM people WHERE Nationality != \"Russia\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the names of people who do not have the nationality 'Russia'. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `people` table to get the names of the people and the `poker_player` table to filter out those who are not from Russia.\n\n2. **Determine the join condition**: Since the `people` table contains the `People_ID` which is also present in the `poker_player` table, we can join these two tables on this common column.\n\n3. **Specify the join type**: We use an INNER JOIN because we only want to consider people who have entries in both tables (i.e., they are poker players).\n\n4. **Filter the results**: We add a WHERE clause to filter out people who are from Russia by checking if their `Nationality` is not equal to 'Russia'.\n\n5. **Select the required columns**: We select the `Name` column from the `people` table to get the names of the people.\n\nHere's the final SQL query:\n\n```sql\nSELECT T1.Name FROM people AS T1 INNER JOIN poker_player AS T2 ON T1.People_ID = T2.People_ID WHERE T1.Nationality != 'Russia'\n```",
+          "sql": "SELECT T1.Name FROM people AS T1 INNER JOIN poker_player AS T2 ON T1.People_ID = T2.People_ID WHERE T1.Nationality != 'Russia'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "battle_death",
+        "question": "What are the ids and names of the battles that led to more than 10 people killed in total.",
+        "gold_sql": "SELECT T1.id ,  T1.name FROM battle AS T1 JOIN ship AS T2 ON T1.id  =  T2.lost_in_battle JOIN death AS T3 ON T2.id  =  T3.caused_by_ship_id GROUP BY T1.id HAVING sum(T3.killed)  >  10",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to join the `battle` table with the `death` table using the `lost_in_battle` foreign key from the `ship` table, which is linked to the `id` in the `battle` table. Then, we can group the results by battle and sum the number of killed people for each battle. Finally, we filter the results to include only those battles where the total number of killed people is greater than 10.\n\n<think>\n1. We start by joining the `battle` table (T1) with the `ship` table (T2) on the `lost_in_battle` column.\n2. Next, we join the result with the `death` table (T3) on the `caused_by_ship_id` column.\n3. We group the results by the `id` column from the `battle` table to aggregate the data for each battle.\n4. We use the `SUM` function to calculate the total number of killed people for each battle.\n5. Finally, we filter the grouped results to include only those battles where the total number of killed people is greater than 10.\n</think>\n\n```sql\nSELECT T1.id, T1.name FROM battle AS T1 INNER JOIN ship AS T2 ON T1.id = T2.lost_in_battle INNER JOIN death AS T3 ON T2.id = T3.caused_by_ship_id GROUP BY T1.id HAVING SUM(T3.killed) > 10\n```",
+          "sql": "SELECT T1.id, T1.name FROM battle AS T1 INNER JOIN ship AS T2 ON T1.id = T2.lost_in_battle INNER JOIN death AS T3 ON T2.id = T3.caused_by_ship_id GROUP BY T1.id HAVING SUM(T3.killed) > 10"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "poker_player",
+        "question": "Return the birth date of the poker player with the lowest earnings.",
+        "gold_sql": "SELECT T1.Birth_Date FROM people AS T1 JOIN poker_player AS T2 ON T1.People_ID  =  T2.People_ID ORDER BY T2.Earnings ASC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the poker player with the lowest earnings and then retrieve their birth date from the `people` table. Here's a step-by-step breakdown of how to construct the SQL query:\n\n1. **Identify the relevant tables**: We need to access data from both the `poker_player` and `people` tables. The `poker_player` table contains information about poker players, including their earnings, and the `people` table contains information about individuals, including their birth dates.\n\n2. **Determine the join condition**: Since the `poker_player` table has a foreign key `People_ID` that references the `People_ID` in the `people` table, we can join these two tables on this common column.\n\n3. **Select the required columns**: We need to select the `Birth_Date` from the `people` table and the `Earnings` from the `poker_player` table.\n\n4. **Order the results**: To find the poker player with the lowest earnings, we need to order the results by the `Earnings` column in ascending order.\n\n5. **Limit the results**: Since we only want the poker player with the lowest earnings, we can limit the results to the first row using the `LIMIT` clause.\n\nHere's the final SQL query:\n\n```sql\nSELECT T2.Birth_Date\nFROM poker_player AS T1\nJOIN people AS T2 ON T1.People_ID = T2.People_ID\nORDER BY T1.Earnings ASC\nLIMIT 1;\n```\n\nThis query will return the birth date of the poker player with the lowest earnings.",
+          "sql": "SELECT T2.Birth_Date\nFROM poker_player AS T1\nJOIN people AS T2 ON T1.People_ID = T2.People_ID\nORDER BY T1.Earnings ASC\nLIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "car_1",
+        "question": "What is the average weight and year for each year?",
+        "gold_sql": "SELECT avg(Weight) ,  YEAR FROM CARS_DATA GROUP BY YEAR;",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to calculate the average weight and year for each year from the `cars_data` table. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant columns**: We need to select the `Weight` and `Year` columns from the `cars_data` table.\n\n2. **Group the data by year**: To calculate the average weight and year for each year, we need to group the data by the `Year` column.\n\n3. **Calculate the average**: For each group (i.e., each year), we need to calculate the average of the `Weight` column.\n\n4. **Write the SQL query**: Based on the above steps, the SQL query can be written as follows\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT Year, AVG(Weight) AS Average_Weight\nFROM cars_data\nGROUP BY Year;\n```",
+          "sql": "SELECT Year, AVG(Weight) AS Average_Weight\nFROM cars_data\nGROUP BY Year;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "course_teach",
+        "question": "What is the hometown of the youngest teacher?",
+        "gold_sql": "SELECT Hometown FROM teacher ORDER BY Age ASC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the teacher with the youngest age and then retrieve their hometown. Here's a step-by-step breakdown of how to construct the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `teacher` table to get the names and ages of the teachers, and the `course_arrange` table to link courses to teachers.\n\n2. **Determine the join condition**: Since we want to find the hometown of the youngest teacher, we need to join the `teacher` table with the `course_arrange` table on the `Teacher_ID` column.\n\n3. **Order the results by age**: To find the youngest teacher, we need to order the results by the `Age` column in ascending order.\n\n4. **Limit the results to the youngest teacher**: Since we only need the hometown of the youngest teacher, we can limit the results to the first row using the `LIMIT 1` clause.\n\n5. **Select the required columns**: We only need the `Hometown` column from the `teacher` table.\n\nHere's the final SQL query\n\n```sql\nSELECT T1.Hometown FROM teacher AS T1 INNER JOIN course_arrange AS T2 ON T1.Teacher_ID = T2.Teacher_ID ORDER BY T1.Age ASC LIMIT 1;\n```",
+          "sql": "SELECT T1.Hometown FROM teacher AS T1 INNER JOIN course_arrange AS T2 ON T1.Teacher_ID = T2.Teacher_ID ORDER BY T1.Age ASC LIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "wta_1",
+        "question": "What is the first name and country code of the oldest player?",
+        "gold_sql": "SELECT first_name ,  country_code FROM players ORDER BY birth_date LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the player with the oldest birth date and retrieve their first name and country code. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The information about players' birth dates and country codes is stored in the `players` table.\n\n2. **Determine the sorting criteria**: We need to sort the players by their birth date in descending order to get the oldest player at the top.\n\n3. **Limit the result to one row**: Since we only want the oldest player, we use the `LIMIT 1` clause to restrict the result set to one row.\n\n4. **Select the required columns**: We need to select the `first_name` and `country_code` columns from the `players` table.\n\n5. **Construct the SQL query**: Combining the above steps, the SQL query becomes\n\nTherefore, the final query is:\n\n```sql\nSELECT first_name, country_code FROM players ORDER BY birth_date DESC LIMIT 1;\n```",
+          "sql": "SELECT first_name, country_code FROM players ORDER BY birth_date DESC LIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "wta_1",
+        "question": "What is the first name, country code, and birth date of the player with the most winner rank points across all matches?",
+        "gold_sql": "SELECT T1.first_name ,  T1.country_code ,  T1.birth_date FROM players AS T1 JOIN matches AS T2 ON T1.player_id  =  T2.winner_id ORDER BY T2.winner_rank_points DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the player with the highest total winner rank points across all their matches. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access data from both the `players` table (for the player's information) and the `matches` table (for the match results).\n\n2. **Join the tables**: We join the `players` table with the `matches` table on the `player_id` column, which is common to both tables.\n\n3. **Filter for winner rank points**: We only want to consider rows where the player is the winner (`winner_id = player_id`).\n\n4. **Sum the winner rank points**: We use the `SUM` function to calculate the total winner rank points for each player.\n\n5. **Order the results**: We order the results in descending order based on the total winner rank points to get the player with the most points at the top.\n\n6. **Limit the results**: Since we are only interested in the player with the most points, we limit the result set to 1 row.\n\nHere's the final SQL query:\n\n```sql\nSELECT p.first_name, p.country_code, p.birth_date\nFROM players p\nJOIN matches m ON p.player_id = m.winner_id\nGROUP BY p.player_id\nORDER BY SUM(m.winner_rank_points) DESC\nLIMIT 1;\n```\n\nThis query will return the first name, country code, and birth date of the player with the most winner rank points across all their matches.",
+          "sql": "SELECT p.first_name, p.country_code, p.birth_date\nFROM players p\nJOIN matches m ON p.player_id = m.winner_id\nGROUP BY p.player_id\nORDER BY SUM(m.winner_rank_points) DESC\nLIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "employee_hire_evaluation",
+        "question": "Give me all the information about hiring.",
+        "gold_sql": "SELECT * FROM hiring",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to retrieve all the information from the `hiring` table. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the table**: The question asks for information about hiring, which is stored in the `hiring` table.\n\n2. **Determine the columns**: We need to retrieve all columns from the `hiring` table. This can be done using the `SELECT *` statement, which selects all columns from a specified table.\n\n3. **Construct the query**: Combine the `SELECT` statement with the name of the table to form the complete query.\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT * FROM hiring;\n```",
+          "sql": "SELECT * FROM hiring;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "network_1",
+        "question": "What is the lowest grade of students who do not have any friends?",
+        "gold_sql": "SELECT min(grade) FROM Highschooler WHERE id NOT IN (SELECT T1.student_id FROM Friend AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id)",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find students who do not have any friends and then determine the lowest grade among them. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify Students with No Friends**: We need to find students who do not appear in the `Friend` table. This can be done by using a subquery that selects all `student_id`s from the `Friend` table and then excluding these IDs from the `Highschooler` table.\n\n2. **Select Students with No Friends**: The subquery will look like this:\n   ```sql\n   SELECT student_id FROM Friend\n   ```\n\n3. **Exclude These Students from the Highschooler Table**: We use the `EXCEPT` operator to exclude the `student_id`s from the `Highschooler` table that are present in the subquery result.\n   ```sql\n   SELECT ID FROM Highschooler EXCEPT SELECT student_id FROM Friend\n   ```\n\n4. **Find the Lowest Grade Among These Students**: Once we have the list of students with no friends, we need to find the lowest grade among them. This can be done by selecting the minimum value of the `grade` column from the `Highschooler` table for the filtered students.\n   ```sql\n   SELECT MIN(grade) FROM Highschooler WHERE ID IN (SELECT student_id FROM Friend EXCEPT SELECT ID FROM Highschooler)\n   ```\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT MIN(grade) FROM Highschooler WHERE ID IN (SELECT student_id FROM Friend EXCEPT SELECT ID FROM Highschooler)\n```",
+          "sql": "SELECT MIN(grade) FROM Highschooler WHERE ID IN (SELECT student_id FROM Friend EXCEPT SELECT ID FROM Highschooler)"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "Give the airport code and airport name corresonding to the city Anthony.",
+        "gold_sql": "SELECT AirportCode ,  AirportName FROM AIRPORTS WHERE city  =  \"Anthony\"",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to join the `airports` table with the `flights` table using the `SourceAirport` column from the `flights` table and the `AirportCode` column from the `airports` table. Then, we can filter the results to only include rows where the `City` is 'Anthony'. Finally, we select the `AirportCode` and `AirportName` columns from the `airports` table.\n\n<think>\n1. We start by identifying the tables involved: `airports` and `flights`.\n2. We need to join these tables based on the common column `SourceAirport` in the `flights` table and `AirportCode` in the `airports` table.\n3. We add a WHERE clause to filter the results to only include rows where the `City` is 'Anthony'.\n4. We select the `AirportCode` and `AirportName` columns from the `airports` table to get the desired output.\n</think>\n\n```sql\nSELECT T2.AirportCode, T2.AirportName FROM airports AS T1 INNER JOIN flights AS T2 ON T1.AirportCode = T2.SourceAirport WHERE T1.City = 'Anthony'\n```",
+          "sql": "SELECT T2.AirportCode, T2.AirportName FROM airports AS T1 INNER JOIN flights AS T2 ON T1.AirportCode = T2.SourceAirport WHERE T1.City = 'Anthony'"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "car_1",
+        "question": "What is the number of carsw ith over 6 cylinders?",
+        "gold_sql": "SELECT COUNT(*) FROM CARS_DATA WHERE Cylinders  >  6;",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to count the number of rows in the `cars_data` table where the `Cylinders` column has a value greater than 6. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The information about car cylinders is stored in the `cars_data` table.\n\n2. **Determine the condition**: We need to filter the rows where the `Cylinders` column is greater than 6.\n\n3. **Choose the appropriate SQL function**: To count the number of rows that meet a certain condition, we use the `COUNT()` function.\n\n4. **Construct the query**: Combine the `SELECT` statement with the `COUNT()` function and the `WHERE` clause to apply the condition.\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT COUNT(*) FROM cars_data WHERE Cylinders > 6;\n```",
+          "sql": "SELECT COUNT(*) FROM cars_data WHERE Cylinders > 6;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "poker_player",
+        "question": "What is the money rank of the poker player with the highest earnings?",
+        "gold_sql": "SELECT Money_Rank FROM poker_player ORDER BY Earnings DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the poker player with the highest earnings and then retrieve their money rank. Here's a step-by-step breakdown of how to construct the SQL query:\n\n1. **Identify the relevant tables**: We need to access the `poker_player` table to get the earnings and the `people` table to get the money rank.\n\n2. **Determine the join condition**: Since the `poker_player` table has a foreign key `People_ID` referencing the `People_ID` in the `people` table, we can join these two tables on this common column.\n\n3. **Sort the data**: To find the poker player with the highest earnings, we need to sort the data in descending order based on the `Earnings` column.\n\n4. **Limit the result**: Since we only need the top result (the poker player with the highest earnings), we use the `LIMIT` clause to restrict the output to one row.\n\n5. **Select the required columns**: We need to select the `Money_Rank` column from the `poker_player` table.\n\nHere's the final SQL query:\n\n```sql\nSELECT T1.Money_Rank\nFROM poker_player AS T1\nJOIN people AS T2 ON T1.People_ID = T2.People_ID\nORDER BY T1.Earnings DESC\nLIMIT 1;\n```\n\nThis query will return the money rank of the poker player with the highest earnings.",
+          "sql": "SELECT T1.Money_Rank\nFROM poker_player AS T1\nJOIN people AS T2 ON T1.People_ID = T2.People_ID\nORDER BY T1.Earnings DESC\nLIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "singer",
+        "question": "List the name of singers in ascending order of net worth.",
+        "gold_sql": "SELECT Name FROM singer ORDER BY Net_Worth_Millions ASC",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "Let's approach this step-by-step:\n\n1. **Identify the relevant table**: The question asks for information about singers, so we need to focus on the `singer` table.\n\n2. **Determine the required columns**: We need to list the names of the singers, which is stored in the `Name` column. We also need to sort the results by their net worth, which is stored in the `Net_Worth_Millions` column.\n\n3. **Specify the sorting order**: The question asks for the singers in ascending order of net worth. This means we need to use the `ASC` keyword in the `ORDER BY` clause.\n\n4. **Construct the SQL query**: Based on the above steps, the SQL query can be constructed as follows:\n   - `SELECT Name`: Select the `Name` column from the `singer` table.\n   - `FROM singer`: Specify the `singer` table as the source of the data.\n   - `ORDER BY Net_Worth_Millions ASC`: Sort the results by the `Net_Worth_Millions` column in ascending order.\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT Name FROM singer ORDER BY Net_Worth_Millions ASC\n```",
+          "sql": "SELECT Name FROM singer ORDER BY Net_Worth_Millions ASC"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "flight_2",
+        "question": "Which city has most number of departing flights?",
+        "gold_sql": "SELECT T1.City FROM AIRPORTS AS T1 JOIN FLIGHTS AS T2 ON T1.AirportCode  =  T2.SourceAirport GROUP BY T1.City ORDER BY count(*) DESC LIMIT 1",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the city with the highest number of departing flights. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant tables**: We need to access information from both the `airports` table (to get the city names) and the `flights` table (to count the number of departing flights).\n\n2. **Join the tables**: Since we need to link each flight to its source airport, we will join the `flights` table with the `airports` table on the `SourceAirport` column.\n\n3. **Group the results**: We will group the results by the city name to count the number of flights for each city.\n\n4. **Order the results**: We will order the grouped results in descending order based on the count of flights to get the city with the most flights at the top.\n\n5. **Limit the results**: Since we are only interested in the city with the most flights, we will limit the result to the first row.\n\nHere's the SQL query that implements these steps:\n\n```sql\nSELECT T2.City\nFROM flights AS T1\nJOIN airports AS T2 ON T1.SourceAirport = T2.AirportCode\nGROUP BY T2.City\nORDER BY COUNT(T1.FlightNo) DESC\nLIMIT 1;\n```\n\nThis query will return the city with the most number of departing flights.",
+          "sql": "SELECT T2.City\nFROM flights AS T1\nJOIN airports AS T2 ON T1.SourceAirport = T2.AirportCode\nGROUP BY T2.City\nORDER BY COUNT(T1.FlightNo) DESC\nLIMIT 1;"
+        }
+      ]
+    },
+    {
+      "example": {
+        "db_id": "tvshow",
+        "question": "What is minimum and maximum share of TV series?",
+        "gold_sql": "SELECT max(SHARE) , min(SHARE) FROM TV_series;",
+        "split": "dev",
+        "dataset": "spider"
+      },
+      "samples": [
+        {
+          "text": "To answer this question, we need to find the minimum and maximum values of the \"Share\" column from the \"TV_series\" table. Here's a step-by-step breakdown of how to derive the SQL query:\n\n1. **Identify the relevant table**: The information about TV series is stored in the \"TV_series\" table.\n\n2. **Determine the required columns**: We need to retrieve the minimum and maximum values of the \"Share\" column.\n\n3. **Use the appropriate SQL functions**: \n   - `MIN()` function to find the minimum value.\n   - `MAX()` function to find the maximum value.\n\n4. **Construct the SQL query**: Combine the `SELECT` statement with the `MIN()` and `MAX()` functions to get the desired results.\n\nTherefore, the final SQL query is:\n\n```sql\nSELECT MIN(Share) AS Min_Share, MAX(Share) AS Max_Share FROM TV_series;\n```",
+          "sql": "SELECT MIN(Share) AS Min_Share, MAX(Share) AS Max_Share FROM TV_series;"
+        }
+      ]
+    }
+  ]
+}
