@@ -47,5 +47,5 @@ The headline base-model baselines (Coder-3B-Instruct, greedy, **full dev**), eac
 Each `CompletionSet` carries its own provenance (model, greedy decoding, dataset revision,
 DB-archive SHA256, **`prompt_style`**, few-shot recipe, git commit), so every number is traceable
 to exactly the inputs that produced it. The two prompt styles (`<think>` matched vs direct) are
-reported deliberately — see RUNBOOK § *Methodology*. The 50-example `*_dev50*` slices remain as the
+reported deliberately — see RUNBOOK § *Methodology*. The 50-example `*-n50` slices remain as the
 local wiring proof. `*.score.json` files are the committed `ScoreReport`s.
