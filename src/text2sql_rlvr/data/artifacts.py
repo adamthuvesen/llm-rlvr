@@ -3,9 +3,6 @@
 Two Spider artifacts are pinned separately (design R1/D2):
   1. the HF parquet revision — question/SQL pairs only (verified present);
   2. the SQLite database archive — NOT shipped by `load_dataset`, fetched + checksum-gated.
-
-The DB archive mirror + SHA256 is finalized when the integration download is first run (R1);
-until then `SPIDER_DB_ARCHIVE` is None and the resolver requires an explicit, checksummed source.
 """
 
 from __future__ import annotations
@@ -32,7 +29,7 @@ class ArchivePin(Frozen):
 # the canonical Yale `spider_data.zip` (CC-BY-SA-4.0) on our own HF dataset repo, pinned by the
 # immutable commit SHA. The SHA256 is the hard trust anchor (computed from the Yale download,
 # 2026-06). Yale Drive id 1403EGqzIDoHMdQF4c9Bkyl7dZLZ5Wt6J is the documented provenance origin.
-SPIDER_DB_ARCHIVE: ArchivePin | None = ArchivePin(
+SPIDER_DB_ARCHIVE = ArchivePin(
     repo="HAL-9001/spider-databases",
     filename="spider_data.zip",
     revision="4a01bbac6520cd35b216db9e1724e5e1ada60aa4",
@@ -42,7 +39,7 @@ SPIDER_DB_ARCHIVE: ArchivePin | None = ArchivePin(
 # BIRD-dev, self-hosted like Spider (canonical BIRD `dev.zip`, 2024-06-27: dev.json +
 # dev_tables.json + nested dev_databases.zip). NOTE: BIRD is CC-BY-NC-4.0 (non-commercial), unlike
 # Spider's CC-BY-SA. SHA256 is the trust anchor; pin `revision` to the upload commit SHA.
-BIRD_ARCHIVE: ArchivePin | None = ArchivePin(
+BIRD_ARCHIVE = ArchivePin(
     repo="HAL-9001/bird-dev",
     filename="dev.zip",
     revision="837584317bf7e3d86a3f6d257bd5553b7e03e171",

@@ -159,11 +159,6 @@ def ensure_spider_databases(cache_dir: str | Path | None = None) -> SpiderDataba
     if override:
         return _spider_databases_at(Path(override))
 
-    if SPIDER_DB_ARCHIVE is None:
-        raise RuntimeError(
-            f"SPIDER_DB_ARCHIVE is not pinned; set ${_SPIDER_ROOT_ENV} or finalize design R1"
-        )
-
     cache = Path(cache_dir) if cache_dir is not None else _DEFAULT_CACHE
     extracted = cache / "spider_data"
     if not extracted.exists():

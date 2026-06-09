@@ -78,10 +78,7 @@ def _cmd_generate(args: argparse.Namespace) -> int:
     from text2sql_rlvr.eval.generate import generate
     from text2sql_rlvr.eval.provenance import DecodingConfig
 
-    # Prefer an explicit checksum; fall back to the pinned artifact's once R1 finalizes it.
-    db_archive_sha256 = args.db_archive_sha256 or (
-        SPIDER_DB_ARCHIVE.sha256 if SPIDER_DB_ARCHIVE else None
-    )
+    db_archive_sha256 = args.db_archive_sha256 or SPIDER_DB_ARCHIVE.sha256
     schemas = load_schemas(args.tables_json)
     examples = list(load_examples(args.split))
     if args.limit is not None:

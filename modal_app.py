@@ -103,7 +103,7 @@ def baseline(
         examples = list(load_examples(split))
         train_pool = list(load_examples("train")) if few_shot_k else []
         dataset_revision = SPIDER_HF_REVISION
-        db_sha = SPIDER_DB_ARCHIVE.sha256 if SPIDER_DB_ARCHIVE else None
+        db_sha = SPIDER_DB_ARCHIVE.sha256
     elif dataset == "bird":
         bird = ensure_bird_dev(data_root / "bird")
         schemas = load_schemas(bird.tables_json)
@@ -111,8 +111,8 @@ def baseline(
         # BIRD few-shot needs BIRD-train (not self-hosted yet); BIRD baseline is zero-shot for now.
         train_pool = []
         few_shot_k = 0
-        dataset_revision = BIRD_ARCHIVE.revision if BIRD_ARCHIVE else "unknown"
-        db_sha = BIRD_ARCHIVE.sha256 if BIRD_ARCHIVE else None
+        dataset_revision = BIRD_ARCHIVE.revision
+        db_sha = BIRD_ARCHIVE.sha256
     else:
         raise ValueError(f"dataset must be 'spider' or 'bird', got {dataset!r}")
 

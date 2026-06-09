@@ -58,9 +58,6 @@ def ensure_bird_dev(cache_dir: str | Path | None = None) -> BirdDev:
     if override:
         return _bird_dev_at(Path(override))
 
-    if BIRD_ARCHIVE is None:
-        raise RuntimeError(f"BIRD_ARCHIVE is not pinned; set ${_BIRD_ROOT_ENV} or finalize the pin")
-
     cache = Path(cache_dir) if cache_dir is not None else _DEFAULT_CACHE
     marker = cache / ".extracted"
     if not marker.exists():
