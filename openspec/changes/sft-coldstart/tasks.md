@@ -38,6 +38,6 @@
 
 ## 7. Docs + gate
 
-- [ ] 7.1 `RUNBOOK.md`: the cold-start procedure end-to-end (trace-gen → filter → SFT → adapter eval) with the Modal commands and the success bar.
+- [x] 7.1 `RUNBOOK.md`: the cold-start procedure end-to-end (trace-gen → filter → SFT → adapter eval) with the Modal commands and the success bar.
 - [ ] 7.2 `ARTIFACTS.md`: the adapter checkpoint + trace-dataset manifest as pinned artifacts, the model commit, and the committed SFT-vs-base table.
-- [ ] 7.3 `make check` green: new unit tests pass; Modal / GPU / TRL tests are integration (deselected by default).
+- [x] 7.3 `make check` green: new unit tests pass; Modal / GPU / TRL tests are integration (deselected by default).

@@ -1,8 +1,9 @@
-# Runbook: Stage-0 evaluation foundation
+# Runbook: evaluation foundation (Stage 0) + SFT cold-start (Stage 1)
 
-The procedure for fetching the data, running the base-model baseline, and reproducing the headline
-number. Everything here is CPU/MPS-runnable except the full-dev GPU pass (noted below). Exact
-external pins live in [`ARTIFACTS.md`](ARTIFACTS.md).
+The procedure for fetching the data, running the base-model baseline, building the cold-start
+trace dataset, training the LoRA SFT adapter, and reproducing the headline numbers. Everything
+here is CPU/MPS-runnable except the GPU passes (noted below). Exact external pins live in
+[`ARTIFACTS.md`](ARTIFACTS.md).
 
 ## One-time setup
 
@@ -59,12 +60,12 @@ the full-dev Modal GPU pass below.
 to a Modal Volume. Run with the `modal` CLI (`uv tool install modal`); public HF data/model, no token.
 
 ```bash
-modal run modal_app.py --dataset spider --limit 8                # day-1 smoke first
-modal run --detach modal_app.py --dataset spider --spawn         # Spider-dev zero-shot (<think>)
-modal run --detach modal_app.py --dataset spider --few-shot-k 3 --spawn
-modal run --detach modal_app.py --dataset spider --prompt-style direct --spawn
-modal run --detach modal_app.py --dataset bird --spawn           # BIRD-dev (headline)
-modal run --detach modal_app.py --dataset bird --prompt-style direct --spawn
+modal run modal_app.py::main --dataset spider --limit 8          # day-1 smoke first
+modal run --detach modal_app.py::main --dataset spider --spawn   # Spider-dev zero-shot (<think>)
+modal run --detach modal_app.py::main --dataset spider --few-shot-k 3 --spawn
+modal run --detach modal_app.py::main --dataset spider --prompt-style direct --spawn
+modal run --detach modal_app.py::main --dataset bird --spawn     # BIRD-dev (headline)
+modal run --detach modal_app.py::main --dataset bird --prompt-style direct --spawn
 
 # pull a result from the Volume and score on CPU
 modal volume get text2sql-runs spider-dev-zs.json ./runs/spider-dev-zs.json
@@ -88,6 +89,64 @@ the `<think>` chain-of-thought prompt depresses it (long rambling answers, ~1200
 Reporting both prevents an artificially-low baseline from inflating the later RL gain. (Both sit
 below SQL-R1's ~77% base, which adds schema-linking + a tuned harness we deliberately keep minimal.)
 BIRD few-shot is deferred (it needs BIRD-train exemplars — a small follow-up).
+
+## Stage 1: SFT cold-start (trace-gen → filter → SFT → adapter eval)
+
+The cold-start instills the `<think>…</think>` + ```sql``` format by self-distillation: sample the
+base on Spider-train, keep only traces whose SQL execution-matches gold (the Stage-0 verifier is
+the data filter), LoRA-SFT on those, and evaluate the adapter with the identical pipeline.
+
+**1. Sample candidates** (GPU; N=8 per train question at temperature 0.8):
+
+```bash
+modal run modal_app.py::traces --limit 8                  # day-1 smoke first
+modal run --detach modal_app.py::traces --spawn           # full Spider-train (~7k questions x 8)
+```
+
+**2. Filter into the trace dataset** (CPU; needs `make data`). Pull the CandidateSet, keep
+execution-correct + well-formed traces (shortest per question, exact-deduped; the trivial-empty
+guard is ON), and write the JSONL + manifest:
+
+```bash
+modal volume get text2sql-runs sft/candidates-n8-seed0.json ./runs/sft/candidates-n8-seed0.json
+uv run text2sql-rlvr build-traces --candidates runs/sft/candidates-n8-seed0.json \
+  --db-root data/spider/spider_data/database \
+  --out data/sft/traces.jsonl --manifest results/sft/traces.manifest.json
+```
+
+The manifest (kept/total counts + full sampling provenance) is committed under `results/sft/`;
+the JSONL bulk stays local/Volume (gitignored).
+
+**3. Train the LoRA adapter** (GPU; rank 32, all-linear, bf16, completion-only loss). Push the
+traces to the Volume, smoke a tiny run first, then the real one with the model commit pinned:
+
+```bash
+modal volume put text2sql-runs data/sft/traces.jsonl sft/traces.jsonl
+modal run modal_app.py::sft --epochs 1 --run-id sft-smoke     # day-1 smoke: loads + trains + saves
+modal run --detach modal_app.py::sft --run-id sft-r32 --model-revision <pinned-commit> --spawn
+```
+
+The adapter + `provenance.json` (base model + revision, LoRA config, trace-dataset SHA256,
+library versions, git commit) land under `sft/<run-id>/` on the Volume.
+
+**4. Evaluate the adapter** — same pipeline as the baseline, `--adapter` is the only difference
+(vLLM loads the LoRA over the base; the adapter is recorded in provenance):
+
+```bash
+modal run --detach modal_app.py::main --dataset spider --adapter sft/sft-r32 --spawn
+modal run --detach modal_app.py::main --dataset spider --adapter sft/sft-r32 --prompt-style direct --spawn
+modal run --detach modal_app.py::main --dataset bird --adapter sft/sft-r32 --spawn
+
+modal volume get text2sql-runs spider-dev-zs-sft-r32.json ./runs/spider-dev-zs-sft-r32.json
+uv run text2sql-rlvr score --completions runs/spider-dev-zs-sft-r32.json \
+  --db-root data/spider/spider_data/database
+```
+
+`score` now reports `well_formed_rate` alongside execution accuracy. **Success bar (D6):**
+format rate near-100% on dev AND no EX regression below the base `<think>` anchor (0.625
+Spider-dev / 0.313 BIRD-dev; target ≥ the direct anchor). If the bar is missed, the fallback
+ladder is documented in `openspec/changes/sft-coldstart/design.md` (more traces → SynSQL pull →
+teacher distillation).
 
 ## Reproduce the committed numbers (CPU only, no model)
 

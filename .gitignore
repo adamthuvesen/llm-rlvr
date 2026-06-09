@@ -14,5 +14,7 @@ __pycache__/
 # Datasets / databases are pinned + fetched, never committed
 /data/spider/
 /data/bird/
+# Built SFT trace datasets: bulk stays local/Volume; only the manifest is committed
+/data/sft/
 *.sqlite
 *.sqlite3
