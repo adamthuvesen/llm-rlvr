@@ -1,13 +1,14 @@
-"""Modal app: run the base-model baseline generation on a single A100 via vLLM.
+"""Modal app: GPU steps — baseline generation, trace sampling, and LoRA SFT (single A100).
 
-    modal run modal_app.py --dataset spider --limit 8            # day-1 smoke
-    modal run --detach modal_app.py --dataset spider --spawn     # full Spider-dev
-    modal run --detach modal_app.py --dataset spider --few-shot-k 3 --spawn
-    modal run --detach modal_app.py --dataset bird --spawn       # BIRD-dev (headline)
+    modal run modal_app.py::main --dataset spider --limit 8        # day-1 smoke
+    modal run --detach modal_app.py::main --dataset spider --spawn # full Spider-dev baseline
+    modal run modal_app.py::traces --limit 8                       # trace-sampling smoke
+    modal run --detach modal_app.py::traces --spawn                # Spider-train candidates
+    modal run --detach modal_app.py::sft --spawn                   # LoRA SFT on the traces
 
-Generation is the only GPU step; it writes a `CompletionSet` to a Modal Volume. Pull it with
-`modal volume get text2sql-runs <name> ./runs/<name>` and score on CPU (`make eval` / `text2sql-rlvr
-score`). Run with the `modal` CLI (`uv tool install modal`), not as a project dependency. Public HF
+Generation/sampling write artifacts to a Modal Volume; pull with `modal volume get text2sql-runs
+<name> ./runs/<name>` and filter/score on CPU (`text2sql-rlvr build-traces` / `score` / `make
+eval`). Run with the `modal` CLI (`uv tool install modal`), not as a project dependency. Public HF
 datasets/model, so no HF token is needed.
 
 CUDA / torch / vLLM versions must agree — expect to re-verify them against the box on the first
@@ -58,7 +59,7 @@ image = (
     .add_local_file(Path(__file__).parent / "uv.lock", f"{REMOTE_ROOT}/uv.lock", copy=True)
     .workdir(REMOTE_ROOT)
     .run_commands(
-        "uv export --frozen --extra gpu --no-emit-project -o /tmp/reqs.txt",
+        "uv export --frozen --extra gpu --extra train --no-emit-project -o /tmp/reqs.txt",
         "uv pip install --system -r /tmp/reqs.txt",
     )
     .add_local_dir(Path(__file__).parent, remote_path=REMOTE_ROOT, copy=True, ignore=_IGNORE)
@@ -145,6 +146,87 @@ def baseline(
     return str(out)
 
 
+@app.function(
+    image=image,
+    gpu="A100-80GB",
+    volumes={RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache},
+    timeout=6 * 60 * 60,
+)
+def sample_traces(
+    n: int = 8,
+    temperature: float = 0.8,
+    top_p: float = 0.95,
+    seed: int = 0,
+    max_new_tokens: int = 1024,
+    limit: int | None = None,
+) -> str:
+    """Sample N `<think>` completions per Spider-train question; write a CandidateSet (D2/D4)."""
+    from pathlib import Path
+
+    from text2sql_rlvr.data.artifacts import SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
+    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from text2sql_rlvr.eval.completions import write_json
+    from text2sql_rlvr.train.traces import CandidateSet, TraceSamplingConfig, sample_candidates
+
+    dbs = ensure_spider_databases(Path(RUNS_DIR) / "data" / "spider")
+    schemas = load_schemas(dbs.tables_json)
+    examples = list(load_examples("train"))
+    if limit is not None:
+        examples = examples[:limit]
+
+    sampling = TraceSamplingConfig(
+        n=n, temperature=temperature, top_p=top_p, seed=seed, max_new_tokens=max_new_tokens
+    )
+    candidate_set = CandidateSet(
+        base_model=MODEL,
+        sampling=sampling,
+        dataset="spider",
+        dataset_revision=SPIDER_HF_REVISION,
+        db_archive_sha256=SPIDER_DB_ARCHIVE.sha256,
+        items=sample_candidates(examples, schemas, model=MODEL, sampling=sampling),
+    )
+    name = f"candidates-n{n}-seed{seed}" + (f"-limit{limit}" if limit else "") + ".json"
+    out = write_json(candidate_set, Path(RUNS_DIR) / "sft" / name)
+    runs.commit()
+    print(f"wrote {len(candidate_set.items)} questions x {n} samples -> {out}")
+    return str(out)
+
+
+@app.function(
+    image=image,
+    gpu="A100-80GB",
+    volumes={RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache},
+    timeout=6 * 60 * 60,
+)
+def sft_train(
+    traces: str = "sft/traces.jsonl",
+    run_id: str = "sft-r32",
+    model_revision: str | None = None,
+    epochs: int = 3,
+    learning_rate: float = 1e-4,
+    seed: int = 0,
+    commit: str | None = None,
+    dirty: bool | None = None,
+) -> str:
+    """LoRA SFT on the trace dataset (D3); adapter + provenance land under `sft/<run-id>/`."""
+    from pathlib import Path
+
+    from text2sql_rlvr.train.sft import SftHyperparams, run_sft
+
+    out = run_sft(
+        Path(RUNS_DIR) / traces,
+        Path(RUNS_DIR) / "sft" / run_id,
+        base_model=MODEL,
+        base_model_revision=model_revision,
+        hyperparams=SftHyperparams(epochs=epochs, learning_rate=learning_rate, seed=seed),
+        commit=commit,
+        dirty=dirty,
+    )
+    runs.commit()
+    print(f"adapter + provenance -> {out}")
+    return str(out)
+
+
 @app.local_entrypoint()
 def main(
     dataset: str = "spider",
@@ -174,6 +256,61 @@ def main(
         print(f"baseline dispatched (spawn): function call {call.object_id}")
     else:
         print(f"baseline complete: {baseline.remote(**kwargs)}")
+
+
+@app.local_entrypoint()
+def traces(
+    n: int = 8,
+    temperature: float = 0.8,
+    top_p: float = 0.95,
+    seed: int = 0,
+    max_new_tokens: int = 1024,
+    limit: int | None = None,
+    spawn: bool = False,
+) -> None:
+    """Launch Spider-train trace sampling. Use --detach --spawn for the full-train run."""
+    kwargs = {
+        "n": n,
+        "temperature": temperature,
+        "top_p": top_p,
+        "seed": seed,
+        "max_new_tokens": max_new_tokens,
+        "limit": limit,
+    }
+    if spawn:
+        call = sample_traces.spawn(**kwargs)
+        print(f"trace sampling dispatched (spawn): function call {call.object_id}")
+    else:
+        print(f"trace sampling complete: {sample_traces.remote(**kwargs)}")
+
+
+@app.local_entrypoint()
+def sft(
+    traces: str = "sft/traces.jsonl",
+    run_id: str = "sft-r32",
+    model_revision: str | None = None,
+    epochs: int = 3,
+    learning_rate: float = 1e-4,
+    seed: int = 0,
+    spawn: bool = False,
+) -> None:
+    """Launch the LoRA SFT. `traces` is the dataset path relative to the runs Volume."""
+    kwargs = {
+        "traces": traces,
+        "run_id": run_id,
+        "model_revision": model_revision,
+        "epochs": epochs,
+        "learning_rate": learning_rate,
+        "seed": seed,
+        # The image strips .git, so compute git state locally and pass it into provenance.
+        "commit": _local_git_commit(),
+        "dirty": _local_git_dirty(),
+    }
+    if spawn:
+        call = sft_train.spawn(**kwargs)
+        print(f"SFT dispatched (spawn): function call {call.object_id}")
+    else:
+        print(f"SFT complete: {sft_train.remote(**kwargs)}")
 
 
 def _local_git_commit() -> str:

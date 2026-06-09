@@ -19,7 +19,7 @@
 
 ## 4. Modal SFT training function (modal_app)
 
-- [ ] 4.1 `modal_app.py`: add an `sft_train` `@app.function(gpu="A100-80GB")` that reads the trace dataset from the Volume, runs the LoRA SFT, and writes the adapter to the Volume under `sft/<run-id>/`; `@app.local_entrypoint()` passes git commit/dirty + config and supports `--detach --spawn`.
+- [x] 4.1 `modal_app.py`: add an `sft_train` `@app.function(gpu="A100-80GB")` that reads the trace dataset from the Volume, runs the LoRA SFT, and writes the adapter to the Volume under `sft/<run-id>/`; `@app.local_entrypoint()` passes git commit/dirty + config and supports `--detach --spawn`.
 - [ ] 4.2 Day-1 SFT smoke: a few-step SFT on a tiny trace slice → adapter written to the Volume → loadable over the base (integration / GPU), before any full run.
 
 ## 5. Adapter evaluation (baseline-evaluation, modified)

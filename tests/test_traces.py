@@ -8,10 +8,12 @@ import pytest
 
 from text2sql_rlvr.data.models import Example
 from text2sql_rlvr.train.traces import (
+    CandidateSet,
     TraceCandidates,
     TraceSamplingConfig,
     build_trace_manifest,
     filter_traces,
+    read_candidate_set,
     read_trace_dataset,
     sample_candidates,
     write_trace_dataset,
@@ -94,25 +96,69 @@ def test_train_only_guard_raises_on_dev_pool() -> None:
         sample_candidates([dev], {}, model="m", sampling=TraceSamplingConfig())
 
 
-def test_manifest_carries_reproducibility_fields() -> None:
-    _, counts = filter_traces([], "unused")
-    manifest = build_trace_manifest(
+def _candidate_set(*texts: str, gold_sql: str = "SELECT a FROM t") -> CandidateSet:
+    return CandidateSet(
         base_model="Qwen/Qwen2.5-Coder-3B-Instruct",
         base_model_revision="abc123",
         sampling=TraceSamplingConfig(),
         dataset="spider",
         dataset_revision="rev",
         db_archive_sha256="d" * 64,
-        counts=counts,
-        commit="deadbeef",
-        dirty=False,
+        items=tuple(_candidates(*texts, gold_sql=gold_sql)),
     )
+
+
+def test_manifest_carries_reproducibility_fields(scoring_root: Path) -> None:
+    candidate_set = _candidate_set(WF_CORRECT)
+    _, counts = filter_traces(candidate_set.items, scoring_root)
+    manifest = build_trace_manifest(candidate_set, counts, commit="deadbeef", dirty=False)
     assert manifest.base_model_revision == "abc123"
     assert manifest.sampling.n == 8
     assert manifest.sampling.temperature == 0.8
     assert manifest.db_archive_sha256 == "d" * 64
     assert manifest.selection == "shortest"
+    assert manifest.counts.n_kept == 1
     assert manifest.git_commit == "deadbeef"
+
+
+def test_candidate_set_file_round_trip(tmp_path: Path) -> None:
+    from text2sql_rlvr.eval.completions import write_json
+
+    candidate_set = _candidate_set(WF_CORRECT, WF_WRONG)
+    path = write_json(candidate_set, tmp_path / "candidates.json")
+    assert read_candidate_set(path) == candidate_set
+
+
+def test_build_traces_cli_runs_the_whole_cpu_funnel(scoring_root: Path, tmp_path: Path) -> None:
+    import json
+
+    from text2sql_rlvr.eval.cli import main
+    from text2sql_rlvr.eval.completions import write_json
+
+    candidates_path = write_json(
+        _candidate_set(WF_CORRECT, WF_WRONG, MALFORMED_CORRECT), tmp_path / "candidates.json"
+    )
+    out = tmp_path / "traces.jsonl"
+    manifest_path = tmp_path / "manifest.json"
+    code = main(
+        [
+            "build-traces",
+            "--candidates", str(candidates_path),
+            "--db-root", str(scoring_root),
+            "--out", str(out),
+            "--manifest", str(manifest_path),
+        ]
+    )  # fmt: skip
+    assert code == 0
+    assert read_trace_dataset(out)[0].completion == WF_CORRECT
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["counts"] == {
+        "n_questions": 1,
+        "n_candidates": 3,
+        "n_eligible": 1,
+        "n_kept": 1,
+        "n_gold_errors": 0,
+    }
 
 
 def test_trace_dataset_jsonl_round_trip(scoring_root: Path, tmp_path: Path) -> None:

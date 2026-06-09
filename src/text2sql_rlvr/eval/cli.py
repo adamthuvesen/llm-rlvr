@@ -1,9 +1,13 @@
-"""`text2sql-rlvr` CLI: `generate` (the only model-loading step) and `score` (model-free).
+"""`text2sql-rlvr` CLI: `generate` (the only model-loading step), `score`, and `build-traces`
+(both model-free).
 
     text2sql-rlvr generate --model Qwen/Qwen2.5-Coder-3B-Instruct --split dev \
         --tables-json data/spider/tables.json --backend transformers --out runs/baseline
     text2sql-rlvr score --completions runs/baseline --db-root data/spider/database \
         --out results/baseline.json
+    text2sql-rlvr build-traces --candidates runs/sft/candidates.json \
+        --db-root data/spider/spider_data/database --out data/sft/traces.jsonl \
+        --manifest results/sft/traces.manifest.json
 """
 
 from __future__ import annotations
@@ -49,6 +53,15 @@ def main(argv: list[str] | None = None) -> int:
     score.add_argument("--out", default=None, help="optional ScoreReport json path")
     score.add_argument("--no-keep-distinct", action="store_true")
     score.set_defaults(func=_cmd_score)
+
+    traces = sub.add_parser(
+        "build-traces", help="filter sampled candidates into the SFT trace dataset (CPU)"
+    )
+    traces.add_argument("--candidates", required=True, help="CandidateSet json from the GPU run")
+    traces.add_argument("--db-root", required=True, help="extracted Spider database/ directory")
+    traces.add_argument("--out", required=True, help="output trace-dataset JSONL path")
+    traces.add_argument("--manifest", required=True, help="output manifest json path")
+    traces.set_defaults(func=_cmd_build_traces)
 
     args = parser.parse_args(argv)
     try:
@@ -103,6 +116,27 @@ def _cmd_generate(args: argparse.Namespace) -> int:
     )
     path = write_completion_set(completion_set, args.out)
     print(f"wrote {len(completion_set.items)} completions -> {path}")
+    return 0
+
+
+def _cmd_build_traces(args: argparse.Namespace) -> int:
+    # Imported here so `generate`/`score` never pay for the train-layer imports.
+    from text2sql_rlvr.train.traces import (
+        build_trace_manifest,
+        filter_traces,
+        read_candidate_set,
+        write_trace_dataset,
+    )
+
+    candidate_set = read_candidate_set(args.candidates)
+    kept, counts = filter_traces(candidate_set.items, args.db_root)
+    path = write_trace_dataset(kept, args.out)
+    write_json(build_trace_manifest(candidate_set, counts), args.manifest)
+    print(
+        f"kept {counts.n_kept}/{counts.n_questions} questions "
+        f"({counts.n_candidates} candidates, {counts.n_eligible} eligible, "
+        f"{counts.n_gold_errors} gold errors) -> {path}"
+    )
     return 0
 
 

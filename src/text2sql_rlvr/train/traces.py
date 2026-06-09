@@ -42,6 +42,22 @@ class TraceCandidates(Frozen):
     texts: tuple[str, ...]
 
 
+class CandidateSet(Frozen):
+    """Sampled candidates plus the sampling provenance the CPU filter step needs.
+
+    The GPU sample step writes this to the Volume; `filter_traces` + `build_trace_manifest`
+    consume it locally — the same generate-on-GPU / score-on-CPU split as the baseline.
+    """
+
+    base_model: str
+    base_model_revision: str | None = None
+    sampling: TraceSamplingConfig
+    dataset: str
+    dataset_revision: str
+    db_archive_sha256: str | None = None
+    items: tuple[TraceCandidates, ...]
+
+
 class SftTrace(Frozen):
     """One kept SFT record: the prompt messages and the selected `<think>`+SQL completion."""
 
@@ -182,26 +198,25 @@ def filter_traces(
     return tuple(kept), counts
 
 
+def read_candidate_set(path: str | Path) -> CandidateSet:
+    return CandidateSet.model_validate_json(Path(path).read_text(encoding="utf-8"))
+
+
 def build_trace_manifest(
-    *,
-    base_model: str,
-    sampling: TraceSamplingConfig,
-    dataset: str,
-    dataset_revision: str,
+    candidates: CandidateSet,
     counts: TraceCounts,
-    base_model_revision: str | None = None,
-    db_archive_sha256: str | None = None,
+    *,
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> TraceDatasetManifest:
-    """Assemble the manifest, capturing git state unless `commit`/`dirty` are passed in."""
+    """Assemble the manifest from the candidate set's sampling provenance + the filter counts."""
     return TraceDatasetManifest(
-        base_model=base_model,
-        base_model_revision=base_model_revision,
-        sampling=sampling,
-        dataset=dataset,
-        dataset_revision=dataset_revision,
-        db_archive_sha256=db_archive_sha256,
+        base_model=candidates.base_model,
+        base_model_revision=candidates.base_model_revision,
+        sampling=candidates.sampling,
+        dataset=candidates.dataset,
+        dataset_revision=candidates.dataset_revision,
+        db_archive_sha256=candidates.db_archive_sha256,
         counts=counts,
         git_commit=commit if commit is not None else git_commit(),
         git_dirty=dirty if dirty is not None else git_is_dirty(),

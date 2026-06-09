@@ -11,6 +11,7 @@ from text2sql_rlvr.train.sft import (
     sft_config_kwargs,
 )
 from text2sql_rlvr.train.traces import (
+    CandidateSet,
     SftTrace,
     TraceCandidates,
     TraceCounts,
@@ -18,6 +19,7 @@ from text2sql_rlvr.train.traces import (
     TraceSamplingConfig,
     build_trace_manifest,
     filter_traces,
+    read_candidate_set,
     read_trace_dataset,
     sample_candidates,
     write_trace_dataset,
@@ -25,6 +27,7 @@ from text2sql_rlvr.train.traces import (
 
 __all__ = [
     "AdapterProvenance",
+    "CandidateSet",
     "SftHyperparams",
     "SftTrace",
     "TraceCandidates",
@@ -37,6 +40,7 @@ __all__ = [
     "build_trace_manifest",
     "filter_traces",
     "lora_kwargs",
+    "read_candidate_set",
     "read_trace_dataset",
     "run_sft",
     "sample_candidates",
