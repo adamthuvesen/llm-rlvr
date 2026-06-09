@@ -40,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     gen.add_argument("--slice-seed", type=int, default=0)
     gen.add_argument("--max-new-tokens", type=int, default=1024)
     gen.add_argument("--temperature", type=float, default=0.0)
+    gen.add_argument("--prompt-style", choices=["cot", "direct"], default="cot")
     gen.set_defaults(func=_cmd_generate)
 
     score = sub.add_parser("score", help="score a CompletionSet into execution accuracy")
@@ -101,6 +102,7 @@ def _cmd_generate(args: argparse.Namespace) -> int:
         train_pool=train_pool,
         few_shot_k=args.few_shot_k,
         few_shot_seed=args.few_shot_seed,
+        prompt_style=args.prompt_style,
     )
     path = write_completion_set(completion_set, args.out)
     print(f"wrote {len(completion_set.items)} completions -> {path}")

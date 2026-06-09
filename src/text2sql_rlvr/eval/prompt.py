@@ -19,34 +19,55 @@ INSTRUCTION = (
     "single SQLite query that answers it. Reason step by step inside <think></think>, then give "
     "the final query in a ```sql ... ``` code block."
 )
+# A direct prompt (no chain-of-thought) — the standard base-model text-to-SQL setup, for a fair,
+# literature-comparable base number. The `<think>` style above is matched to the RL model.
+DIRECT_INSTRUCTION = (
+    "You are an expert data analyst. Given a SQLite database schema and a question, write a "
+    "single SQLite query that answers it. Output only the query in a ```sql ... ``` code block, "
+    "with no explanation."
+)
+INSTRUCTIONS = {"cot": INSTRUCTION, "direct": DIRECT_INSTRUCTION}
 
 
 class FewShotExemplar(Frozen):
-    """A rendered few-shot demonstration: source db_id, schema text, question, and gold SQL."""
+    """A rendered few-shot demonstration: db_id, schema text, question, gold SQL, and evidence."""
 
     db_id: str
     schema_text: str
     question: str
     gold_sql: str
+    evidence: str | None = None
 
 
-def _user_content(schema_text: str, question: str) -> str:
-    return f"Database schema:\n{schema_text}\n\nQuestion: {question}"
+def _user_content(schema_text: str, question: str, evidence: str | None = None) -> str:
+    content = f"Database schema:\n{schema_text}\n\nQuestion: {question}"
+    if evidence:
+        content += f"\nEvidence: {evidence}"
+    return content
 
 
 def build_messages(
     schema_text: str,
     question: str,
     exemplars: Sequence[FewShotExemplar] = (),
+    evidence: str | None = None,
+    style: str = "cot",
 ) -> list[dict[str, str]]:
     """Chat messages: system, few-shot user/assistant pairs, then the target question."""
-    messages = [{"role": "system", "content": INSTRUCTION}]
+    if style not in INSTRUCTIONS:
+        raise ValueError(f"unknown prompt style {style!r}; expected one of {sorted(INSTRUCTIONS)}")
+    messages = [{"role": "system", "content": INSTRUCTIONS[style]}]
     for exemplar in exemplars:
         messages.append(
-            {"role": "user", "content": _user_content(exemplar.schema_text, exemplar.question)}
+            {
+                "role": "user",
+                "content": _user_content(
+                    exemplar.schema_text, exemplar.question, exemplar.evidence
+                ),
+            }
         )
         messages.append({"role": "assistant", "content": f"```sql\n{exemplar.gold_sql}\n```"})
-    messages.append({"role": "user", "content": _user_content(schema_text, question)})
+    messages.append({"role": "user", "content": _user_content(schema_text, question, evidence)})
     return messages
 
 
@@ -77,6 +98,7 @@ def select_exemplars(
             schema_text=serialize_schema(schemas[example.db_id]),
             question=example.question,
             gold_sql=example.gold_sql,
+            evidence=example.evidence,
         )
         for example in chosen
     )

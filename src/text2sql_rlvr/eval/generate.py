@@ -22,10 +22,17 @@ def build_prompts(
     examples: Sequence[Example],
     schemas: Mapping[str, DatabaseSchema],
     exemplars: Sequence[FewShotExemplar] = (),
+    style: str = "cot",
 ) -> list[Messages]:
     """Render chat messages for every example with the shared few-shot exemplars. Pure/testable."""
     return [
-        build_messages(serialize_schema(schemas[example.db_id]), example.question, exemplars)
+        build_messages(
+            serialize_schema(schemas[example.db_id]),
+            example.question,
+            exemplars,
+            evidence=example.evidence,
+            style=style,
+        )
         for example in examples
     ]
 
@@ -45,10 +52,13 @@ def generate(
     train_pool: Sequence[Example] = (),
     few_shot_k: int = 0,
     few_shot_seed: int = 0,
+    prompt_style: str = "cot",
+    commit: str | None = None,
+    dirty: bool | None = None,
 ) -> CompletionSet:
     """Generate one completion per example and assemble a provenance-stamped `CompletionSet`."""
     exemplars = select_exemplars(train_pool, schemas, k=few_shot_k, seed=few_shot_seed)
-    prompts = build_prompts(examples, schemas, exemplars)
+    prompts = build_prompts(examples, schemas, exemplars, style=prompt_style)
     raw_texts = _run_backend(prompts, model=model, backend=backend, decoding=decoding)
     provenance = build_generation_provenance(
         model=model,
@@ -63,6 +73,9 @@ def generate(
         few_shot_k=few_shot_k,
         few_shot_seed=few_shot_seed if few_shot_k else None,
         few_shot_exemplars=tuple((e.db_id, e.question) for e in exemplars),
+        prompt_style=prompt_style,
+        commit=commit,
+        dirty=dirty,
     )
     return assemble_completion_set(examples, raw_texts, provenance)
 

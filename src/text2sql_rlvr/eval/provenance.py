@@ -35,6 +35,7 @@ class GenerationProvenance(Frozen):
     decoding: DecodingConfig = Field(default_factory=DecodingConfig)
     model_revision: str | None = None
     db_archive_sha256: str | None = None
+    prompt_style: str = "cot"
     few_shot_k: int = 0
     few_shot_seed: int | None = None
     # The resolved exemplars actually injected, as (db_id, question) pairs — so a reviewer can read
@@ -86,11 +87,18 @@ def build_generation_provenance(
     decoding: DecodingConfig,
     model_revision: str | None = None,
     db_archive_sha256: str | None = None,
+    prompt_style: str = "cot",
     few_shot_k: int = 0,
     few_shot_seed: int | None = None,
     few_shot_exemplars: Sequence[tuple[str, str]] = (),
+    commit: str | None = None,
+    dirty: bool | None = None,
 ) -> GenerationProvenance:
-    """Assemble provenance, capturing git + library state from the current environment."""
+    """Assemble provenance, capturing git + library state from the current environment.
+
+    `commit`/`dirty` override the local git lookup — needed on Modal, where the image strips `.git`
+    and the entrypoint passes the real values in.
+    """
     return GenerationProvenance(
         model=model,
         backend=backend,
@@ -101,10 +109,11 @@ def build_generation_provenance(
         decoding=decoding,
         model_revision=model_revision,
         db_archive_sha256=db_archive_sha256,
+        prompt_style=prompt_style,
         few_shot_k=few_shot_k,
         few_shot_seed=few_shot_seed,
         few_shot_exemplars=tuple(few_shot_exemplars),
-        git_commit=git_commit(),
-        git_dirty=git_is_dirty(),
+        git_commit=commit if commit is not None else git_commit(),
+        git_dirty=dirty if dirty is not None else git_is_dirty(),
         library_versions=library_versions(),
     )
