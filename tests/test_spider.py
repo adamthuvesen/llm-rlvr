@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from text2sql_rlvr.data import resolve_database, serialize_schema, verify_sha256
+from text2sql_rlvr.data import ForeignKey, resolve_database, serialize_schema, verify_sha256
 from text2sql_rlvr.data.spider import load_schemas, parse_schema
 
 TABLES_ENTRY = {
@@ -38,7 +38,7 @@ def test_parse_schema_tables_columns_pk_fk() -> None:
     assert stadium.primary_key == ("Stadium_ID",)
     assert singer.primary_key == ("Singer_ID",)
     assert schema.foreign_keys == (
-        type(schema.foreign_keys[0])(
+        ForeignKey(
             from_table="singer",
             from_column="Stadium_ID",
             to_table="stadium",
