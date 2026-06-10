@@ -92,11 +92,14 @@
   (+10.7), 5e-5 **0.783** (+15.0); all 100% well-formed, no instability (zero_std ≤0.29, smooth reward).
   **LOCKED LR = 5e-5** (user-approved: best measured EX; dev-EX early-stop + checkpoint-selection guards
   the KL-0.21 drift over the longer headline). GRPO improves EX, not just format — core thesis holds.
-- [ ] 6.2 Run the **3-seed Qwen headline** GRPO at the locked LR + shaped arm; pull, eval on full
-  Spider-dev + BIRD-dev, commit the `CompletionSet`s + `ScoreReport`s under `results/grpo/`. Watch
-  `frac_reward_zero_std` / entropy for a dead signal. (~$50–60)
-- [ ] 6.3 Confirm the success bar: BIRD-dev RL > SFT anchor with a seed-level CI that excludes zero;
-  record the headline gain.
+- [x] 6.2 3-seed Qwen headline DONE (2026-06-10, `grpo-s0/s1/s2` @ LR 5e-5 shaped, full Spider-train
+  6500, warm-start sft-r32). Evaled full Spider-dev + BIRD-dev, `CompletionSet`s committed under
+  `results/grpo/`. (Network blip killed the first non-detached attempt → re-ran with `--detach
+  --spawn`. ~$22.)
+- [x] 6.3 SUCCESS BAR MET on both benchmarks (seed-level 95% CI excludes zero):
+  **Spider-dev 0.678→0.779 (+10.2pt, CI [+5.8,+14.5])**; **BIRD-dev 0.344→0.406 (+6.1pt, CI
+  [+5.6,+6.7])** — headline gain transfers to BIRD, 100% well-formed all seeds, BIRD seeds tight
+  (0.404/0.405/0.408). base→SFT→RL = 0.313→0.344→0.406. The thesis holds: RL improves EX.
 
 ## 7. Controls (paid GPU, folded into the Stage-2 deliverable)
 
