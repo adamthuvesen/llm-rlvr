@@ -43,7 +43,6 @@ class GrpoHyperparams(Frozen):
     beta: float = 0.04  # KL coefficient; start at a mild value, revisit if entropy collapses.
     num_generations: int = 4  # G=4 halves generation vs G=8; 2-GRPO shows G=2 keeps 97.6%.
     max_completion_length: int = 1024  # SQL is short; the length reward guards truncation.
-    max_prompt_length: int = 1024
     temperature: float = 1.0  # exploration during rollouts
     top_p: float = 1.0
     per_device_batch_size: int = 8
@@ -77,7 +76,6 @@ def grpo_config_kwargs(hyperparams: GrpoHyperparams, output_dir: str | Path) -> 
         "beta": hyperparams.beta,
         "num_generations": hyperparams.num_generations,
         "max_completion_length": hyperparams.max_completion_length,
-        "max_prompt_length": hyperparams.max_prompt_length,
         "temperature": hyperparams.temperature,
         "top_p": hyperparams.top_p,
         "per_device_train_batch_size": hyperparams.per_device_batch_size,
@@ -104,9 +102,21 @@ def build_lora_config(hyperparams: GrpoHyperparams):
 
 
 def build_grpo_config(hyperparams: GrpoHyperparams, output_dir: str | Path):
+    import dataclasses
+    import logging
+
     from trl import GRPOConfig  # lazy import: train extra only
 
-    return GRPOConfig(**grpo_config_kwargs(hyperparams, output_dir))
+    # The TRL↔vLLM pairing is fragile and GRPOConfig fields drift across versions, so pass only the
+    # kwargs this installed GRPOConfig accepts and warn loudly on any dropped — never silently.
+    desired = grpo_config_kwargs(hyperparams, output_dir)
+    valid = {f.name for f in dataclasses.fields(GRPOConfig)}
+    dropped = sorted(set(desired) - valid)
+    if dropped:
+        logging.getLogger(__name__).warning(
+            "GRPOConfig dropped unsupported kwargs %s on this trl version", dropped
+        )
+    return GRPOConfig(**{k: v for k, v in desired.items() if k in valid})
 
 
 def split_train_dev(
