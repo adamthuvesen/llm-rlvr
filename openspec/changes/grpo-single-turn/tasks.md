@@ -87,8 +87,11 @@
 
 ## 6. LR pilot + headline run (paid GPU)
 
-- [ ] 6.1 Short single-seed LR pilot (`{5e-6, 1e-5, 5e-5}`, ~150 steps each on the dev-EX slice); lock
-  the GRPO LoRA LR off the curve and record it in ARTIFACTS. (~$3–5)
+- [x] 6.1 LR pilot DONE (2026-06-10, `{5e-6,1e-5,5e-5}`, ~240 steps each on Spider-train limit 2000,
+  eval on Spider-dev 300-slice). Monotonic gain over SFT (0.633): 5e-6 **0.713** (+8.0), 1e-5 **0.740**
+  (+10.7), 5e-5 **0.783** (+15.0); all 100% well-formed, no instability (zero_std ≤0.29, smooth reward).
+  **LOCKED LR = 5e-5** (user-approved: best measured EX; dev-EX early-stop + checkpoint-selection guards
+  the KL-0.21 drift over the longer headline). GRPO improves EX, not just format — core thesis holds.
 - [ ] 6.2 Run the **3-seed Qwen headline** GRPO at the locked LR + shaped arm; pull, eval on full
   Spider-dev + BIRD-dev, commit the `CompletionSet`s + `ScoreReport`s under `results/grpo/`. Watch
   `frac_reward_zero_std` / entropy for a dead signal. (~$50–60)
