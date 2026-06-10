@@ -23,7 +23,9 @@ checksummed artifact above (design D2/R1). BIRD's `dev.zip` is one self-hosted b
 
 | Artifact | Pin | License |
 | --- | --- | --- |
-| Base model | `Qwen/Qwen2.5-Coder-3B-Instruct` at HF `main` (greedy is deterministic; pin a commit for byte-strict repro) | Apache 2.0 |
+| Base model | `Qwen/Qwen2.5-Coder-3B-Instruct` at HF `main`; the SFT run pins commit `488639f1ff808d1d3d0ba301aef8c11461451ec5` | Apache 2.0 |
+| Stage-1 LoRA adapter `sft-r32` | Modal Volume `text2sql-runs` → `sft/sft-r32/` (provenance.json: base commit above, rank 32 all-linear, trace-dataset SHA256, trl 1.5.1 / peft 0.19.1) | — |
+| Stage-1 trace dataset | 2,971 traces; manifest `results/sft/traces.manifest.json`; JSONL SHA256 `b02435e49f183425299f3167503883d0b006faf884f7705fc02abc3ad34613e6` (bulk on the Volume at `sft/traces.jsonl`) | self-generated |
 | Vendored verifier | `taoyds/test-suite-sql-eval` — execution-match path only (`exec_eval.py` + `parse.py`) | Apache 2.0 |
 
 The verifier is parity-tested against upstream (`tests/test_verifier_parity.py`); the only
@@ -45,7 +47,23 @@ The headline base-model baselines (Coder-3B-Instruct, greedy, **full dev**), eac
 | `bird-dev-zs-direct.json` | BIRD-dev, direct zero-shot | 0.3514 (539/1534) |
 
 Each `CompletionSet` carries its own provenance (model, greedy decoding, dataset revision,
-DB-archive SHA256, **`prompt_style`**, few-shot recipe, git commit), so every number is traceable
-to exactly the inputs that produced it. The two prompt styles (`<think>` matched vs direct) are
-reported deliberately — see RUNBOOK § *Methodology*. The 50-example `*-n50` slices remain as the
-local wiring proof. `*.score.json` files are the committed `ScoreReport`s.
+DB-archive SHA256, **`prompt_style`**, few-shot recipe, adapter, git commit), so every number is
+traceable to exactly the inputs that produced it. The two prompt styles (`<think>` matched vs
+direct) are reported deliberately — see RUNBOOK § *Methodology*. The 50-example `*-n50` slices
+remain as the local wiring proof. `*.score.json` files are the committed `ScoreReport`s.
+
+## Stage 1: SFT cold-start (`results/sft/`, adapter `sft-r32`)
+
+Same pipeline with `--adapter sft/sft-r32`; `make eval` re-derives these rows too. Success bar
+(D6): well-formed rate near-100% **and** no EX regression below the base `<think>` anchor — met.
+
+| File | Setting | EX | Well-formed |
+| --- | --- | --- | --- |
+| `spider-dev-zs-sft-r32.json` | Spider-dev, `<think>` zero-shot + sft-r32 | 0.6779 (701/1034) | 0.9923 |
+| `spider-dev-zs-direct-sft-r32.json` | Spider-dev, direct zero-shot + sft-r32 | 0.7118 (736/1034) | — |
+| `bird-dev-zs-sft-r32.json` | BIRD-dev, `<think>` zero-shot + sft-r32 | 0.3442 (528/1534) | 0.9602 |
+
+SFT-vs-base: Spider-dev `<think>` 0.6248 → **0.6779** (+5.3pt, format 3% → 99%); BIRD-dev
+`<think>` 0.3129 → **0.3442** (+3.1pt, format 4% → 96%); the adapter also lifts direct mode
+(0.6692 → 0.7118). The direct rows score 0 well-formed by construction — that prompt asks for
+bare SQL, no `<think>` block.

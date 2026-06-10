@@ -20,7 +20,7 @@
 ## 4. Modal SFT training function (modal_app)
 
 - [x] 4.1 `modal_app.py`: add an `sft_train` `@app.function(gpu="A100-80GB")` that reads the trace dataset from the Volume, runs the LoRA SFT, and writes the adapter to the Volume under `sft/<run-id>/`; `@app.local_entrypoint()` passes git commit/dirty + config and supports `--detach --spawn`.
-- [ ] 4.2 Day-1 SFT smoke: a few-step SFT on a tiny trace slice → adapter written to the Volume → loadable over the base (integration / GPU), before any full run.
+- [x] 4.2 Day-1 SFT smoke: a few-step SFT on a tiny trace slice → adapter written to the Volume → loadable over the base (integration / GPU), before any full run.
 
 ## 5. Adapter evaluation (baseline-evaluation, modified)
 
@@ -31,13 +31,13 @@
 
 ## 6. Run the cold-start
 
-- [ ] 6.1 Generate candidates on Spider-train via Modal (GPU), pull, filter, and build the trace dataset; commit its manifest + kept/total stats under `results/sft/` (raw traces live on the Volume; commit the manifest, not the bulk).
-- [ ] 6.2 Pin the `Qwen/Qwen2.5-Coder-3B-Instruct` commit for the SFT run; run the LoRA SFT on Modal; record the adapter checkpoint id + training provenance.
-- [ ] 6.3 Evaluate the SFT checkpoint on full Spider-dev + BIRD-dev (both `<think>` and direct anchors), pull + score; commit the `CompletionSet`s + `ScoreReport`s under `results/sft/`.
-- [ ] 6.4 Extend `make eval` to re-derive the SFT-vs-base table (EX + well-formed-format rate) on CPU from the committed artifacts; confirm the success bar — format rate near-100% and no EX regression below the base `<think>` anchor.
+- [x] 6.1 Generate candidates on Spider-train via Modal (GPU), pull, filter, and build the trace dataset; commit its manifest + kept/total stats under `results/sft/` (raw traces live on the Volume; commit the manifest, not the bulk).
+- [x] 6.2 Pin the `Qwen/Qwen2.5-Coder-3B-Instruct` commit for the SFT run; run the LoRA SFT on Modal; record the adapter checkpoint id + training provenance.
+- [x] 6.3 Evaluate the SFT checkpoint on full Spider-dev + BIRD-dev (both `<think>` and direct anchors), pull + score; commit the `CompletionSet`s + `ScoreReport`s under `results/sft/`.
+- [x] 6.4 Extend `make eval` to re-derive the SFT-vs-base table (EX + well-formed-format rate) on CPU from the committed artifacts; confirm the success bar — format rate near-100% and no EX regression below the base `<think>` anchor.
 
 ## 7. Docs + gate
 
 - [x] 7.1 `RUNBOOK.md`: the cold-start procedure end-to-end (trace-gen → filter → SFT → adapter eval) with the Modal commands and the success bar.
-- [ ] 7.2 `ARTIFACTS.md`: the adapter checkpoint + trace-dataset manifest as pinned artifacts, the model commit, and the committed SFT-vs-base table.
+- [x] 7.2 `ARTIFACTS.md`: the adapter checkpoint + trace-dataset manifest as pinned artifacts, the model commit, and the committed SFT-vs-base table.
 - [x] 7.3 `make check` green: new unit tests pass; Modal / GPU / TRL tests are integration (deselected by default).
