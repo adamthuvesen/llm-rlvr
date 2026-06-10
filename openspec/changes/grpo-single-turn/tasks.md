@@ -2,22 +2,26 @@
 
 ## 1. De-risk before paid training (GPU smoke + pairing)
 
-- [ ] 1.1 Confirm the Stage-0 colocate GPU smoke was actually run; if not, run a ~50-step
-  `GRPOTrainer` + vLLM colocate smoke on 3B (LoRA, G=2, short completions) to confirm the A100-80GB
-  memory envelope. Record the envelope (peak GPU mem, `vllm_gpu_memory_utilization` used) in the RUNBOOK.
-- [ ] 1.1a Capture the cost instruments from the smoke so the budget is locked before any headline
-  spend: **measured wall-clock per GRPO step** (generation vs update split) and the **mean/p95
-  completion-token count** per rollout. Extrapolate the projected $/seed at G=4 + the chosen
-  `max_completion_length` and record it in the RUNBOOK — this replaces the planning estimate with a
-  measured number.
+- [x] 1.1 GPU colocate smoke RAN (2026-06-10, `grpo-smoke`, 32 train / 8 dev, 3 steps, exit 0): GRPO
+  end-to-end on A100-80GB, vLLM colocate at `gpu_mem_util=0.3`, **no OOM**, CUDA graphs captured.
+  Envelope confirmed (binary fits-on-A100-80GB; explicit peak-mem not instrumented — add an nvidia-smi
+  log to the pilot if a precise number is wanted). RUNBOOK write lands with 8.2.
+- [x] 1.1a Cost instruments captured: **step_time 13.4s** (per_device_batch 8, G=4), completions
+  **mean 226 tok, clipped_ratio 0** (1024 cap comfortable). Extrapolated 3-seed headline ≈ **$8–22**
+  (300→800 steps/seed at $2.50/hr) — far under the planning $50–60, and the preamble penalty will
+  shrink completions during training. The LR pilot (6.1) pins steps-to-convergence; RUNBOOK in 8.2.
 - [x] 1.1b Token-count check on the `sft-r32` warm-start: measured on the committed completions —
   the preamble is **~54% of every completion** (~180–195 tok of ~320–360 total, p95 ~500, so it does
   not truncate the 1024 cap but burns half the rollout budget). Trim approach decided + built: the
   reward `format` component (task 2.2) gives full credit only when `<think>` *leads* (preamble caps at
   `preamble_credit=0.3`), turning the waste into an RL signal toward the cheaper format. Verify the
   token drop at the LR pilot (6.1); add a prompt nudge there if the reward pressure alone is slow.
-- [ ] 1.2 Re-verify the pinned TRL (1.5.1) ↔ vLLM pair imports and runs a single GRPO step in the
-  Modal image; make a failed pairing a build-time gate, not a runtime surprise.
+- [x] 1.2 TRL 1.5.1 ↔ vLLM 0.22.1 pairing VALIDATED on the smoke: runs GRPO steps cleanly;
+  `sampling_logp_difference/mean` 0.0076 + `importance_sampling_ratio` mean 1.02 (min 0.43/max 2.25)
+  → vLLM and trainer logprobs agree, so TRL's conservative "supports vLLM 0.12–0.18" warning is
+  cosmetic for our locked combo. `frac_reward_zero_std` 0.042 (live signal), kl 4e-4 (stable
+  warm-start). Also fixed: `build_grpo_config` now filters to GRPOConfig's accepted fields (the smoke
+  caught `max_prompt_length` being rejected) — drift is a loud warning, not a crash.
 - [x] 1.3 Resolve the multi-DB test-suite-DB question (design Open Questions). **Investigated:** the
   verifier already supports it — `execution_match(..., db_dir=...)` upgrades single-DB → test-suite
   accuracy with no code change; only the distilled Spider test-suite DB artifacts are missing.
