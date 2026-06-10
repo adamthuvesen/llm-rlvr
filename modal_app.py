@@ -250,6 +250,7 @@ def grpo_train(
     reward_arm: str = "shaped",
     learning_rate: float = 1e-5,
     seed: int = 0,
+    dev_size: int | None = None,
     limit: int | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
@@ -274,6 +275,10 @@ def grpo_train(
     if limit is not None:
         examples = examples[:limit]
 
+    hp_kwargs: dict[str, object] = {"learning_rate": learning_rate, "seed": seed}
+    if dev_size is not None:  # smoke runs need a tiny dev slice so the train split isn't starved
+        hp_kwargs["eval_slice_size"] = dev_size
+
     out = run_grpo(
         examples,
         schemas,
@@ -284,7 +289,7 @@ def grpo_train(
         warm_start_adapter=Path(RUNS_DIR) / warm_start,
         dataset="spider",
         dataset_revision=SPIDER_HF_REVISION,
-        hyperparams=GrpoHyperparams(learning_rate=learning_rate, seed=seed),
+        hyperparams=GrpoHyperparams(**hp_kwargs),
         reward=RewardConfig(arm=reward_arm),
         commit=commit,
         dirty=dirty,
@@ -393,13 +398,14 @@ def grpo(
     reward_arm: str = "shaped",
     learning_rate: float = 1e-5,
     seed: int = 0,
+    dev_size: int | None = None,
     limit: int | None = None,
     spawn: bool = False,
 ) -> None:
     """Launch single-turn GRPO. Use --detach --spawn for the headline/seed runs.
 
-        modal run modal_app.py::grpo --limit 8                          # colocate smoke
-        modal run --detach modal_app.py::grpo --run-id grpo-s0 --spawn  # a headline seed
+        modal run modal_app.py::grpo --run-id grpo-smoke --limit 32 --dev-size 8  # colocate smoke
+        modal run --detach modal_app.py::grpo --run-id grpo-s0 --spawn            # a headline seed
     """
     kwargs = {
         "run_id": run_id,
@@ -409,6 +415,7 @@ def grpo(
         "reward_arm": reward_arm,
         "learning_rate": learning_rate,
         "seed": seed,
+        "dev_size": dev_size,
         "limit": limit,
         # The image strips .git, so compute git state locally and pass it into provenance.
         "commit": _local_git_commit(),
