@@ -1,5 +1,6 @@
 """Evaluation layer: execution-match verifier, generation, scoring, provenance."""
 
+from text2sql_rlvr.eval.aggregate import SeedLevelStat, rl_vs_sft_gain, seed_level_ci
 from text2sql_rlvr.eval.completions import (
     CompletionSet,
     GenerationSample,
@@ -26,6 +27,7 @@ __all__ = [
     "GenerationSample",
     "ProblemCompletions",
     "ScoreReport",
+    "SeedLevelStat",
     "VerifierConfig",
     "assemble_completion_set",
     "build_generation_provenance",
@@ -33,7 +35,9 @@ __all__ = [
     "execution_match",
     "extract_sql",
     "read_completion_set",
+    "rl_vs_sft_gain",
     "score_completion_set",
+    "seed_level_ci",
     "select_exemplars",
     "well_formed",
     "write_completion_set",
