@@ -83,6 +83,7 @@ def baseline(
     few_shot_seed: int = 0,
     prompt_style: str = "cot",
     adapter: str | None = None,
+    base_model: str = MODEL,
     limit: int | None = None,
     max_new_tokens: int = 512,
     commit: str | None = None,
@@ -91,7 +92,8 @@ def baseline(
     """Generate base or base+adapter completions for one dataset on the GPU; persist to Volume.
 
     `adapter` is a LoRA adapter dir relative to the runs Volume (e.g. `sft/sft-r32`) — that is
-    how the SFT checkpoint is evaluated with the identical pipeline.
+    how the SFT/GRPO checkpoint is evaluated with the identical pipeline. `base_model` defaults to
+    Qwen; set it to the Llama base for the cross-family control (the adapter's base must match).
     """
     from pathlib import Path
 
@@ -128,7 +130,7 @@ def baseline(
     completion_set = generate(
         examples,
         schemas,
-        model=MODEL,
+        model=base_model,
         backend="vllm",
         decoding=DecodingConfig(temperature=0.0, max_new_tokens=max_new_tokens),
         dataset=dataset,
@@ -234,6 +236,64 @@ def sft_train(
     return str(out)
 
 
+@app.function(
+    image=image,
+    gpu="A100-80GB",
+    volumes={RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache},
+    timeout=8 * 60 * 60,
+)
+def grpo_train(
+    run_id: str = "grpo-s0",
+    warm_start: str = "sft/sft-r32",
+    base_model: str = MODEL,
+    base_model_revision: str | None = None,
+    reward_arm: str = "shaped",
+    learning_rate: float = 1e-5,
+    seed: int = 0,
+    limit: int | None = None,
+    commit: str | None = None,
+    dirty: bool | None = None,
+) -> str:
+    """Single-turn GRPO LoRA on Spider-train, warm-started from the SFT adapter (Stage 2).
+
+    `warm_start` is a LoRA adapter dir relative to the runs Volume (e.g. `sft/sft-r32`). The
+    `base_model` defaults to Qwen; set the Llama base + a Llama warm-start adapter for the control.
+    `reward_arm` is `shaped` (headline) or `near_binary` (the ablation). Adapter + provenance land
+    under `grpo/<run-id>/`.
+    """
+    from pathlib import Path
+
+    from text2sql_rlvr.data.artifacts import SPIDER_HF_REVISION
+    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from text2sql_rlvr.rewards import RewardConfig
+    from text2sql_rlvr.train.grpo import GrpoHyperparams, run_grpo
+
+    dbs = ensure_spider_databases(Path(RUNS_DIR) / "data" / "spider")
+    schemas = load_schemas(dbs.tables_json)
+    examples = list(load_examples("train"))
+    if limit is not None:
+        examples = examples[:limit]
+
+    out = run_grpo(
+        examples,
+        schemas,
+        dbs.database_root,
+        Path(RUNS_DIR) / "grpo" / run_id,
+        base_model=base_model,
+        base_model_revision=base_model_revision,
+        warm_start_adapter=Path(RUNS_DIR) / warm_start,
+        dataset="spider",
+        dataset_revision=SPIDER_HF_REVISION,
+        hyperparams=GrpoHyperparams(learning_rate=learning_rate, seed=seed),
+        reward=RewardConfig(arm=reward_arm),
+        commit=commit,
+        dirty=dirty,
+    )
+    runs.commit()
+    print(f"GRPO adapter + provenance -> {out}")
+    return str(out)
+
+
 @app.local_entrypoint()
 def main(
     dataset: str = "spider",
@@ -242,6 +302,7 @@ def main(
     few_shot_seed: int = 0,
     prompt_style: str = "cot",
     adapter: str | None = None,
+    base_model: str = MODEL,
     limit: int | None = None,
     max_new_tokens: int = 512,
     spawn: bool = False,
@@ -254,6 +315,7 @@ def main(
         "few_shot_seed": few_shot_seed,
         "prompt_style": prompt_style,
         "adapter": adapter,
+        "base_model": base_model,
         "limit": limit,
         "max_new_tokens": max_new_tokens,
         # The image strips .git, so compute git state locally and pass it into provenance.
@@ -320,6 +382,43 @@ def sft(
         print(f"SFT dispatched (spawn): function call {call.object_id}")
     else:
         print(f"SFT complete: {sft_train.remote(**kwargs)}")
+
+
+@app.local_entrypoint()
+def grpo(
+    run_id: str = "grpo-s0",
+    warm_start: str = "sft/sft-r32",
+    base_model: str = MODEL,
+    base_model_revision: str | None = None,
+    reward_arm: str = "shaped",
+    learning_rate: float = 1e-5,
+    seed: int = 0,
+    limit: int | None = None,
+    spawn: bool = False,
+) -> None:
+    """Launch single-turn GRPO. Use --detach --spawn for the headline/seed runs.
+
+        modal run modal_app.py::grpo --limit 8                          # colocate smoke
+        modal run --detach modal_app.py::grpo --run-id grpo-s0 --spawn  # a headline seed
+    """
+    kwargs = {
+        "run_id": run_id,
+        "warm_start": warm_start,
+        "base_model": base_model,
+        "base_model_revision": base_model_revision,
+        "reward_arm": reward_arm,
+        "learning_rate": learning_rate,
+        "seed": seed,
+        "limit": limit,
+        # The image strips .git, so compute git state locally and pass it into provenance.
+        "commit": _local_git_commit(),
+        "dirty": _local_git_dirty(),
+    }
+    if spawn:
+        call = grpo_train.spawn(**kwargs)
+        print(f"GRPO dispatched (spawn): function call {call.object_id}")
+    else:
+        print(f"GRPO complete: {grpo_train.remote(**kwargs)}")
 
 
 def _local_git_commit() -> str:
