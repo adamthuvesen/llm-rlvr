@@ -137,5 +137,9 @@
   sft-llama-r32 + grpo-llama-s0), the unsloth Llama mirror, the locked LR 5e-5, the shaped
   RewardConfig weights, and the committed headline/ablation/cross-family tables with CIs.
 - [x] 8.4 `make check` green (142 passed, lint clean); GPU/TRL tests integration-deselected.
-- [ ] 8.5 Record the **GATE** decision: is the single-turn gain strong/stable enough (CI excludes zero
-  on BIRD) to approve Stage-3 spend, or do we ship single-turn only?
+- [x] 8.5 **GATE RECORDED (2026-06-11, user decision): GO — Stage-3 spend approved.** Basis: the
+  BIRD gain CI excludes zero ([+5.6, +6.7]); the gain survives the reward redesign (near-binary
+  still beats SFT — not a shaping artifact); it replicates cross-family with a larger RL delta
+  (Llama +8.0 BIRD — not a Qwen artifact). Stage 3 proceeds under its own spend ladder
+  (`openspec/changes/grpo-multi-turn/`): ~$1 smoke (TRL #4543 validation) → pilot → 1 full seed
+  + best-of-N control, ~$30–45 all-in.
