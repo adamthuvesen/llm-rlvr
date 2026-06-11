@@ -158,7 +158,11 @@ def baseline(
     shot = f"fs{few_shot_k}" if few_shot_k else "zs"
     style_tag = "" if prompt_style == "cot" else f"-{prompt_style}"
     adapter_tag = f"-{Path(adapter).name}" if adapter else ""
-    name = f"{dataset}-{split}-{shot}{style_tag}{adapter_tag}" + (f"-n{limit}" if limit else "")
+    # Non-default bases get a family tag so a Llama eval can't overwrite the Qwen artifact.
+    base_tag = "" if base_model == MODEL else f"-{_model_tag(base_model)}"
+    name = f"{dataset}-{split}-{shot}{style_tag}{base_tag}{adapter_tag}" + (
+        f"-n{limit}" if limit else ""
+    )
     out = write_completion_set(completion_set, Path(RUNS_DIR) / f"{name}.json")
     runs.commit()
     print(f"wrote {len(completion_set.items)} completions -> {out}")
@@ -429,8 +433,8 @@ def grpo(
 ) -> None:
     """Launch single-turn GRPO. Use --detach --spawn for the headline/seed runs.
 
-        modal run modal_app.py::grpo --run-id grpo-smoke --limit 32 --dev-size 8  # colocate smoke
-        modal run --detach modal_app.py::grpo --run-id grpo-s0 --spawn            # a headline seed
+    modal run modal_app.py::grpo --run-id grpo-smoke --limit 32 --dev-size 8  # colocate smoke
+    modal run --detach modal_app.py::grpo --run-id grpo-s0 --spawn            # a headline seed
     """
     kwargs = {
         "run_id": run_id,
