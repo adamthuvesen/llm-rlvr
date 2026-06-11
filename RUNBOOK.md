@@ -1,9 +1,9 @@
-# Runbook: evaluation foundation (Stage 0) + SFT cold-start (Stage 1)
+# Runbook: eval foundation (Stage 0) → SFT cold-start (Stage 1) → single-turn GRPO (Stage 2)
 
 The procedure for fetching the data, running the base-model baseline, building the cold-start
-trace dataset, training the LoRA SFT adapter, and reproducing the headline numbers. Everything
-here is CPU/MPS-runnable except the GPU passes (noted below). Exact external pins live in
-[`ARTIFACTS.md`](ARTIFACTS.md).
+trace dataset, training the LoRA SFT adapter, running single-turn GRPO with its controls, and
+reproducing the headline numbers. Everything here is CPU/MPS-runnable except the GPU passes
+(noted below). Exact external pins live in [`ARTIFACTS.md`](ARTIFACTS.md).
 
 ## One-time setup
 
@@ -148,12 +148,94 @@ Spider-dev / 0.313 BIRD-dev; target ≥ the direct anchor). If the bar is missed
 ladder is documented in `openspec/changes/sft-coldstart/design.md` (more traces → SynSQL pull →
 teacher distillation).
 
-## Reproduce the committed numbers (CPU only, no model)
+## Stage 2: single-turn GRPO (smoke → LR pilot → headline → controls)
 
-Every headline number is a deterministic re-score of a committed `CompletionSet`:
+GRPO trains the SFT adapter further with an execution-grounded reward: 4 rollouts per question
+(vLLM colocate on one A100-80GB), each scored by running its SQL and comparing rows to gold
+(`rewards/reward.py` — shaped arm by default, empty-result guard ON, full format credit only
+when `<think>` leads). The spend ladder is mandatory: **smoke → pilot → paid runs**, each step
+validating the next one's assumptions.
+
+**Modal discipline** (learned the hard way): long runs use `modal run --detach … --spawn` — a
+plain `modal run` dies with your laptop's connection and takes the run with it. Stagger app
+creations by ~45s (3 simultaneous creations hit a rate limit). The HF "set HF_TOKEN for higher
+rate limits" warning is benign noise for our public/ungated repos.
+
+**1. Smoke** (~$0.50, ~10 min): proves the rig end-to-end (colocate fits, TRL↔vLLM logprobs
+agree, config keys accepted) and measures step time for cost extrapolation:
 
 ```bash
-make data && make eval     # re-derives the full table above
+modal run modal_app.py::grpo --run-id grpo-smoke --limit 32 --dev-size 8
+```
+
+**2. LR pilot** (~$5): short runs at 3 learning rates on a train subset, evaled on a Spider-dev
+slice; pick by measured dev EX. Ours: `{5e-6, 1e-5, 5e-5}` → monotonic, **locked LR = 5e-5**.
+
+```bash
+modal run --detach modal_app.py::grpo --run-id grpo-pilot-lr5e5 --learning-rate 5e-5 \
+  --limit 2000 --spawn   # repeat per LR, staggered
+```
+
+**3. Headline** (~$22): 3 seeds at the locked LR on full Spider-train — the **seed policy**:
+never fewer than 3 seeds for a CI claim, never pool rollouts across seeds, aggregate per-seed EX
+with a Student-t CI (`eval/aggregate.py`), success bar = the RL-vs-SFT gain CI excludes zero.
+
+```bash
+for SEED in 0 1 2; do
+  modal run --detach modal_app.py::grpo --run-id grpo-s$SEED --learning-rate 5e-5 \
+    --seed $SEED --spawn
+  sleep 45
+done
+```
+
+**4. Controls** (~$32): the reward ablation re-runs one seed with `--reward-arm near_binary`
+(the shaped arm reuses headline seed 0 — already paid). The cross-family control runs the FULL
+matched pipeline on Llama-3.2-3B — traces → SFT → GRPO, same configs, only the family changes:
+
+```bash
+modal run --detach modal_app.py::grpo --run-id grpo-nb-s0 --learning-rate 5e-5 \
+  --reward-arm near_binary --spawn
+
+LB=unsloth/Llama-3.2-3B-Instruct    # ungated mirror, byte-identical to meta-llama (no token)
+modal run --detach modal_app.py::traces --base-model $LB --spawn
+modal volume get text2sql-runs sft/candidates-llama-3.2-3b-instruct-n8-seed0.json runs/sft/
+uv run text2sql-rlvr build-traces --candidates runs/sft/candidates-llama-3.2-3b-instruct-n8-seed0.json \
+  --db-root data/spider/spider_data/database \
+  --out data/sft/traces-llama.jsonl --manifest results/sft/traces-llama.manifest.json
+modal volume put text2sql-runs data/sft/traces-llama.jsonl sft/traces-llama.jsonl
+modal run --detach modal_app.py::sft --traces sft/traces-llama.jsonl --run-id sft-llama-r32 \
+  --base-model $LB --spawn
+modal run --detach modal_app.py::grpo --run-id grpo-llama-s0 --warm-start sft/sft-llama-r32 \
+  --base-model $LB --learning-rate 5e-5 --spawn
+```
+
+**5. Evaluate any adapter** — identical pipeline, `--adapter` (+ `--base-model` for Llama; eval
+artifacts get a family tag so they can't collide). Score on CPU with `--workers 8`:
+
+```bash
+modal run --detach modal_app.py::main --dataset bird --adapter grpo/grpo-s0 --spawn
+modal volume get text2sql-runs bird-dev-zs-grpo-s0.json results/grpo/
+uv run text2sql-rlvr score --completions results/grpo/bird-dev-zs-grpo-s0.json \
+  --db-root <bird-db-root> --workers 8
+```
+
+**Colocate OOM fallback ladder** (untouched — the smoke fit at `gpu_memory_utilization=0.3`):
+lower `vllm_gpu_memory_utilization` → halve `per_device_train_batch_size` (raise grad-accum to
+match) → cap `max_completion_length` at 1024 → last resort, `num_generations` 4→2 (costs
+group-relative signal; re-pilot before trusting results).
+
+**Training health, what to watch** (from the headline + ablation logs): `kl` drifting past ~0.2
+→ rely on dev-EX checkpoint selection, don't panic-stop; `frac_reward_zero_std` rising → groups
+are saturating (expected under near-binary; a shaped-arm rise means the dev slice is too easy);
+`clipped_ratio` > 0 → completions hitting the cap, raise it.
+
+## Reproduce the committed numbers (CPU only, no model)
+
+Every number in this repo — baseline, SFT, the GRPO headline with CIs, both controls — is a
+deterministic re-score of a committed `CompletionSet`:
+
+```bash
+make data && make eval     # ~9 min: 20 sets, threaded scoring + the 4 progression tables
 ```
 
 ## Verify the verifier (parity)

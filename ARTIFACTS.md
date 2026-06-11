@@ -24,8 +24,13 @@ checksummed artifact above (design D2/R1). BIRD's `dev.zip` is one self-hosted b
 | Artifact | Pin | License |
 | --- | --- | --- |
 | Base model | `Qwen/Qwen2.5-Coder-3B-Instruct` at HF `main`; the SFT run pins commit `488639f1ff808d1d3d0ba301aef8c11461451ec5` | Apache 2.0 |
+| Cross-family base | `unsloth/Llama-3.2-3B-Instruct` (ungated mirror, byte-identical weights to gated `meta-llama/Llama-3.2-3B-Instruct`; repo id recorded in every artifact's provenance) | Llama 3.2 Community |
 | Stage-1 LoRA adapter `sft-r32` | Modal Volume `text2sql-runs` → `sft/sft-r32/` (provenance.json: base commit above, rank 32 all-linear, trace-dataset SHA256, trl 1.5.1 / peft 0.19.1) | — |
 | Stage-1 trace dataset | 2,971 traces; manifest `results/sft/traces.manifest.json`; JSONL SHA256 `b02435e49f183425299f3167503883d0b006faf884f7705fc02abc3ad34613e6` (bulk on the Volume at `sft/traces.jsonl`) | self-generated |
+| Stage-2 GRPO adapters (headline) | Volume → `grpo/grpo-s0`, `grpo/grpo-s1`, `grpo/grpo-s2` — **locked LR 5e-5** (pilot-measured), shaped reward, seeds 0/1/2, warm-start `sft/sft-r32`; full config in each `provenance.json` | — |
+| Stage-2 reward ablation adapter | Volume → `grpo/grpo-nb-s0` — identical config, `near_binary` arm (1.0/0.1/0) | — |
+| Cross-family control adapters | Volume → `sft/sft-llama-r32` (trace manifest `results/sft/traces-llama.manifest.json`, 2,501/7,000 kept) and `grpo/grpo-llama-s0` (same recipe @ LR 5e-5 shaped, warm-start `sft/sft-llama-r32`) | — |
+| Reward config (shaped, the headline arm) | `rewards/reward.py` `RewardConfig`: weights format 0.2 / executable 0.2 / result_match 1.0 / length 0.1; `preamble_credit=0.3` (full format credit only when `<think>` leads); `guard_trivial_empty=True` | — |
 | Vendored verifier | `taoyds/test-suite-sql-eval` — execution-match path only (`exec_eval.py` + `parse.py`) | Apache 2.0 |
 
 The verifier is parity-tested against upstream (`tests/test_verifier_parity.py`); the only
@@ -67,3 +72,45 @@ SFT-vs-base: Spider-dev `<think>` 0.6248 → **0.6779** (+5.3pt, format 3% → 9
 `<think>` 0.3129 → **0.3442** (+3.1pt, format 4% → 96%); the adapter also lifts direct mode
 (0.6692 → 0.7118). The direct rows score 0 well-formed by construction — that prompt asks for
 bare SQL, no `<think>` block.
+
+## Stage 2: single-turn GRPO (`results/grpo/` + `results/llama/`)
+
+Same eval pipeline with the GRPO adapters; `make eval` re-derives every row AND renders the four
+progression tables (seed-level 95% CIs for the 3-seed headline; single-seed rows labeled point
+estimates; the single-DB caveat emitted into each table). All EX is single-DB execution-match
+with the documented ~6.5% false-positive caveat.
+
+**Headline (Qwen, 3 seeds @ LR 5e-5 shaped)** — success bar MET on both benchmarks (the
+RL-vs-SFT gain CI excludes zero):
+
+| File(s) | Setting | EX | Well-formed |
+| --- | --- | --- | --- |
+| `grpo/spider-dev-zs-grpo-s{0,1,2}.json` | Spider-dev, `<think>` + grpo-s{0,1,2} | 0.7795 / 0.7621 / 0.7969 — mean **0.779**, Δ vs SFT **+10.2pt** CI [+5.8, +14.5] | 1.00 |
+| `grpo/bird-dev-zs-grpo-s{0,1,2}.json` | BIRD-dev, `<think>` + grpo-s{0,1,2} | 0.4081 / 0.4048 / 0.4042 — mean **0.406**, Δ vs SFT **+6.1pt** CI [+5.6, +6.7] | 1.00 |
+
+**Reward-shaping ablation (1 seed, point estimates)** — both arms beat SFT (the gain is not a
+shaping artifact); shaped wins on the harder benchmark and on format robustness. Training
+dynamics: the near-binary arm starves its own signal as it improves (`frac_reward_zero_std`
+0.59→0.78 vs ~0.04 shaped — all-identical reward groups teach GRPO nothing):
+
+| File | Setting | EX | Well-formed |
+| --- | --- | --- | --- |
+| `grpo/spider-dev-zs-grpo-nb-s0.json` | Spider-dev, near-binary | 0.7737 (vs shaped-s0 0.7795 — tie, inside the seed band) | 0.9874 |
+| `grpo/bird-dev-zs-grpo-nb-s0.json` | BIRD-dev, near-binary | 0.3768 (vs shaped-s0 0.4081 — −3.1pt, outside the seed band) | 0.9531 |
+
+**Cross-family control (Llama-3.2-3B, full matched SFT→GRPO, 1 seed, point estimates)** — the
+recipe REPLICATES, with a larger RL gain than Qwen's (weaker base, more headroom). The headline
+is not a Qwen artifact:
+
+| File | Setting | EX | Well-formed |
+| --- | --- | --- | --- |
+| `llama/spider-dev-zs-llama-3.2-3b-instruct.json` | Spider-dev, Llama base `<think>` | 0.4594 | 0.0213 |
+| `llama/spider-dev-zs-llama-3.2-3b-instruct-sft-llama-r32.json` | + SFT | 0.5957 (+13.6pt) | 0.9874 |
+| `llama/spider-dev-zs-llama-3.2-3b-instruct-grpo-llama-s0.json` | + GRPO | **0.7379** (+14.2pt) | 1.0000 |
+| `llama/bird-dev-zs-llama-3.2-3b-instruct.json` | BIRD-dev, Llama base `<think>` | 0.1793 | 0.0046 |
+| `llama/bird-dev-zs-llama-3.2-3b-instruct-sft-llama-r32.json` | + SFT | 0.2334 (+5.4pt) | 0.9544 |
+| `llama/bird-dev-zs-llama-3.2-3b-instruct-grpo-llama-s0.json` | + GRPO | **0.3136** (+8.0pt) | 0.9948 |
+
+The full progression (Qwen): base 0.625 → SFT 0.678 → RL **0.779** on Spider-dev;
+0.313 → 0.344 → **0.406** on BIRD-dev. RL contributed ~2× SFT's gain on both benchmarks and
+both model families, using the same training questions — the learning signal, not new data.

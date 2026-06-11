@@ -129,11 +129,13 @@
   seeds/ablation/Llama staircase, both benchmarks) + renders all four progression tables in
   **9:03 wall** — `score_completion_set(workers=)` threads the DB execution (~5× on BIRD),
   byte-identical reports at any worker count (tested).
-- [ ] 8.2 `RUNBOOK.md`: the GRPO procedure end-to-end (smoke → LR pilot → headline → controls), the
-  Modal commands, the seed policy, the fallback ladder for colocate OOM.
-- [ ] 8.3 `ARTIFACTS.md`: the GRPO adapters (headline 3 seeds + controls) as pinned artifacts, the
-  locked LR, the reward config, and the committed RL-vs-SFT-vs-base table.
-- [ ] 8.4 `make check` green: new unit tests pass; GPU / TRL GRPO tests are integration (deselected by
-  default).
+- [x] 8.2 DONE (2026-06-11): RUNBOOK Stage-2 section — the spend ladder (smoke → LR pilot →
+  headline → controls) with the exact Modal commands (incl. the full Llama pipeline), the seed
+  policy, Modal discipline (--detach --spawn, stagger, benign HF warning), the colocate-OOM
+  fallback ladder, and the training-health signals (kl / frac_reward_zero_std / clipped_ratio).
+- [x] 8.3 DONE (2026-06-11): ARTIFACTS pins the 5 Stage-2 adapters (grpo-s0/s1/s2, grpo-nb-s0,
+  sft-llama-r32 + grpo-llama-s0), the unsloth Llama mirror, the locked LR 5e-5, the shaped
+  RewardConfig weights, and the committed headline/ablation/cross-family tables with CIs.
+- [x] 8.4 `make check` green (142 passed, lint clean); GPU/TRL tests integration-deselected.
 - [ ] 8.5 Record the **GATE** decision: is the single-turn gain strong/stable enough (CI excludes zero
   on BIRD) to approve Stage-3 spend, or do we ship single-turn only?
