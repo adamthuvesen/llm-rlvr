@@ -1,12 +1,11 @@
 # Project: text2sql-rlvr
 
 ## What this is
-A self-correcting **text-to-SQL agent trained with RL**, built as a portfolio piece for
-AI-research-lab hiring. The model answers natural-language questions over a database by **writing
-SQL, executing it, reading the result/error, and revising** — with the self-correction *learned*
-via RL, not prompted. It is the build-and-train companion to a prior repo
-(`grpo-gain-decomposition`) that focused on rigorous *measurement* of RL gains; the throughline is
-*"I build RL agents — and I verify the gains are real."*
+A self-correcting **text-to-SQL agent trained with RL**. The model answers natural-language
+questions over a database by **writing SQL, executing it, reading the result/error, and
+revising** — with the self-correction *learned* via RL, not prompted. It is the build-and-train
+companion to a prior repo (`grpo-gain-decomposition`) that focused on rigorous *measurement* of
+RL gains; the throughline is verifying that RL gains are real.
 
 The full validated plan lives at `a local planning doc` (v2,
 stress-tested against primary sources June 2026).

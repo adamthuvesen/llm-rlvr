@@ -6,8 +6,8 @@ Stage 2 proved single-turn GRPO delivers real, seed-stable execution-accuracy ga
 +6.1pt, CI excludes zero). But the model still gets one shot: it never sees an error message or a
 result set. Stage 3 is the project's title claim — a **self-correcting agent** that writes SQL,
 executes it, reads the error/result, and revises, with the revision behavior *learned via RL*
-rather than prompted. This is the agentic differentiator the portfolio is named for, and the
-single-turn foundation it builds on is now validated.
+rather than prompted. This is the capability the project is named for, and the single-turn
+foundation it builds on is now validated.
 
 **Gate:** paid Stage-3 training starts only after the Stage-2 GATE is recorded (task 8.5 of
 `grpo-single-turn`: headline met; controls in flight). All CPU scaffolding ahead of the gate is $0.

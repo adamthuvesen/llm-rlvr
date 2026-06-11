@@ -64,7 +64,7 @@ headline reference artifacts; `make eval` re-derives the numbers on CPU. BIRD-de
 - **vLLM/CUDA/torch version drift at image build** → pin the `gpu` extra and re-verify on the first
   Modal build; a smoke run (`--limit 8`) before the full pass catches a broken image cheaply.
 - **BIRD licensing** → BIRD is CC-BY-NC-4.0 (non-commercial); the self-host must carry that license +
-  attribution, and the HF repo is for research/portfolio use. Document it (distinct from Spider's
+  attribution, and the HF repo is for research use. Document it (distinct from Spider's
   CC-BY-SA).
 - **`evidence` touches the shared `Example` model** → kept optional and defaulted None, so every
   Stage-0 test and the Spider path are unaffected; add a test that Spider examples still round-trip.
