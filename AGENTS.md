@@ -1,4 +1,4 @@
-# text2sql-rlvr — agent instructions
+# rlvr-sql-agent — agent instructions
 
 An RL-trained, self-correcting text-to-SQL agent (GRPO + verifiable execution reward), built as a
 portfolio piece whose thesis is *"I build RL agents — and I verify the gains are real."* Rigor is

@@ -15,7 +15,7 @@ from pydantic import Field
 
 from text2sql_rlvr._base import Frozen
 
-_TRACKED_LIBRARIES = ("text2sql-rlvr", "transformers", "torch", "vllm", "datasets")
+_TRACKED_LIBRARIES = ("rlvr-sql-agent", "transformers", "torch", "vllm", "datasets")
 
 
 class DecodingConfig(Frozen):

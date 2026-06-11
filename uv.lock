@@ -4412,6 +4412,63 @@ wheels = [
 ]
 
 [[package]]
+name = "rlvr-sql-agent"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "datasets" },
+    { name = "huggingface-hub" },
+    { name = "pydantic" },
+    { name = "sqlparse" },
+    { name = "tqdm" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+generate = [
+    { name = "torch" },
+    { name = "transformers" },
+]
+gpu = [
+    { name = "torch" },
+    { name = "transformers" },
+    { name = "vllm" },
+]
+train = [
+    { name = "accelerate" },
+    { name = "peft" },
+    { name = "torch" },
+    { name = "transformers" },
+    { name = "trl" },
+    { name = "vllm" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "accelerate", marker = "extra == 'train'", specifier = ">=1.0" },
+    { name = "datasets", specifier = ">=3.0" },
+    { name = "huggingface-hub", specifier = ">=0.25" },
+    { name = "peft", marker = "extra == 'train'", specifier = ">=0.14" },
+    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.8" },
+    { name = "pydantic", specifier = ">=2.7,<3" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
+    { name = "rlvr-sql-agent", extras = ["generate"], marker = "extra == 'gpu'" },
+    { name = "rlvr-sql-agent", extras = ["gpu"], marker = "extra == 'train'" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
+    { name = "sqlparse", specifier = ">=0.5" },
+    { name = "torch", marker = "extra == 'generate'", specifier = ">=2.4" },
+    { name = "tqdm", specifier = ">=4.66" },
+    { name = "transformers", marker = "extra == 'generate'", specifier = ">=4.48" },
+    { name = "trl", marker = "extra == 'train'", specifier = ">=1.3" },
+    { name = "vllm", marker = "extra == 'gpu'" },
+]
+provides-extras = ["generate", "gpu", "train", "dev"]
+
+[[package]]
 name = "rpds-py"
 version = "2026.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4835,63 +4892,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/46/58/8c37dea7bbf769b20
 wheels = [
     { url = "https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3", size = 39814, upload-time = "2026-03-04T18:55:31.284Z" },
 ]
-
-[[package]]
-name = "text2sql-rlvr"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "datasets" },
-    { name = "huggingface-hub" },
-    { name = "pydantic" },
-    { name = "sqlparse" },
-    { name = "tqdm" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-generate = [
-    { name = "torch" },
-    { name = "transformers" },
-]
-gpu = [
-    { name = "torch" },
-    { name = "transformers" },
-    { name = "vllm" },
-]
-train = [
-    { name = "accelerate" },
-    { name = "peft" },
-    { name = "torch" },
-    { name = "transformers" },
-    { name = "trl" },
-    { name = "vllm" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "accelerate", marker = "extra == 'train'", specifier = ">=1.0" },
-    { name = "datasets", specifier = ">=3.0" },
-    { name = "huggingface-hub", specifier = ">=0.25" },
-    { name = "peft", marker = "extra == 'train'", specifier = ">=0.14" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.8" },
-    { name = "pydantic", specifier = ">=2.7,<3" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
-    { name = "sqlparse", specifier = ">=0.5" },
-    { name = "text2sql-rlvr", extras = ["generate"], marker = "extra == 'gpu'" },
-    { name = "text2sql-rlvr", extras = ["gpu"], marker = "extra == 'train'" },
-    { name = "torch", marker = "extra == 'generate'", specifier = ">=2.4" },
-    { name = "tqdm", specifier = ">=4.66" },
-    { name = "transformers", marker = "extra == 'generate'", specifier = ">=4.48" },
-    { name = "trl", marker = "extra == 'train'", specifier = ">=1.3" },
-    { name = "vllm", marker = "extra == 'gpu'" },
-]
-provides-extras = ["generate", "gpu", "train", "dev"]
 
 [[package]]
 name = "tiktoken"

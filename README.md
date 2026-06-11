@@ -1,9 +1,10 @@
-# text2sql-rlvr
+# rlvr-sql-agent
 
-A self-correcting **text-to-SQL agent trained with RL**. The model answers a natural-language
-question over a database by writing SQL, executing it, reading the result/error, and revising —
-with the self-correction *learned* via GRPO against a **verifiable execution reward** (run the SQL,
-check the rows), not prompted.
+Self-correcting text-to-SQL agent: **SFT cold-start → GRPO with execution-verified rewards
+(RLVR)** — gains verified across seeds, reward designs, and model families. The model answers a
+natural-language question over a database by writing SQL, executing it, reading the result/error,
+and revising — with the self-correction *learned* via GRPO against a **verifiable execution
+reward** (run the SQL, check the rows), not prompted.
 
 This is the build-and-train companion to
 [`grpo-gain-decomposition`](https://github.com/adamthuvesen/grpo-gain-decomposition) (which measured

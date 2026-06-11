@@ -26,7 +26,7 @@ from text2sql_rlvr.eval.generate import build_prompts
 from text2sql_rlvr.eval.provenance import git_commit, git_is_dirty, library_versions
 from text2sql_rlvr.rewards import RewardConfig, make_reward_fn
 
-_TRAIN_LIBRARIES = ("text2sql-rlvr", "trl", "peft", "transformers", "torch", "accelerate", "vllm")
+_TRAIN_LIBRARIES = ("rlvr-sql-agent", "trl", "peft", "transformers", "torch", "accelerate", "vllm")
 
 PROVENANCE_FILENAME = "provenance.json"
 

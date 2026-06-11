@@ -19,7 +19,7 @@ from text2sql_rlvr.data.spider import sha256_of
 from text2sql_rlvr.eval.completions import write_json
 from text2sql_rlvr.eval.provenance import git_commit, git_is_dirty, library_versions
 
-_TRAIN_LIBRARIES = ("text2sql-rlvr", "trl", "peft", "transformers", "torch", "accelerate")
+_TRAIN_LIBRARIES = ("rlvr-sql-agent", "trl", "peft", "transformers", "torch", "accelerate")
 
 PROVENANCE_FILENAME = "provenance.json"
 

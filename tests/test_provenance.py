@@ -41,7 +41,7 @@ def test_no_adapter_provenance_defaults_to_none(provenance: GenerationProvenance
 
 def test_library_versions_includes_this_package() -> None:
     versions = library_versions()
-    assert versions["text2sql-rlvr"] != "not-installed"
+    assert versions["rlvr-sql-agent"] != "not-installed"
 
 
 def test_build_provenance_captures_git_and_libs() -> None:
@@ -57,7 +57,7 @@ def test_build_provenance_captures_git_and_libs() -> None:
         decoding=DecodingConfig(),
     )
     assert isinstance(prov.git_commit, str) and prov.git_commit
-    assert "text2sql-rlvr" in prov.library_versions
+    assert "rlvr-sql-agent" in prov.library_versions
 
 
 def test_provenance_records_resolved_exemplars() -> None:
