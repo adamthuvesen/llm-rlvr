@@ -1,7 +1,13 @@
-"""Execution-grounded GRPO reward functions (Stage 2)."""
+"""Execution-grounded GRPO rewards (Stage 2) + the multi-turn trajectory reward (Stage 3)."""
 
 from __future__ import annotations
 
+from text2sql_rlvr.rewards.multiturn import (
+    CreditScheme,
+    MultiTurnRewardConfig,
+    TrajectoryBreakdown,
+    score_trajectory,
+)
 from text2sql_rlvr.rewards.reward import (
     RewardArm,
     RewardBreakdown,
@@ -11,9 +17,13 @@ from text2sql_rlvr.rewards.reward import (
 )
 
 __all__ = [
+    "CreditScheme",
+    "MultiTurnRewardConfig",
     "RewardArm",
     "RewardBreakdown",
     "RewardConfig",
+    "TrajectoryBreakdown",
     "make_reward_fn",
     "score_completion",
+    "score_trajectory",
 ]
