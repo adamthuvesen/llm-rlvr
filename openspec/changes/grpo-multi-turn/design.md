@@ -120,9 +120,18 @@ Rollback = don't merge the change; Stage 2 stands alone.
 
 ## Open Questions
 
-- **First-turn KL anchor mechanics in TRL**: per-token KL on turn-1 spans against the frozen
-  Stage-2 policy is not a stock GRPOConfig knob — likely a custom reward/loss term over the
-  turn-1 token span. Resolve during the smoke (cheapest place to discover the API truth).
+- ~~**First-turn KL anchor mechanics in TRL**~~ RESOLVED (v1.5.1 source, during smoke prep):
+  when the policy is a PeftModel with a pretrained adapter and `beta != 0`, the trainer
+  snapshots it as a frozen `"ref"` adapter and computes the KL against it — so the stock
+  `beta=0.04` already anchors the *whole completion* to the Stage-2 warm-start policy (this was
+  equally true in Stage 2 vs the SFT policy). A turn-1-span-only anchor needs a custom loss;
+  start with the stock whole-completion anchor and build the span-restricted variant only if
+  pilot diagnostics show turn-1 sandbagging despite it.
+- **Tool-use affordance** (from the attempt-1 smoke): the Stage-2 policy never calls `run_sql`
+  under the frozen `cot` prompt (0/96 episodes) — Stage 3 trains with the `mt` prompt style
+  (protocol affordance, same final-answer format), disclosed in provenance. If the policy still
+  refuses the tool under `mt`, next rungs: few-shot tool demonstration in the prompt, or
+  warm-start from the SFT adapter instead (weaker direct-answer prior).
 - ~~**Group structure**~~ RESOLVED (v1.5.1 source): `num_generations` semantics are unchanged
   under environment_factory — G independent multi-turn trajectories per prompt (RepeatSampler),
   one env instance per rollout slot, advantages per group of G.

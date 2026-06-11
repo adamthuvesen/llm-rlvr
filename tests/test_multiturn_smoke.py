@@ -213,6 +213,42 @@ def test_smoke_failures_name_every_broken_assertion() -> None:
     assert len(failures) == 6  # every assertion failed, every one is named
 
 
+# --- the multi-turn prompt style (attempt-1 smoke: no affordance => zero tool calls) ---
+
+
+def test_mt_prompt_style_offers_the_tool_and_keeps_the_final_format() -> None:
+    from text2sql_rlvr.eval.prompt import INSTRUCTIONS, build_messages
+
+    messages = build_messages("CREATE TABLE t (a INT)", "How many rows?", style="mt")
+    system = messages[0]["content"]
+    assert "run_sql" in system  # the protocol affordance
+    assert "<think>" in system and "```sql" in system  # the Stage-2 final-answer format survives
+    assert "mt" in INSTRUCTIONS
+    # Gold-free: the instruction describes the protocol, never answers or verdicts.
+    assert "gold" not in system.lower()
+
+
+def test_multiturn_provenance_records_the_prompt_style() -> None:
+    from text2sql_rlvr.train.grpo import GrpoHyperparams
+    from text2sql_rlvr.train.multiturn_provenance import build_multiturn_provenance
+
+    provenance = build_multiturn_provenance(
+        base_model="m",
+        warm_start_adapter="grpo/grpo-s0",
+        hyperparams=GrpoHyperparams(),
+        environment=FeedbackConfig(),
+        multiturn_reward=MultiTurnRewardConfig(),
+        dataset="spider",
+        dataset_revision="rev",
+        n_train=10,
+        n_dev=2,
+        prompt_style="mt",
+        commit="abc",
+        dirty=False,
+    )
+    assert provenance.prompt_style == "mt"
+
+
 # --- hyperparam/env budget consistency (driver guard, testable via the config) ---
 
 

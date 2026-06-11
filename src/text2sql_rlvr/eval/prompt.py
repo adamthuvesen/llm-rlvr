@@ -26,7 +26,19 @@ DIRECT_INSTRUCTION = (
     "single SQLite query that answers it. Output only the query in a ```sql ... ``` code block, "
     "with no explanation."
 )
-INSTRUCTIONS = {"cot": INSTRUCTION, "direct": DIRECT_INSTRUCTION}
+# The multi-turn (Stage 3) instruction: same final-answer format as `cot`, plus the
+# check-then-answer protocol. The first attempt-1 smoke showed the Stage-2 policy never calls a
+# tool it is not told about (0/96 episodes) — the affordance must be in the instruction; the
+# *quality* of revision is what RL trains. Gold-free: it describes the protocol, never the answer.
+MULTITURN_INSTRUCTION = (
+    "You are an expert data analyst. Given a SQLite database schema and a question, write a "
+    "single SQLite query that answers it. Before committing to an answer, check your query by "
+    "calling the run_sql tool and reading the execution feedback; if it errors or the result "
+    "does not answer the question, revise and check again (you have a limited number of checks). "
+    "Then reason step by step inside <think></think> and give the final query in a "
+    "```sql ... ``` code block."
+)
+INSTRUCTIONS = {"cot": INSTRUCTION, "direct": DIRECT_INSTRUCTION, "mt": MULTITURN_INSTRUCTION}
 
 
 class FewShotExemplar(Frozen):

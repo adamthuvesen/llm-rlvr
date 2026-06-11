@@ -23,6 +23,9 @@ class MultiTurnProvenance(Frozen):
     grpo: GrpoProvenance  # base, warm-start (= the Stage-2 adapter), hyperparams, versions, git
     environment: FeedbackConfig
     multiturn_reward: MultiTurnRewardConfig
+    # Stage 3 departs from the frozen Stage-2 `cot` prompt: the instruction must offer the
+    # run_sql protocol or the policy never calls it (attempt-1 smoke: 0/96 episodes).
+    prompt_style: str = "cot"
 
 
 def build_multiturn_provenance(
@@ -36,12 +39,14 @@ def build_multiturn_provenance(
     dataset_revision: str,
     n_train: int,
     n_dev: int,
+    prompt_style: str = "cot",
     base_model_revision: str | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> MultiTurnProvenance:
     """Assemble multi-turn checkpoint provenance on top of the Stage-2 builder."""
     return MultiTurnProvenance(
+        prompt_style=prompt_style,
         grpo=build_grpo_provenance(
             base_model=base_model,
             warm_start_adapter=warm_start_adapter,

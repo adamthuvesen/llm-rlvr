@@ -284,6 +284,7 @@ def run_multiturn_smoke(
     hyperparams: MultiTurnHyperparams | None = None,
     environment: FeedbackConfig | None = None,
     multiturn_reward: MultiTurnRewardConfig | None = None,
+    prompt_style: str = "mt",
     max_steps: int | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
@@ -314,7 +315,7 @@ def run_multiturn_smoke(
     train_examples, dev_examples = split_train_dev(
         examples, dev_size=hp.eval_slice_size, seed=hp.seed
     )
-    train_dataset = Dataset.from_list(build_grpo_rows(train_examples, schemas))
+    train_dataset = Dataset.from_list(build_grpo_rows(train_examples, schemas, style=prompt_style))
 
     episodes: list[tuple[list[str | None], TrajectoryBreakdown]] = []
     reward_fn = make_multiturn_reward_fn(
@@ -422,6 +423,7 @@ def run_multiturn_smoke(
             dataset_revision=dataset_revision,
             n_train=len(train_examples),
             n_dev=len(dev_examples),
+            prompt_style=prompt_style,
             base_model_revision=base_model_revision,
             commit=commit,
             dirty=dirty,

@@ -33,8 +33,19 @@
 - [ ] 2.1 2-turn rollout smoke on A100 colocate: assert completion_mask excludes tool-output
   tokens and the IS ratio is in the Stage-2 healthy band (TRL #4543 check). On failure: invoke
   the fallback ladder (rollout_func; else ship Stage 2 alone) — no paid run on a failed assertion.
+  - **Attempt 1 (2026-06-11, `grpo-mt-smoke`, 32 train / 8 dev, 3 steps, report committed at
+    `results/grpo-mt/smoke-report-attempt1.json`): FAILED on tool use, NOT on TRL #4543.**
+    IS ratio healthy (mean 0.979 in [0.8, 1.25], logp-diff 0.0068 ≈ Stage-2's 0.0076); config
+    accepted; envelope comfortable (36.3 GiB torch peak / 40.8 GiB device, 11.2 s/step). But
+    0/96 episodes called `run_sql` — the Stage-2 `cot` prompt gives no protocol affordance and
+    the trained direct-answer format dominates the chat-template tool schema. Fix: new `mt`
+    prompt style (same final-answer format + check-then-answer protocol, gold-free), recorded
+    in `MultiTurnProvenance.prompt_style` — a disclosed delta to the "prompt layer frozen"
+    non-goal, which froze schema-linking features, not the env affordance. Mask + 2-turn
+    assertions remain unvalidated until a re-run with `mt` shows real tool calls.
 - [ ] 2.2 Measure the multi-turn memory + step-time envelope (3-turn transcripts); retune
   colocate `gpu_memory_utilization` and per-turn completion caps; re-extrapolate the cost.
+  (Attempt-1 numbers above are zero-tool-call transcripts — a lower bound, not the envelope.)
 
 ## 3. Pilot (paid, ~$3–5 — requires the Stage-2 GATE recorded)
 
