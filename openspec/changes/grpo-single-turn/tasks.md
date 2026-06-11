@@ -76,9 +76,9 @@
   per-seed EX, point-only for n=1) and `rl_vs_sft_gain` (per-seed RL EX minus the greedy SFT anchor,
   with `excludes_zero` as the headline bar). Never pools rollouts across seeds; t-crit lookup table,
   no scipy. Exported from `text2sql_rlvr.eval`.
-- [~] 5.2 `report/` table RENDERED via `make eval` (2026-06-11): base → SFT → RL on both
-  benchmarks with seed-level CIs + the shaped-vs-near-binary ablation rows (n=1, point-labeled).
-  **Pending:** the cross-family Llama row — lands with the 7.1 artifacts.
+- [x] 5.2 DONE (2026-06-11): `make eval` renders base → SFT → RL on both benchmarks with
+  seed-level CIs, the shaped-vs-near-binary ablation rows, AND the Llama cross-family staircase
+  (two extra tables, 1-seed point-labeled).
 - [x] 5.3 DONE: single-DB EX with the false-positive caveat emitted into every rendered table
   (`SINGLE_DB_CAVEAT` in `report/progression.py`; decision recorded in 1.3).
 - [x] 5.4 Tests (unit, CPU) DONE: aggregation refuses cross-seed pooling, seed-level CI, 1-seed
@@ -125,10 +125,10 @@
 
 ## 8. Re-derivation, docs, and the gate
 
-- [~] 8.1 `make eval` EXTENDED (2026-06-11): re-derives all 14 committed sets (base/SFT/3 GRPO
-  seeds/ablation, both benchmarks) + renders both progression tables, in **6:12 wall** —
-  `score_completion_set(workers=)` threads the DB execution (~5× on BIRD), byte-identical
-  reports at any worker count (tested). **Pending:** add the Llama rows when 7.1 artifacts land.
+- [x] 8.1 DONE (2026-06-11): `make eval` re-derives all 20 committed sets (base/SFT/3 GRPO
+  seeds/ablation/Llama staircase, both benchmarks) + renders all four progression tables in
+  **9:03 wall** — `score_completion_set(workers=)` threads the DB execution (~5× on BIRD),
+  byte-identical reports at any worker count (tested).
 - [ ] 8.2 `RUNBOOK.md`: the GRPO procedure end-to-end (smoke → LR pilot → headline → controls), the
   Modal commands, the seed policy, the fallback ladder for colocate OOM.
 - [ ] 8.3 `ARTIFACTS.md`: the GRPO adapters (headline 3 seeds + controls) as pinned artifacts, the
