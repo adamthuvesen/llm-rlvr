@@ -1,0 +1,50 @@
+{
+  "execution_accuracy": 0.3767926988265971,
+  "well_formed_rate": 0.9530638852672751,
+  "n": 1534,
+  "n_correct": 578,
+  "n_gold_errors": 2,
+  "reasons": {
+    "pred_error": 327,
+    "denotation_mismatch": 621,
+    "match": 578,
+    "no_sql": 6,
+    "gold_error": 2
+  },
+  "verifier": {
+    "keep_distinct": true,
+    "timeout_s": 30.0,
+    "max_permutation_cols": 6,
+    "guard_trivial_empty": false
+  },
+  "provenance": {
+    "model": "Qwen/Qwen2.5-Coder-3B-Instruct",
+    "backend": "vllm",
+    "dataset": "bird",
+    "dataset_revision": "837584317bf7e3d86a3f6d257bd5553b7e03e171",
+    "split": "dev",
+    "n_examples": 1534,
+    "decoding": {
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "max_new_tokens": 512,
+      "seed": 0
+    },
+    "model_revision": null,
+    "db_archive_sha256": "cdd6d19faeb45a23970b98d3ef6c40a87987c95459c2cf12076897a60cf5a630",
+    "adapter": "/runs/grpo/grpo-nb-s0",
+    "prompt_style": "cot",
+    "few_shot_k": 0,
+    "few_shot_seed": null,
+    "few_shot_exemplars": [],
+    "git_commit": "fcc2aacef31d409b37b54b7bea0dbec283af1dd8",
+    "git_dirty": true,
+    "library_versions": {
+      "text2sql-rlvr": "0.1.0",
+      "transformers": "5.10.2",
+      "torch": "2.11.0",
+      "vllm": "0.22.1",
+      "datasets": "5.0.0"
+    }
+  }
+}

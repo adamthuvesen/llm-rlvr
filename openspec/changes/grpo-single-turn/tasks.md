@@ -105,9 +105,16 @@
 
 - [ ] 7.1 Cross-family control: 1-seed GRPO on Llama-3.2-3B-Instruct under the same recipe; eval,
   commit, report the point-estimate gain (replicates or not — both honest). (~$18)
-- [ ] 7.2 Reward-shaping ablation: the **shaped arm reuses one headline seed** (already trained in
-  6.2 — do not re-run it); only the **near-binary** arm is net-new (1 seed on Qwen). Eval, commit,
-  report the two arms side by side at matched config. (~$18, not $35 — the shaped run is already paid)
+- [x] 7.2 Reward-shaping ablation DONE (2026-06-11, `grpo-nb-s0` @ LR 5e-5 near-binary seed 0,
+  ~5h train + evals, ~$14; shaped arm = headline seed 0 as planned). Full-dev, matched config:
+  **Spider 0.774 vs shaped-s0 0.779** (tie, inside the shaped seed band 0.762–0.797);
+  **BIRD 0.377 vs 0.408** (−3.1pt, below the shaped seed band 0.404–0.408). Well-formed dips
+  without the format term: 98.7% Spider / 95.3% BIRD (shaped: 100/100). Training-dynamics finding:
+  near-binary starves its own signal as it improves — `frac_reward_zero_std` 0.59→0.78 vs ~0.04
+  shaped (all-identical reward groups teach GRPO nothing). VERDICT: both arms beat SFT decisively
+  (gains are not a shaping artifact — Arctic's worry doesn't bite here), and shaping wins on the
+  harder headline benchmark + format robustness. 1-seed point estimates, no CI claim.
+  Artifacts: `results/grpo/{spider,bird}-dev-zs-grpo-nb-s0.json` + `.score.json`.
 
 ## 8. Re-derivation, docs, and the gate
 
