@@ -101,7 +101,7 @@ def build_lora_config(hyperparams: GrpoHyperparams):
     return LoraConfig(**lora_kwargs(hyperparams))
 
 
-def build_grpo_config(hyperparams: GrpoHyperparams, output_dir: str | Path):
+def build_grpo_config_from_kwargs(desired: Mapping[str, object]):
     import dataclasses
     import logging
 
@@ -109,7 +109,6 @@ def build_grpo_config(hyperparams: GrpoHyperparams, output_dir: str | Path):
 
     # The TRL↔vLLM pairing is fragile and GRPOConfig fields drift across versions, so pass only the
     # kwargs this installed GRPOConfig accepts and warn loudly on any dropped — never silently.
-    desired = grpo_config_kwargs(hyperparams, output_dir)
     valid = {f.name for f in dataclasses.fields(GRPOConfig)}
     dropped = sorted(set(desired) - valid)
     if dropped:
@@ -117,6 +116,10 @@ def build_grpo_config(hyperparams: GrpoHyperparams, output_dir: str | Path):
             "GRPOConfig dropped unsupported kwargs %s on this trl version", dropped
         )
     return GRPOConfig(**{k: v for k, v in desired.items() if k in valid})
+
+
+def build_grpo_config(hyperparams: GrpoHyperparams, output_dir: str | Path):
+    return build_grpo_config_from_kwargs(grpo_config_kwargs(hyperparams, output_dir))
 
 
 def split_train_dev(

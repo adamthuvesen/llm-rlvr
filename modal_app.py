@@ -324,6 +324,59 @@ def grpo_train(
     return str(out)
 
 
+@app.function(
+    image=image,
+    gpu="A100-80GB",
+    volumes={RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache},
+    timeout=2 * 60 * 60,
+)
+def multiturn_smoke(
+    run_id: str = "grpo-mt-smoke",
+    warm_start: str = "grpo/grpo-s0",
+    base_model: str = MODEL,
+    base_model_revision: str | None = None,
+    limit: int = 32,
+    dev_size: int = 8,
+    max_steps: int | None = None,
+    commit: str | None = None,
+    dirty: bool | None = None,
+) -> str:
+    """The Stage-3 de-risk smoke (tasks 2.1/2.2): a few real multi-turn GRPO steps from the
+    Stage-2 adapter, asserting tool-output loss masking + the TRL #4543 IS-ratio band, and
+    measuring the multi-turn memory/step-time envelope. Report JSON lands under
+    `grpo-mt/<run-id>/`; a failed assertion exits non-zero AFTER persisting the report.
+    """
+    from pathlib import Path
+
+    from text2sql_rlvr.data.artifacts import SPIDER_HF_REVISION
+    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from text2sql_rlvr.train.multiturn import MultiTurnHyperparams, run_multiturn_smoke
+
+    dbs = ensure_spider_databases(Path(RUNS_DIR) / "data" / "spider")
+    schemas = load_schemas(dbs.tables_json)
+    examples = list(load_examples("train"))[:limit]
+
+    out = run_multiturn_smoke(
+        examples,
+        schemas,
+        dbs.database_root,
+        Path(RUNS_DIR) / "grpo-mt" / run_id,
+        base_model=base_model,
+        base_model_revision=base_model_revision,
+        warm_start_adapter=Path(RUNS_DIR) / warm_start,
+        dataset="spider",
+        dataset_revision=SPIDER_HF_REVISION,
+        # The Stage-2 smoke shape: a tiny dev slice so the train split isn't starved.
+        hyperparams=MultiTurnHyperparams(eval_slice_size=dev_size),
+        max_steps=max_steps,
+        commit=commit,
+        dirty=dirty,
+    )
+    runs.commit()
+    print(f"multi-turn smoke report -> {out}")
+    return str(out)
+
+
 @app.local_entrypoint()
 def main(
     dataset: str = "spider",
@@ -455,6 +508,40 @@ def grpo(
         print(f"GRPO dispatched (spawn): function call {call.object_id}")
     else:
         print(f"GRPO complete: {grpo_train.remote(**kwargs)}")
+
+
+@app.local_entrypoint()
+def mt_smoke(
+    run_id: str = "grpo-mt-smoke",
+    warm_start: str = "grpo/grpo-s0",
+    base_model: str = MODEL,
+    base_model_revision: str | None = None,
+    limit: int = 32,
+    dev_size: int = 8,
+    max_steps: int | None = None,
+    spawn: bool = False,
+) -> None:
+    """Launch the Stage-3 multi-turn de-risk smoke (~$1, blocks paid runs on failure).
+
+    modal run modal_app.py::mt_smoke          # attended; ~15-25 min on one A100
+    """
+    kwargs = {
+        "run_id": run_id,
+        "warm_start": warm_start,
+        "base_model": base_model,
+        "base_model_revision": base_model_revision,
+        "limit": limit,
+        "dev_size": dev_size,
+        "max_steps": max_steps,
+        # The image strips .git, so compute git state locally and pass it into provenance.
+        "commit": _local_git_commit(),
+        "dirty": _local_git_dirty(),
+    }
+    if spawn:
+        call = multiturn_smoke.spawn(**kwargs)
+        print(f"multi-turn smoke dispatched (spawn): function call {call.object_id}")
+    else:
+        print(f"multi-turn smoke complete: {multiturn_smoke.remote(**kwargs)}")
 
 
 def _local_git_commit() -> str:
