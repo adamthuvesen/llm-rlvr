@@ -104,8 +104,14 @@
 
 ## 7. Controls (paid GPU, folded into the Stage-2 deliverable)
 
-- [ ] 7.1 Cross-family control: 1-seed GRPO on Llama-3.2-3B-Instruct under the same recipe; eval,
-  commit, report the point-estimate gain (replicates or not — both honest). (~$18)
+- [x] 7.1 Cross-family control DONE (2026-06-11, ~$18): **FULL matched SFT→GRPO on Llama-3.2-3B**
+  (user chose the rigorous arm over a confounded base→RL; ungated `unsloth/` mirror, byte-identical
+  weights, recorded in provenance). Same recipe end-to-end: trace-sample (2501/7000 kept, 36% vs
+  Qwen 42%) → SFT `sft-llama-r32` → GRPO `grpo-llama-s0` @ LR 5e-5 shaped. **REPLICATES, stronger
+  than the original:** Spider 0.459→0.596→**0.738** (RL +14.2pt vs Qwen +10.2); BIRD
+  0.179→0.233→**0.314** (RL +8.0pt vs Qwen +6.1); well-formed 2%→100%. Weaker base, bigger RL
+  gain (headroom). The headline is NOT a Qwen artifact. 1-seed point estimates, labeled, no CI
+  claim. Artifacts: `results/llama/` (6 CompletionSets + scores), rendered in `make eval`.
 - [x] 7.2 Reward-shaping ablation DONE (2026-06-11, `grpo-nb-s0` @ LR 5e-5 near-binary seed 0,
   ~5h train + evals, ~$14; shaped arm = headline seed 0 as planned). Full-dev, matched config:
   **Spider 0.774 vs shaped-s0 0.779** (tie, inside the shaped seed band 0.762–0.797);

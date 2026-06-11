@@ -18,6 +18,7 @@ from text2sql_rlvr.report import build_rl_row, render_progression
 HERE = Path(__file__).parent
 SFT = HERE.parent / "sft"
 GRPO = HERE.parent / "grpo"
+LLAMA = HERE.parent / "llama"
 WORKERS = 8
 GRPO_SEEDS = (0, 1, 2)
 
@@ -42,6 +43,15 @@ def main() -> None:
     nb = "grpo-nb-s0 (near-bin)"
     rows.append(("Spider-dev", nb, GRPO / "spider-dev-zs-grpo-nb-s0.json", spider_db))
     rows.append(("BIRD-dev", nb, GRPO / "bird-dev-zs-grpo-nb-s0.json", bird_db))
+    # Cross-family control: the same recipe on Llama-3.2-3B (1 seed, point estimates).
+    lt = "llama-3.2-3b-instruct"
+    for setting, suffix in (
+        ("llama base cot zs", ""),
+        ("llama + sft-llama-r32", "-sft-llama-r32"),
+        ("llama + grpo-llama-s0", "-grpo-llama-s0"),
+    ):
+        rows.append(("Spider-dev", setting, LLAMA / f"spider-dev-zs-{lt}{suffix}.json", spider_db))
+        rows.append(("BIRD-dev", setting, LLAMA / f"bird-dev-zs-{lt}{suffix}.json", bird_db))
 
     ex: dict[tuple[str, str], float] = {}
     print(f"{'benchmark':<12} {'setting':<22} {'EX':>7} {'well-formed':>12}  correct/n")
@@ -73,6 +83,27 @@ def main() -> None:
                     build_rl_row(
                         "RL 5e-5 near-binary (1)", benchmark, sft_anchor=sft, per_seed_ex=ablation
                     ),
+                ],
+                single_db=True,
+            )
+        )
+
+    # The cross-family control: Llama-3.2-3B under the identical recipe (1 seed, no CI claim).
+    for benchmark in ("Spider-dev", "BIRD-dev"):
+        llama_sft = ex[(benchmark, "llama + sft-llama-r32")]
+        print()
+        print(
+            render_progression(
+                f"{benchmark} — Llama-3.2-3B cross-family control",
+                base_ex=ex[(benchmark, "llama base cot zs")],
+                sft_ex=llama_sft,
+                rl_rows=[
+                    build_rl_row(
+                        "RL 5e-5 shaped (1 seed)",
+                        benchmark,
+                        sft_anchor=llama_sft,
+                        per_seed_ex=[ex[(benchmark, "llama + grpo-llama-s0")]],
+                    )
                 ],
                 single_db=True,
             )
