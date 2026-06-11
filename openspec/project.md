@@ -7,8 +7,8 @@ revising** — with the self-correction *learned* via RL, not prompted. It is th
 companion to a prior repo (`grpo-gain-decomposition`) that focused on rigorous *measurement* of
 RL gains; the throughline is verifying that RL gains are real.
 
-The full validated plan lives at `a local planning doc` (v2,
-stress-tested against primary sources June 2026).
+The plan behind the stages below was stress-tested against primary sources (June 2026)
+before work began.
 
 ## Approach (staged, each stage a checkpoint with a fallback)
 - **Stage 0 — evaluation foundation** *(this is the first change)*: data loaders, a read-only
@@ -51,8 +51,8 @@ stress-tested against primary sources June 2026).
   committed artifacts.
 
 ## Conventions for AI agents
-- Reuse patterns from `grpo-gain-decomposition` (loaders, provenance, eval-audit stats,
-  Modal runner) rather than inventing new ones.
+- Reuse patterns from [`grpo-gain-decomposition`](https://github.com/adamthuvesen/grpo-gain-decomposition)
+  (loaders, provenance, eval-audit stats, Modal runner) rather than inventing new ones.
 - Validate untrusted input loudly (no silent coercion); treat DB paths as read-only and confined.
 - Never string-interpolate into SQL; the sandbox opens databases `mode=ro` with a statement timeout
   and a row cap, no filesystem/network access.

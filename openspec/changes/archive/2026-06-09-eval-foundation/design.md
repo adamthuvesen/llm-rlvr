@@ -4,7 +4,7 @@ This is the first change in the `text2sql-rlvr` project (greenfield repo). It bu
 evaluation foundation that every later RL stage depends on: the same verifier that scores the
 baseline becomes the result-match component of the training reward. The project deliberately mirrors
 `grpo-gain-decomposition` conventions (package layout, Pydantic provenance, CPU/GPU extra split,
-generation-backend pattern). A primary-source validation pass (see `local planning docs`) surfaced
+generation-backend pattern). A primary-source validation pass surfaced
 several correctness traps that this design exists to avoid — chiefly that a hand-rolled SQL
 result-comparison silently diverges from the accepted metric, and that the Spider SQLite databases
 are not delivered by `load_dataset`.
