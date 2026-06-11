@@ -28,6 +28,16 @@ REMOTE_ROOT = "/root/text2sql-rlvr"
 RUNS_DIR = "/runs"
 MODEL = "Qwen/Qwen2.5-Coder-3B-Instruct"
 
+
+def _model_tag(model_id: str) -> str:
+    """A short, filesystem-safe family tag from a HF model id (the repo name, lowercased).
+
+    Used to namespace per-family intermediate artifacts (e.g. SFT candidate sets) so the Qwen and
+    Llama runs of the same recipe never collide on the Volume.
+    """
+    return model_id.rsplit("/", 1)[-1].lower()
+
+
 app = modal.App(APP_NAME)
 
 # Transient/local-only caches: never part of the image (they also mutate during a build and trip
@@ -168,8 +178,13 @@ def sample_traces(
     seed: int = 0,
     max_new_tokens: int = 1024,
     limit: int | None = None,
+    base_model: str = MODEL,
 ) -> str:
-    """Sample N `<think>` completions per Spider-train question; write a CandidateSet (D2/D4)."""
+    """Sample N `<think>` completions per Spider-train question; write a CandidateSet (D2/D4).
+
+    `base_model` defaults to Qwen; set the Llama base for the cross-family control so the SFT
+    cold-start traces are distilled from the same family that GRPO will then train (matched recipe).
+    """
     from pathlib import Path
 
     from text2sql_rlvr.data.artifacts import SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
@@ -187,14 +202,15 @@ def sample_traces(
         n=n, temperature=temperature, top_p=top_p, seed=seed, max_new_tokens=max_new_tokens
     )
     candidate_set = CandidateSet(
-        base_model=MODEL,
+        base_model=base_model,
         sampling=sampling,
         dataset="spider",
         dataset_revision=SPIDER_HF_REVISION,
         db_archive_sha256=SPIDER_DB_ARCHIVE.sha256,
-        items=sample_candidates(examples, schemas, model=MODEL, sampling=sampling),
+        items=sample_candidates(examples, schemas, model=base_model, sampling=sampling),
     )
-    name = f"candidates-n{n}-seed{seed}" + (f"-limit{limit}" if limit else "") + ".json"
+    tag = _model_tag(base_model)
+    name = f"candidates-{tag}-n{n}-seed{seed}" + (f"-limit{limit}" if limit else "") + ".json"
     out = write_json(candidate_set, Path(RUNS_DIR) / "sft" / name)
     runs.commit()
     print(f"wrote {len(candidate_set.items)} questions x {n} samples -> {out}")
@@ -210,6 +226,7 @@ def sample_traces(
 def sft_train(
     traces: str = "sft/traces.jsonl",
     run_id: str = "sft-r32",
+    base_model: str = MODEL,
     model_revision: str | None = None,
     epochs: int = 3,
     learning_rate: float = 1e-4,
@@ -217,7 +234,11 @@ def sft_train(
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> str:
-    """LoRA SFT on the trace dataset (D3); adapter + provenance land under `sft/<run-id>/`."""
+    """LoRA SFT on the trace dataset (D3); adapter + provenance land under `sft/<run-id>/`.
+
+    `base_model` defaults to Qwen; set the Llama base (with its own trace dataset) for the
+    cross-family control so the warm-start adapter's base matches the GRPO base.
+    """
     from pathlib import Path
 
     from text2sql_rlvr.train.sft import SftHyperparams, run_sft
@@ -225,7 +246,7 @@ def sft_train(
     out = run_sft(
         Path(RUNS_DIR) / traces,
         Path(RUNS_DIR) / "sft" / run_id,
-        base_model=MODEL,
+        base_model=base_model,
         base_model_revision=model_revision,
         hyperparams=SftHyperparams(epochs=epochs, learning_rate=learning_rate, seed=seed),
         commit=commit,
@@ -342,6 +363,7 @@ def traces(
     seed: int = 0,
     max_new_tokens: int = 1024,
     limit: int | None = None,
+    base_model: str = MODEL,
     spawn: bool = False,
 ) -> None:
     """Launch Spider-train trace sampling. Use --detach --spawn for the full-train run."""
@@ -352,6 +374,7 @@ def traces(
         "seed": seed,
         "max_new_tokens": max_new_tokens,
         "limit": limit,
+        "base_model": base_model,
     }
     if spawn:
         call = sample_traces.spawn(**kwargs)
@@ -364,6 +387,7 @@ def traces(
 def sft(
     traces: str = "sft/traces.jsonl",
     run_id: str = "sft-r32",
+    base_model: str = MODEL,
     model_revision: str | None = None,
     epochs: int = 3,
     learning_rate: float = 1e-4,
@@ -374,6 +398,7 @@ def sft(
     kwargs = {
         "traces": traces,
         "run_id": run_id,
+        "base_model": base_model,
         "model_revision": model_revision,
         "epochs": epochs,
         "learning_rate": learning_rate,
