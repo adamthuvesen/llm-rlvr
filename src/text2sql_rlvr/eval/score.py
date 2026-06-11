@@ -15,11 +15,12 @@ independent of execution accuracy.
 from __future__ import annotations
 
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from text2sql_rlvr._base import Frozen
 from text2sql_rlvr.data.spider import resolve_database
-from text2sql_rlvr.eval.completions import CompletionSet
+from text2sql_rlvr.eval.completions import CompletionSet, ProblemCompletions
 from text2sql_rlvr.eval.parsing import well_formed
 from text2sql_rlvr.eval.provenance import GenerationProvenance
 from text2sql_rlvr.eval.verifier import GoldExecutionError, VerifierConfig, execution_match
@@ -36,35 +37,59 @@ class ScoreReport(Frozen):
     provenance: GenerationProvenance
 
 
+def _score_item(
+    item: ProblemCompletions, db_root: str | Path, cfg: VerifierConfig
+) -> tuple[bool, str, bool]:
+    """One item's verdict: (well_formed, reason, matched). Runs on any thread — the sandbox
+    opens a fresh read-only connection per execution, so items are independent."""
+    formed = bool(item.samples) and well_formed(item.samples[0].text)
+    sql = item.samples[0].sql if item.samples else None
+    if sql is None:
+        return formed, "no_sql", False
+    db_path = resolve_database(item.example.db_id, db_root)
+    try:
+        result = execution_match(sql, item.example.gold_sql, db_path, config=cfg)
+    except GoldExecutionError:
+        return formed, "gold_error", False
+    return formed, result.reason, result.matched
+
+
 def score_completion_set(
     completion_set: CompletionSet,
     db_root: str | Path,
     *,
     config: VerifierConfig | None = None,
+    workers: int = 1,
 ) -> ScoreReport:
-    """Aggregate pass@1 single-DB execution accuracy over a completion set."""
+    """Aggregate pass@1 single-DB execution accuracy over a completion set.
+
+    `workers` > 1 scores items on a thread pool (SQLite runs outside the GIL; BIRD's large
+    databases dominate wall-clock). Verdicts are aggregated in item order, so the report is
+    byte-identical at any worker count.
+    """
     cfg = config or VerifierConfig()
+    if workers < 1:
+        raise ValueError(f"workers must be >= 1, got {workers}")
+
+    if workers == 1:
+        verdicts = [_score_item(item, db_root, cfg) for item in completion_set.items]
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            verdicts = list(
+                pool.map(lambda item: _score_item(item, db_root, cfg), completion_set.items)
+            )
+
     reasons: Counter[str] = Counter()
     correct = 0
     gold_errors = 0
     n_well_formed = 0
-
-    for item in completion_set.items:
-        if item.samples and well_formed(item.samples[0].text):
+    for formed, reason, matched in verdicts:
+        if formed:
             n_well_formed += 1
-        sql = item.samples[0].sql if item.samples else None
-        if sql is None:
-            reasons["no_sql"] += 1
-            continue
-        db_path = resolve_database(item.example.db_id, db_root)
-        try:
-            result = execution_match(sql, item.example.gold_sql, db_path, config=cfg)
-        except GoldExecutionError:
+        reasons[reason] += 1
+        if reason == "gold_error":
             gold_errors += 1
-            reasons["gold_error"] += 1
-            continue
-        reasons[result.reason] += 1
-        if result.matched:
+        if matched:
             correct += 1
 
     n = len(completion_set.items)

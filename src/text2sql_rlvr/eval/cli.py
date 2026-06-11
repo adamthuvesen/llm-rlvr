@@ -53,6 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     score.add_argument("--db-root", required=True, help="extracted Spider database/ directory")
     score.add_argument("--out", default=None, help="optional ScoreReport json path")
     score.add_argument("--no-keep-distinct", action="store_true")
+    score.add_argument(
+        "--workers", type=int, default=1, help="scoring threads (results identical at any count)"
+    )
     score.set_defaults(func=_cmd_score)
 
     traces = sub.add_parser(
@@ -75,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
 def _cmd_score(args: argparse.Namespace) -> int:
     completion_set = read_completion_set(args.completions)
     config = VerifierConfig(keep_distinct=not args.no_keep_distinct)
-    report = score_completion_set(completion_set, args.db_root, config=config)
+    report = score_completion_set(completion_set, args.db_root, config=config, workers=args.workers)
     if args.out:
         write_json(report, args.out)
     print(

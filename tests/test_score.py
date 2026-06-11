@@ -77,3 +77,30 @@ def test_raw_sql_completions_score_zero_format_rate(
     report = score_completion_set(_completion_set(provenance, "SELECT a FROM t"), scoring_root)
     assert report.execution_accuracy == 1.0
     assert report.well_formed_rate == 0.0
+
+
+def test_parallel_scoring_is_byte_identical(
+    provenance: GenerationProvenance, scoring_root: Path
+) -> None:
+    # 8.1: threaded scoring must aggregate in item order — same report at any worker count.
+    cs = _completion_set(
+        provenance,
+        "SELECT a FROM t",
+        "SELECT b FROM t",
+        "SELECT nope FROM missing",
+        None,
+        "SELECT a FROM t WHERE a=99",
+    )
+    serial = score_completion_set(cs, scoring_root, workers=1)
+    threaded = score_completion_set(cs, scoring_root, workers=4)
+    assert serial == threaded
+
+
+def test_workers_must_be_positive(provenance: GenerationProvenance, scoring_root: Path) -> None:
+    cs = _completion_set(provenance, "SELECT a FROM t")
+    try:
+        score_completion_set(cs, scoring_root, workers=0)
+    except ValueError as exc:
+        assert "workers" in str(exc)
+    else:
+        raise AssertionError("workers=0 must be rejected")

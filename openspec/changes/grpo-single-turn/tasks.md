@@ -76,14 +76,15 @@
   per-seed EX, point-only for n=1) and `rl_vs_sft_gain` (per-seed RL EX minus the greedy SFT anchor,
   with `excludes_zero` as the headline bar). Never pools rollouts across seeds; t-crit lookup table,
   no scipy. Exported from `text2sql_rlvr.eval`.
-- [ ] 5.2 `report/`: the base → SFT → RL table on Spider-dev + BIRD-dev (BIRD headline), the
-  cross-family row (1 seed, point estimate, no CI claim), and the shaped-vs-near-binary ablation rows.
-- [ ] 5.3 Eval uses the multi-DB test-suite metric where available with matched decoding; if single-DB,
-  emit the false-positive caveat into the artifact.
-- [~] 5.4 Tests (unit, CPU): **done** — aggregation refuses to pool across seeds, CI computed
-  seed-level, 1-seed point-only, gain bar both directions, empty rejected (`tests/test_aggregate.py`).
-  **Pending** (with 5.2/5.3): table re-derives from committed `CompletionSet` fixtures; caveat
-  surfaced when single-DB.
+- [~] 5.2 `report/` table RENDERED via `make eval` (2026-06-11): base → SFT → RL on both
+  benchmarks with seed-level CIs + the shaped-vs-near-binary ablation rows (n=1, point-labeled).
+  **Pending:** the cross-family Llama row — lands with the 7.1 artifacts.
+- [x] 5.3 DONE: single-DB EX with the false-positive caveat emitted into every rendered table
+  (`SINGLE_DB_CAVEAT` in `report/progression.py`; decision recorded in 1.3).
+- [x] 5.4 Tests (unit, CPU) DONE: aggregation refuses cross-seed pooling, seed-level CI, 1-seed
+  point-only, gain bar both directions (`tests/test_aggregate.py`); table renders rows + caveat
+  from fixtures (`tests/test_report.py`); threaded scoring byte-identical at any worker count
+  (`tests/test_score.py`).
 
 ## 6. LR pilot + headline run (paid GPU)
 
@@ -118,8 +119,10 @@
 
 ## 8. Re-derivation, docs, and the gate
 
-- [ ] 8.1 Extend `make eval` to re-derive the base → SFT → RL table (EX + CIs, controls + ablation) on
-  CPU from the committed artifacts, alongside the existing base + SFT rows.
+- [~] 8.1 `make eval` EXTENDED (2026-06-11): re-derives all 14 committed sets (base/SFT/3 GRPO
+  seeds/ablation, both benchmarks) + renders both progression tables, in **6:12 wall** —
+  `score_completion_set(workers=)` threads the DB execution (~5× on BIRD), byte-identical
+  reports at any worker count (tested). **Pending:** add the Llama rows when 7.1 artifacts land.
 - [ ] 8.2 `RUNBOOK.md`: the GRPO procedure end-to-end (smoke → LR pilot → headline → controls), the
   Modal commands, the seed policy, the fallback ladder for colocate OOM.
 - [ ] 8.3 `ARTIFACTS.md`: the GRPO adapters (headline 3 seeds + controls) as pinned artifacts, the
