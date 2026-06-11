@@ -55,6 +55,8 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 
 ## Current state (update when stages move)
 
-Stage 2 (single-turn GRPO) is active: headline shipped (3-seed Qwen, CI excludes zero on
-Spider-dev and BIRD-dev); controls in flight (near-binary reward ablation + Llama cross-family
-SFT→GRPO). Stages 0–1 archived in `openspec/changes/archive/`.
+Stage 3 (multi-turn GRPO, `openspec/changes/grpo-multi-turn/`) is active: CPU scaffolding done,
+GPU smoke in progress (attempt 1 cleared the TRL #4543 check but showed the policy needs the
+`mt` prompt to call `run_sql`). Stage 2 shipped and is archived with stages 0–1 in
+`openspec/changes/archive/`: 3-seed headline (CI excludes zero on Spider-dev and BIRD-dev),
+near-binary reward ablation, and the Llama cross-family control all landed.

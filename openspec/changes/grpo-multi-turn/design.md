@@ -86,7 +86,7 @@ validated headline arm) with the same empty-result guard and preamble term; if t
 near-binary results overturn the choice, the config flips one field. The reward module is
 already composable — no new architecture.
 
-**D8 — Training diagnostics are first-class outputs.** Logged per step: turn-1 EX on the dev
+**D8 — Training diagnostics are logged every step, not bolted on after.** Logged per step: turn-1 EX on the dev
 slice, mean turns used, between-turn edit distance, delta-reward distribution, frac of
 trajectories that revise at all. These are the collapse alarms (SCoRe's failure is invisible in
 aggregate reward until late).

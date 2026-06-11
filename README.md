@@ -7,18 +7,24 @@ and revising — with the self-correction *learned* via GRPO against a **verifia
 reward** (run the SQL, check the rows), not prompted.
 
 This is the build-and-train companion to
-[`grpo-gain-decomposition`](https://github.com/adamthuvesen/grpo-gain-decomposition) (which measured
-whether RL gains are real). The throughline: *I build RL agents — and I verify the gains are real.*
+[`grpo-gain-decomposition`](https://github.com/adamthuvesen/grpo-gain-decomposition), which measured
+whether RL gains are real.
 
 ## Status
 
-**Stage 0 — evaluation foundation** (this layer): Spider/BIRD loaders, a read-only SQLite sandbox,
-an execution-match verifier (parity-tested against the official Test-Suite SQL Eval), and a
-reproducible "before RL" baseline. The verifier that scores the baseline is the same one that
-becomes the Stage-2 training reward, so its correctness is load-bearing.
+Stages 0–2 are done; Stage 3 is in progress. See `openspec/` for the full record.
 
-Later stages (SFT cold-start, single-turn GRPO, multi-turn self-correction) are tracked in
-`openspec/`.
+- **Stage 0 — evaluation foundation**: Spider/BIRD loaders, a read-only SQLite sandbox, and an
+  execution-match verifier (parity-tested against the official Test-Suite SQL Eval). The verifier
+  that scores the baselines is the same code that later becomes the training reward, so it has to
+  be right.
+- **Stage 1 — SFT cold-start**: a LoRA adapter taught the `<think>` + ```sql``` format from
+  self-generated, execution-filtered traces.
+- **Stage 2 — single-turn GRPO**: RL on top of the SFT adapter with an execution reward. Spider-dev
+  +10.2pt and BIRD-dev +6.1pt over SFT (3 seeds, the gain CI excludes zero), and the gain holds
+  under a reward redesign and on a second model family (Llama-3.2-3B).
+- **Stage 3 — multi-turn self-correction** (in progress): the model runs its SQL, reads the
+  error or result, and revises before answering — with the revision behavior trained by RL.
 
 ## Layout
 

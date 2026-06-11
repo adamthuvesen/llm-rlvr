@@ -95,7 +95,7 @@ RL-vs-SFT gain CI excludes zero):
 | `grpo/bird-dev-zs-grpo-s{0,1,2}.json` | BIRD-dev, `<think>` + grpo-s{0,1,2} | 0.4081 / 0.4048 / 0.4042 — mean **0.406**, Δ vs SFT **+6.1pt** CI [+5.6, +6.7] | 1.00 |
 
 **Reward-shaping ablation (1 seed, point estimates)** — both arms beat SFT (the gain is not a
-shaping artifact); shaped wins on the harder benchmark and on format robustness. Training
+shaping artifact); shaped wins on the harder benchmark and keeps a higher well-formed rate. Training
 dynamics: the near-binary arm starves its own signal as it improves (`frac_reward_zero_std`
 0.59→0.78 vs ~0.04 shaped — all-identical reward groups teach GRPO nothing):
 

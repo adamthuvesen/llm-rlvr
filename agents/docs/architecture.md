@@ -1,8 +1,8 @@
 # Architecture
 
 The one-sentence design: **the execution-match verifier that scores the baseline is the same code
-that becomes the RL training reward** — so the eval layer is load-bearing for training, and every
-artifact carries provenance so committed numbers re-derive from disk.
+that becomes the RL training reward** — a bug in the eval layer is a bug in training. Every
+artifact carries provenance, so committed numbers re-derive from disk.
 
 ## Module map (dependency direction: top imports bottom, never the reverse)
 
@@ -81,7 +81,9 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (commi
 
 ## Stages (what exists, where it's specified)
 
-Stage 0 eval foundation and Stage 1 SFT cold-start are archived in `openspec/changes/archive/`
-with capabilities synced to `openspec/specs/`. Stage 2 (single-turn GRPO) is the active change at
-`openspec/changes/grpo-single-turn/` — its `design.md` records the decisions behind most of the
-above. Stage 3 (multi-turn self-correction) is gated on Stage-2 results.
+Stages 0–2 (eval foundation, SFT cold-start, single-turn GRPO) are archived in
+`openspec/changes/archive/` with capabilities synced to `openspec/specs/`; the archived
+`design.md`s record the decisions behind most of the above. Stage 3 (multi-turn self-correction)
+is the active change at `openspec/changes/grpo-multi-turn/` — it adds `env/text2sql_env.py`
+(the `run_sql` tool environment), `rewards/multiturn.py` (trajectory credit),
+`train/diagnostics.py` (collapse alarms), and `train/multiturn.py` (TRL wiring + the GPU smoke).
