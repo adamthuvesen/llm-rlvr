@@ -80,6 +80,12 @@ progression tables (seed-level 95% CIs for the 3-seed headline; single-seed rows
 estimates; the single-DB caveat emitted into each table). All EX is single-DB execution-match
 with the documented ~6.5% false-positive caveat.
 
+**Decoding disclosure:** all evals are greedy (temperature 0.0; recorded in each provenance), but
+the RL/Llama evals used `max_new_tokens=1024` vs the base/SFT evals' 512. Quantified impact:
+0/1034 Spider and 1–2/1534 BIRD completions per RL seed exceed the ~512-token envelope, bounding
+the effect at ≤0.13% EX on BIRD — two orders of magnitude below the +6.1pt gain it could at most
+inflate. Disclosed rather than re-run.
+
 **Headline (Qwen, 3 seeds @ LR 5e-5 shaped)** — success bar MET on both benchmarks (the
 RL-vs-SFT gain CI excludes zero):
 
