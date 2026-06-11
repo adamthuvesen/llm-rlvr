@@ -43,6 +43,15 @@
     in `MultiTurnProvenance.prompt_style` — a disclosed delta to the "prompt layer frozen"
     non-goal, which froze schema-linking features, not the env affordance. Mask + 2-turn
     assertions remain unvalidated until a re-run with `mt` shows real tool calls.
+  - **Attempt 2 (2026-06-11, `grpo-mt-smoke2`, same shape + `mt` prompt, report committed at
+    `results/grpo-mt/smoke-report-attempt2.json`): still 0/96 tool calls.** Ruled out the
+    mechanical explanations on CPU: the Coder tokenizer's chat template byte-matches TRL's
+    known `qwen2_5` template (so `parse_response` was active), and the rollout log shows the
+    tool schema + `mt` instruction rendered in the prompt — the policy answers
+    `<think>`+```sql``` anyway at full reward. Conclusion: p(tool_call) ≈ 0 under the Stage-2
+    policy, so GRPO has no exploration signal to amplify — the protocol must be seeded
+    (in-context demonstration or a small tool-use SFT pass), the same reason SCoRe needs its
+    own stage-1. IS ratio again in band (0.963). Spend so far: 2 smoke attempts ≈ $1 total.
 - [ ] 2.2 Measure the multi-turn memory + step-time envelope (3-turn transcripts); retune
   colocate `gpu_memory_utilization` and per-turn completion caps; re-extrapolate the cost.
   (Attempt-1 numbers above are zero-tool-call transcripts — a lower bound, not the envelope.)
