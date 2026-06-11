@@ -52,6 +52,10 @@
     policy, so GRPO has no exploration signal to amplify — the protocol must be seeded
     (in-context demonstration or a small tool-use SFT pass), the same reason SCoRe needs its
     own stage-1. IS ratio again in band (0.963). Spend so far: 2 smoke attempts ≈ $1 total.
+  - **NEXT STEP (pending user decision, 2026-06-11):** pick a rung — (1) few-shot tool
+    demonstration in the prompt, ~$0.50 smoke re-run (recommended first); (2) small tool-use
+    SFT cold-start before GRPO, ~$5–10 + scaffolding; (3) stop and ship Stage 2 alone (the
+    design-sanctioned honest outcome). 2.1 stays unticked until a smoke passes its assertions.
 - [ ] 2.2 Measure the multi-turn memory + step-time envelope (3-turn transcripts); retune
   colocate `gpu_memory_utilization` and per-turn completion caps; re-extrapolate the cost.
   (Attempt-1 numbers above are zero-tool-call transcripts — a lower bound, not the envelope.)

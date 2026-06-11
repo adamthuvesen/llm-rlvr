@@ -55,8 +55,12 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 
 ## Current state (update when stages move)
 
-Stage 3 (multi-turn GRPO, `openspec/changes/grpo-multi-turn/`) is active: CPU scaffolding done,
-GPU smoke in progress (attempt 1 cleared the TRL #4543 check but showed the policy needs the
-`mt` prompt to call `run_sql`). Stage 2 shipped and is archived with stages 0–1 in
-`openspec/changes/archive/`: 3-seed headline (CI excludes zero on Spider-dev and BIRD-dev),
-near-binary reward ablation, and the Llama cross-family control all landed.
+Stage 3 (multi-turn GRPO, `openspec/changes/grpo-multi-turn/`) is active and **paused on a user
+decision**. CPU scaffolding done; two GPU smoke attempts cleared the TRL #4543 check and measured
+the envelope, but the Stage-2 policy never calls `run_sql` (0/192 episodes, even with the `mt`
+prompt), so task 2.1's mask assertions are unvalidated — see the journal under task 2.1 in the
+change's `tasks.md`. **Next step: the user picks a rung** (recorded there): (1) few-shot tool
+demonstration in the prompt, ~$0.50 smoke re-run — recommended; (2) small tool-use SFT cold-start,
+~$5–10; (3) ship Stage 2 alone. Do not start paid Stage-3 training before a smoke passes.
+Stage 2 shipped and is archived with stages 0–1 in `openspec/changes/archive/`: 3-seed headline
+(CI excludes zero on both benchmarks), near-binary ablation, and the Llama cross-family control.
