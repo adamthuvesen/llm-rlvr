@@ -1,0 +1,149 @@
+{
+  "window_episodes": 128,
+  "windows": [
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.2578125,
+      "mean_edit_distance": 0.19303511322554032,
+      "mean_turn1_progress": 0.8867187499999994,
+      "mean_final_reward": 1.1419576822916666,
+      "mean_delta_bonus": 0.0
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.25,
+      "mean_edit_distance": 0.19097855491668825,
+      "mean_turn1_progress": 0.94609375,
+      "mean_final_reward": 1.3118313802083332,
+      "mean_delta_bonus": 0.009375
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.203125,
+      "mean_edit_distance": 0.15819450909530675,
+      "mean_turn1_progress": 0.8039062499999998,
+      "mean_final_reward": 1.2692623697916667,
+      "mean_delta_bonus": 0.025000000000000005
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.125,
+      "mean_edit_distance": 0.162362654185556,
+      "mean_turn1_progress": 0.8367187499999995,
+      "mean_final_reward": 1.2941679687500003,
+      "mean_delta_bonus": 0.015625
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.0625,
+      "mean_edit_distance": 0.16329877085741995,
+      "mean_turn1_progress": 0.8304687499999995,
+      "mean_final_reward": 1.3049602864583334,
+      "mean_delta_bonus": 0.0078125
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.0546875,
+      "mean_edit_distance": 0.26015103194575656,
+      "mean_turn1_progress": 0.7953124999999999,
+      "mean_final_reward": 1.2684186197916667,
+      "mean_delta_bonus": 0.00078125
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.0625,
+      "mean_edit_distance": 0.20778922906668212,
+      "mean_turn1_progress": 0.8195312499999994,
+      "mean_final_reward": 1.2833170572916668,
+      "mean_delta_bonus": 0.0023437500000000003
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.0234375,
+      "mean_edit_distance": 0.011464117370345028,
+      "mean_turn1_progress": 0.8156249999999996,
+      "mean_final_reward": 1.2965644531250002,
+      "mean_delta_bonus": 0.0015625
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 1.9921875,
+      "frac_revising": 0.0625,
+      "mean_edit_distance": 0.1701193867623384,
+      "mean_turn1_progress": 0.8718749999999997,
+      "mean_final_reward": 1.3667838541666666,
+      "mean_delta_bonus": 0.00859375
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.0234375,
+      "mean_edit_distance": 0.1259485353842058,
+      "mean_turn1_progress": 0.8921875000000001,
+      "mean_final_reward": 1.390171875,
+      "mean_delta_bonus": 0.009375
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.046875,
+      "mean_edit_distance": 0.16509263991442866,
+      "mean_turn1_progress": 0.8648437499999999,
+      "mean_final_reward": 1.3431764322916668,
+      "mean_delta_bonus": 0.0078125
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.0859375,
+      "mean_edit_distance": 0.15714446175733385,
+      "mean_turn1_progress": 0.8374999999999996,
+      "mean_final_reward": 1.2761341145833331,
+      "mean_delta_bonus": 0.0078125
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.03125,
+      "mean_edit_distance": 0.308977229550019,
+      "mean_turn1_progress": 0.7953124999999998,
+      "mean_final_reward": 1.2727389322916667,
+      "mean_delta_bonus": 0.00078125
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.0859375,
+      "mean_edit_distance": 0.1456280120887009,
+      "mean_turn1_progress": 0.8015624999999995,
+      "mean_final_reward": 1.2881542968749997,
+      "mean_delta_bonus": 0.02265625
+    },
+    {
+      "n_episodes": 128,
+      "mean_turns_used": 2.0,
+      "frac_revising": 0.109375,
+      "mean_edit_distance": 0.21971407092312892,
+      "mean_turn1_progress": 0.7367187500000001,
+      "mean_final_reward": 1.1803750000000002,
+      "mean_delta_bonus": 0.0023437500000000003
+    }
+  ],
+  "overall": {
+    "n_episodes": 1920,
+    "mean_turns_used": 1.9994791666666667,
+    "frac_revising": 0.09895833333333333,
+    "mean_edit_distance": 0.18099076545008438,
+    "mean_turn1_progress": 0.8356249999999955,
+    "mean_final_reward": 1.2858676215277776,
+    "mean_delta_bonus": 0.008124999999999997
+  }
+}

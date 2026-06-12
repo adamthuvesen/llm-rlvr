@@ -99,6 +99,33 @@
     - Transcript audit (qualitative, can override to ABORT): revisions must be genuine edits
       responding to feedback — not feedback-marker imitation inside completions (the leak
       assertion also fires on this), not systematic answer-destruction on success feedback.
+  - **PILOT VERDICT (2026-06-12, `grpo-fr-pilot`: 2,000-question subset, 60 steps @ LR 5e-5,
+    1,920 episodes, ≈ $1.50; D8 series committed at `results/grpo-fr/pilot-d8-diagnostics.json`):
+    GATE FAILED — P1 and P2 do not hold. Per the pre-registered rule: ABORT the ladder; no
+    full run; the change closes as an honest negative at the pilot rung.**
+    - **P1 FAIL (marginal):** last-window turn-1 progress 0.737 < 0.754 (= 0.85 × first
+      window 0.887). Not the classic sandbag signature (final reward fell with it, w14
+      reward 1.180), but the gate is the gate.
+    - **P2 FAIL (clear):** mean delta-bonus over the second half of windows 0.0076–0.0085
+      (by either half-split reading) < 0.01 — *below even the untrained smoke baseline
+      (0.0094)*. The fix channel shrank under training instead of amplifying.
+    - P3 PASS: every logged IS-ratio step mean in band (1.018 / 1.002 / 1.002 …); 0 NaNs.
+      P4 PASS: no trivial-edit signature (frac_revising 0.109 last window). P6 would have
+      passed: 15.5 s/step → full-run projection ≈ $10.
+    - **Mechanism (the documented negative):** `frac_revising` fell monotonically-ish from
+      0.26 (w0) to ~0.05 (w4–w14) — GRPO converges toward *identity resubmission*, the
+      degenerate harm-avoidance policy the probe's economics predict: with ~78% of attempts
+      already right and an untrained net-EX of −1.65pt per revision pass, the cheapest
+      reward gain is "stop touching answers", not "fix the wrong ones". The starvation is
+      visible in `frac_reward_zero_std` ≈ 0.56–0.71 (vs Stage-2 shaped ≈ 0.04): most G=4
+      groups score identically (right attempt, kept, same reward) and contribute zero
+      advantage, so the residual gradient is dominated by the harm channel. The
+      improvement-delta bonus (w_delta 0.3 on a ≤1.0-tier delta) is too small a carrot
+      against w_final ≈ 1.6 of "keep it safe". This is SCoRe's collapse mode in a new
+      costume — reached with the guards ON (delta bonus live, KL anchor live, identity
+      resubmission earning zero delta).
+    - Pilot-checkpoint documentation evals (n=200 Spider-dev slice, pilot rung budget):
+      recorded below for the abort report; they do not gate anything.
   - **D6 CONTROLS (pre-registered):** the full-run verdict compares, on full Spider-dev +
     BIRD-dev: (a) the FR policy under the forced-revision harness (greedy, 2 generations per
     question); (b) the Stage-2 seed-0 single-turn greedy anchors (0.7795 / 0.4081, committed);
