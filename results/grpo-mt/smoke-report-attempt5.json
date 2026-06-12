@@ -1,0 +1,129 @@
+{
+  "passed": false,
+  "failures": [
+    "no episode called run_sql — the tool loop never fired",
+    "no episode used >=2 tool turns — the spec needs a real 2-turn rollout",
+    "no completion token was tool-masked",
+    "env feedback never appeared in the masked (loss-excluded) spans"
+  ],
+  "n_train": 24,
+  "n_steps": 3,
+  "wall_time_s": 61.633359203,
+  "mean_step_time_s": 18.26769306,
+  "n_episodes": 96,
+  "episodes_with_tool_calls": 0,
+  "episodes_with_2plus_tool_turns": 0,
+  "max_tool_turns": 0,
+  "tool_call_frequency": 0.0,
+  "tool_failure_frequency": 0.0,
+  "mask": {
+    "n_rows": 96,
+    "rows_with_masked_tokens": 0,
+    "masked_tokens_total": 0,
+    "feedback_in_masked_text": false,
+    "feedback_in_unmasked_text": false
+  },
+  "is_ratio": {
+    "n_logged": 1,
+    "mean_of_means": 0.9663414359092712,
+    "overall_min": 0.1297709047794342,
+    "overall_max": 1.8139727512995403,
+    "logp_diff_mean": 0.01555956806987524,
+    "band": [
+      0.8,
+      1.25
+    ],
+    "in_band": true
+  },
+  "diagnostics": {
+    "n_episodes": 96,
+    "mean_turns_used": 1.0,
+    "frac_revising": 0.0,
+    "mean_edit_distance": 0.0,
+    "mean_turn1_progress": 0.11041666666666666,
+    "mean_final_reward": 0.23764496527777787,
+    "mean_delta_bonus": 0.0
+  },
+  "peak_torch_memory_gib": 50.502450466156006,
+  "device_memory_used_gib": 60.90704345703125,
+  "completions_mean_length": 80.5625,
+  "provenance": {
+    "grpo": {
+      "base_model": "Qwen/Qwen2.5-Coder-3B-Instruct",
+      "base_model_revision": null,
+      "warm_start_adapter": "/runs/sft/tooluse-sft2-r32",
+      "hyperparams": {
+        "lora_rank": 32,
+        "lora_alpha": 64,
+        "lora_dropout": 0.05,
+        "learning_rate": 0.00001,
+        "beta": 0.04,
+        "num_generations": 4,
+        "max_completion_length": 1024,
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "per_device_batch_size": 8,
+        "gradient_accumulation_steps": 4,
+        "num_train_epochs": 1,
+        "warmup_ratio": 0.03,
+        "vllm_gpu_memory_utilization": 0.3,
+        "save_steps": 50,
+        "eval_slice_size": 8,
+        "seed": 0
+      },
+      "reward": {
+        "arm": "shaped",
+        "w_format": 0.2,
+        "w_executable": 0.2,
+        "w_result_match": 1.0,
+        "w_length": 0.1,
+        "preamble_credit": 0.3,
+        "length_target_chars": 400,
+        "length_max_chars": 1600,
+        "guard_trivial_empty": true
+      },
+      "dataset": "spider",
+      "dataset_revision": "0c350918f3f29ec754f1181c65cdce76cd6c133c",
+      "n_train": 24,
+      "n_dev": 8,
+      "library_versions": {
+        "rlvr-sql-agent": "0.1.0",
+        "trl": "1.5.1",
+        "peft": "0.19.1",
+        "transformers": "5.10.2",
+        "torch": "2.11.0",
+        "accelerate": "1.13.0",
+        "vllm": "0.22.1"
+      },
+      "git_commit": "1d6bfedcc38865a2cc9fe2dfb583704ca2102d06",
+      "git_dirty": false
+    },
+    "environment": {
+      "max_turns": 3,
+      "error_message_chars": 300,
+      "include_rows": true,
+      "preview_rows": 5,
+      "preview_chars": 500
+    },
+    "multiturn_reward": {
+      "base": {
+        "arm": "shaped",
+        "w_format": 0.2,
+        "w_executable": 0.2,
+        "w_result_match": 1.0,
+        "w_length": 0.1,
+        "preamble_credit": 0.3,
+        "length_target_chars": 400,
+        "length_max_chars": 1600,
+        "guard_trivial_empty": true
+      },
+      "credit": "hybrid",
+      "w_final": 1.0,
+      "w_per_turn": 0.3,
+      "w_delta": 0.3,
+      "first_turn_kl_anchor": true,
+      "delta_bonus": true
+    },
+    "prompt_style": "mt"
+  }
+}

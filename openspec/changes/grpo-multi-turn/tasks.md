@@ -165,10 +165,39 @@
       optionally upweight the bare-prompt→tool-call rows. Cost of one iteration ≈ $1.50
       (rebuild $0 + SFT $0.60 + forgetting gate $1 + smoke $0.50, skipping the multi-turn
       attribution evals until a smoke passes).
-  - **DECISION POINT (2026-06-12, pending user):** (i) one diagnosed-fix iteration of rung 2,
+  - ~~**DECISION POINT (2026-06-12, pending user):** (i) one diagnosed-fix iteration of rung 2,
     ≈ $1.50, with the concrete changes above; or (ii) ship Stage 2 alone (unchanged, fully
     intact). Pilot/full multi-turn GRPO (3.x onward) remain unapproved either way. 2.1 stays
-    unticked: four smoke attempts, none with a single tool call.
+    unticked: four smoke attempts, none with a single tool call.~~ User picked (i), agreed as
+    the **last cheap try** → attempt 5.
+  - **Attempt 5 (2026-06-12, `grpo-mt-smoke5`, `mt` prompt, warm-start `sft/tooluse-sft2-r32`,
+    report committed at `results/grpo-mt/smoke-report-attempt5.json`): still 0/96 tool calls —
+    the diagnosed-fix iteration FAILED.** All four diagnosed fixes were implemented and
+    verified: dataset v2 (`tooluse-v2.jsonl`, manifest committed; 2,600 rows, direct arm
+    600→200 and preamble-stripped to leading-`<think>`, first-turn token mass ~3:1 in favor of
+    tool calls — was 1:5 against), think templates no longer quote the feedback marker (the
+    attempt-4 imitation assertion did NOT fire this time — that fix verifiably worked), and
+    rows were pre-rendered to text through the real chat template WITH the `run_sql` tools
+    block (prefix-split verified byte-clean against the actual Qwen template; a datasets
+    silent-cast bug found and fixed en route — strings cast back into `List(Json)` features —
+    one crashed launch ≈ $0.05). Result: the policy STILL never calls the tool, and its
+    mt-context generation is *differently* degraded than v1 — short completions (mean 80.6
+    tokens), at least one degenerate single-character sample in the rollout log, mean turn-1
+    progress 0.11 / reward 0.24. IS ratio in band (0.966). Iteration spend ≈ $1.40 (SFT
+    ≈ $0.85 incl. the crashed launch + smoke $0.50); Stage-3 total ≈ $7.
+    - *Honest unknowns (recorded, not resolved — resolving needs spend beyond the agreed cap):*
+      why a 163-step LR-2e-5 LoRA continuation degrades mt-context generation this much is
+      undetermined. Candidate mechanisms: `max_length=2048` right-truncation clipping
+      completions on long-schema rows; distribution shock of text-rendered rows vs the
+      adapter's RL-tuned state; or the tool-call format simply requiring more optimization
+      pressure than 900 short targets provide against ~190k steps of accumulated
+      direct-answer training (base instruct → SFT → GRPO).
+  - **FINAL DECISION POINT (2026-06-12, pending user; the cheap-iteration well is dry):**
+    five smoke attempts, zero tool calls in 480 episodes, two SFT recipes failed two different
+    ways. Recommendation: **ship Stage 2 alone** (untouched, fully intact). The remaining
+    alternative is a properly-scoped SCoRe-style cold start (on-policy sampled tool traces,
+    eval-gated SFT, ~$10–20 + real design work) — new scope, not an iteration. 2.1 stays
+    unticked either way.
 - [ ] 2.2 Measure the multi-turn memory + step-time envelope (3-turn transcripts); retune
   colocate `gpu_memory_utilization` and per-turn completion caps; re-extrapolate the cost.
   (Attempt-1 numbers above are zero-tool-call transcripts — a lower bound, not the envelope.)
