@@ -75,13 +75,41 @@
     Side observation: the demo slightly *hurt* direct answering (mean turn-1 progress 0.81 vs
     0.91 in attempt 2) — a longer prompt with no tool-use payoff. Spend ≈ $0.50; smoke total
     ≈ $1.50.
-  - **NEXT STEP (pending user decision, 2026-06-12):** the in-context rung is exhausted; two
+  - ~~**NEXT STEP (pending user decision, 2026-06-12):** the in-context rung is exhausted; two
     rungs remain — (2) small tool-use SFT cold-start before GRPO, ~$5–10 + scaffolding (the
     evidence now directly supports this: the format must be trained, not prompted); (3) stop
     and ship Stage 2 alone (the design-sanctioned honest outcome). A cheap diagnostic variant
     of (2)'s premise the design already names: re-run the smoke warm-started from the SFT
     adapter instead of `grpo-s0` (~$0.50) to test whether the GRPO stage specifically
-    entrenched the direct-answer prior. 2.1 stays unticked until a smoke passes its assertions.
+    entrenched the direct-answer prior. 2.1 stays unticked until a smoke passes its assertions.~~
+    **RESOLVED (user decision, 2026-06-12): rung 2 — tool-use SFT cold start.** Approved spend:
+    ~$5–10 SFT + ~$0.50 smoke re-run; pilot/full GRPO (3.x onward) remain unapproved.
+  - **Rung-2 plan + guardrail gates (recorded 2026-06-12, before any training):**
+    1. *Dataset* (`train/tooluse.py`, `build-tooluse` CLI; CPU, $0): per-assistant-turn TRL
+       prompt-completion rows from three transcript shapes — `revise` (corrupted query → real
+       sandbox error → gold query → real success → final answer), `check` (gold query → success
+       → final), `direct` (real Stage-1 trace completions re-homed under the `mt` instruction,
+       protecting Stage-2 behavior). Feedback strings byte-match the rollout env (same sandbox
+       caps + `format_feedback`); tool calls are structured `tool_calls` messages rendered by
+       the chat template. Train-split only. Mix 600/300/600 transcripts, seed 0. Disclosed
+       delta: SFT prompts lack the rendered `# Tools` system block (TRL's SFT template path
+       does not take a `tools=` kwarg); rollout prompts include it — a superset context.
+    2. *Mini-SFT* (`sft` entrypoint + new `--warm-start grpo/grpo-s0`): continues the Stage-2
+       adapter, LR 2e-5 (between the GRPO 1e-5 default and Stage-1's 1e-4 — a nudge, not a
+       rewrite), 1 epoch, otherwise Stage-1 config. Adapter → Volume `sft/tooluse-sft-r32`.
+    3. *Gate (a) — forgetting:* single-turn greedy eval of the post-SFT checkpoint on full
+       Spider-dev + BIRD-dev vs the Stage-2 seed-0 anchor (0.7795 / 0.4081); deltas recorded
+       here before proceeding. No fixed kill threshold pre-registered — the decision rule is
+       "small single-digit drop acceptable for a smoke-unblocking cold start; large drop =
+       stop and reconsider."
+    4. *Gate (b) — attribution baseline:* the same post-SFT checkpoint evaluated multi-turn
+       (greedy, no RL) on both benchmarks, so any later Stage-3 RL gain decomposes into
+       "taught the format" (SFT multi-turn − SFT single-turn) vs "learned to use feedback"
+       (RL multi-turn − SFT multi-turn). Requires the new multi-turn eval path; transcripts
+       committed like every CompletionSet.
+    5. *Smoke re-run* (~$0.50, `mt` prompt — the demonstration is now trained in, not
+       prompted): tick 2.1 only if assertions pass with real tool calls; else document
+       attempt 4 and stop.
 - [ ] 2.2 Measure the multi-turn memory + step-time envelope (3-turn transcripts); retune
   colocate `gpu_memory_utilization` and per-turn completion caps; re-extrapolate the cost.
   (Attempt-1 numbers above are zero-tool-call transcripts — a lower bound, not the envelope.)

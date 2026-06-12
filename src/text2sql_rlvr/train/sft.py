@@ -93,6 +93,9 @@ class AdapterProvenance(Frozen):
 
     base_model: str
     base_model_revision: str | None = None
+    # Set when SFT continues an existing adapter (the Stage-3 tool-use cold start warm-starts
+    # from the Stage-2 GRPO checkpoint); None = fresh LoRA from the base (Stage 1).
+    warm_start_adapter: str | None = None
     hyperparams: SftHyperparams
     trace_dataset_path: str
     trace_dataset_sha256: str
@@ -109,6 +112,7 @@ def build_adapter_provenance(
     trace_dataset_path: str | Path,
     n_traces: int,
     base_model_revision: str | None = None,
+    warm_start_adapter: str | Path | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> AdapterProvenance:
@@ -116,6 +120,7 @@ def build_adapter_provenance(
     return AdapterProvenance(
         base_model=base_model,
         base_model_revision=base_model_revision,
+        warm_start_adapter=str(warm_start_adapter) if warm_start_adapter is not None else None,
         hyperparams=hyperparams,
         trace_dataset_path=str(trace_dataset_path),
         trace_dataset_sha256=sha256_of(trace_dataset_path),
@@ -132,6 +137,7 @@ def run_sft(
     *,
     base_model: str,
     base_model_revision: str | None = None,
+    warm_start_adapter: str | Path | None = None,
     hyperparams: SftHyperparams | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
@@ -140,6 +146,8 @@ def run_sft(
 
     Saves the final adapter (weights + config) to `output_dir`, with per-epoch checkpoints
     under it, and writes `provenance.json` alongside. The base model is never modified.
+    `warm_start_adapter` continues an existing LoRA adapter instead of creating a fresh one
+    (the Stage-3 tool-use cold start continues the Stage-2 GRPO checkpoint).
     """
     from datasets import load_dataset  # lazy: heavy training stack, train extra only
     from trl import SFTTrainer
@@ -152,21 +160,34 @@ def run_sft(
     )
 
     config = build_sft_config(hp, output_dir)
-    config.model_init_kwargs = {"dtype": "bfloat16"} | (
-        {"revision": base_model_revision} if base_model_revision else {}
-    )
-    trainer = SFTTrainer(
-        model=base_model,
-        args=config,
-        train_dataset=dataset,
-        peft_config=build_lora_config(hp),
-    )
+    if warm_start_adapter is None:
+        config.model_init_kwargs = {"dtype": "bfloat16"} | (
+            {"revision": base_model_revision} if base_model_revision else {}
+        )
+        trainer = SFTTrainer(
+            model=base_model,
+            args=config,
+            train_dataset=dataset,
+            peft_config=build_lora_config(hp),
+        )
+    else:
+        from peft import PeftModel
+        from transformers import AutoModelForCausalLM
+
+        base = AutoModelForCausalLM.from_pretrained(
+            base_model,
+            dtype="bfloat16",
+            **({"revision": base_model_revision} if base_model_revision else {}),
+        )
+        policy = PeftModel.from_pretrained(base, str(warm_start_adapter), is_trainable=True)
+        trainer = SFTTrainer(model=policy, args=config, train_dataset=dataset)
     trainer.train()
     trainer.save_model(str(output_dir))
 
     provenance = build_adapter_provenance(
         base_model=base_model,
         base_model_revision=base_model_revision,
+        warm_start_adapter=warm_start_adapter,
         hyperparams=hp,
         trace_dataset_path=trace_path,
         n_traces=len(dataset),

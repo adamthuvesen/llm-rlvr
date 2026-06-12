@@ -232,6 +232,7 @@ def sft_train(
     run_id: str = "sft-r32",
     base_model: str = MODEL,
     model_revision: str | None = None,
+    warm_start: str | None = None,
     epochs: int = 3,
     learning_rate: float = 1e-4,
     seed: int = 0,
@@ -241,7 +242,9 @@ def sft_train(
     """LoRA SFT on the trace dataset (D3); adapter + provenance land under `sft/<run-id>/`.
 
     `base_model` defaults to Qwen; set the Llama base (with its own trace dataset) for the
-    cross-family control so the warm-start adapter's base matches the GRPO base.
+    cross-family control so the warm-start adapter's base matches the GRPO base. `warm_start`
+    (an adapter dir relative to the Volume, e.g. `grpo/grpo-s0`) continues that adapter instead
+    of training a fresh one — the Stage-3 tool-use cold start.
     """
     from pathlib import Path
 
@@ -252,6 +255,7 @@ def sft_train(
         Path(RUNS_DIR) / "sft" / run_id,
         base_model=base_model,
         base_model_revision=model_revision,
+        warm_start_adapter=(Path(RUNS_DIR) / warm_start) if warm_start else None,
         hyperparams=SftHyperparams(epochs=epochs, learning_rate=learning_rate, seed=seed),
         commit=commit,
         dirty=dirty,
@@ -448,6 +452,7 @@ def sft(
     run_id: str = "sft-r32",
     base_model: str = MODEL,
     model_revision: str | None = None,
+    warm_start: str | None = None,
     epochs: int = 3,
     learning_rate: float = 1e-4,
     seed: int = 0,
@@ -459,6 +464,7 @@ def sft(
         "run_id": run_id,
         "base_model": base_model,
         "model_revision": model_revision,
+        "warm_start": warm_start,
         "epochs": epochs,
         "learning_rate": learning_rate,
         "seed": seed,

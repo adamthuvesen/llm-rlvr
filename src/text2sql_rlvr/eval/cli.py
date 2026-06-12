@@ -67,6 +67,21 @@ def main(argv: list[str] | None = None) -> int:
     traces.add_argument("--manifest", required=True, help="output manifest json path")
     traces.set_defaults(func=_cmd_build_traces)
 
+    tooluse = sub.add_parser(
+        "build-tooluse",
+        help="build the Stage-3 tool-use SFT dataset (CPU; executes queries in the real sandbox)",
+    )
+    tooluse.add_argument("--tables-json", required=True, help="Spider tables.json for schemas")
+    tooluse.add_argument("--db-root", required=True, help="extracted Spider database/ directory")
+    tooluse.add_argument("--traces", required=True, help="Stage-1 trace JSONL (direct-row source)")
+    tooluse.add_argument("--out", required=True, help="output tool-use dataset JSONL path")
+    tooluse.add_argument("--manifest", required=True, help="output manifest json path")
+    tooluse.add_argument("--n-revise", type=int, default=600)
+    tooluse.add_argument("--n-check", type=int, default=300)
+    tooluse.add_argument("--n-direct", type=int, default=600)
+    tooluse.add_argument("--seed", type=int, default=0)
+    tooluse.set_defaults(func=_cmd_build_tooluse)
+
     args = parser.parse_args(argv)
     try:
         return args.func(args)
@@ -142,6 +157,46 @@ def _cmd_build_traces(args: argparse.Namespace) -> int:
         f"kept {counts.n_kept}/{counts.n_questions} questions "
         f"({counts.n_candidates} candidates, {counts.n_eligible} eligible, "
         f"{counts.n_gold_errors} gold errors) -> {path}"
+    )
+    return 0
+
+
+def _cmd_build_tooluse(args: argparse.Namespace) -> int:
+    # Imported here so `generate`/`score` never pay for the train-layer imports.
+    from text2sql_rlvr.data.spider import SPIDER_HF_REVISION, load_examples, load_schemas
+    from text2sql_rlvr.env.text2sql_env import FeedbackConfig
+    from text2sql_rlvr.train.tooluse import (
+        ToolUseMix,
+        build_tooluse_manifest,
+        build_tooluse_rows,
+        write_tooluse_dataset,
+    )
+    from text2sql_rlvr.train.traces import read_trace_dataset
+
+    mix = ToolUseMix(
+        n_revise=args.n_revise, n_check=args.n_check, n_direct=args.n_direct, seed=args.seed
+    )
+    feedback = FeedbackConfig()
+    schemas = load_schemas(args.tables_json)
+    examples = list(load_examples("train"))
+    traces = read_trace_dataset(args.traces)
+    rows, counts = build_tooluse_rows(
+        examples, schemas, args.db_root, traces, mix=mix, feedback=feedback
+    )
+    path = write_tooluse_dataset(rows, args.out)
+    manifest = build_tooluse_manifest(
+        dataset="spider",
+        dataset_revision=SPIDER_HF_REVISION,
+        mix=mix,
+        feedback=feedback,
+        trace_dataset_path=args.traces,
+        counts=counts,
+    )
+    write_json(manifest, args.manifest)
+    print(
+        f"built {counts.n_rows} rows ({counts.n_revise} revise / {counts.n_check} check / "
+        f"{counts.n_direct} direct; {counts.n_gold_errors} gold errors, "
+        f"{counts.n_corruption_fallbacks} corruption fallbacks) -> {path}"
     )
     return 0
 
