@@ -120,3 +120,31 @@ is not a Qwen artifact:
 The full progression (Qwen): base 0.625 → SFT 0.678 → RL **0.779** on Spider-dev;
 0.313 → 0.344 → **0.406** on BIRD-dev. RL contributed ~2× SFT's gain on both benchmarks and
 both model families, using the same training questions — the learning signal, not new data.
+
+## Stage 3: multi-turn GRPO — CLOSED without training (`results/grpo-mt/`)
+
+**Decision (2026-06-12): ship Stage 2 standalone.** The change (archived under
+`openspec/changes/archive/`) was closed at its de-risk gate after ≈ $8 of smoke/gate evidence;
+no multi-turn policy was trained, so the Stage-2 progression above remains the headline. The
+finding, probe-backed: **the 3B model never adopts the `run_sql` tool protocol** — 0 tool calls
+in 672 sampled episodes across every checkpoint rung and prompting strength; a two-arm probe
+falsified RL-entrenchment as the cause (the raw base model also answers directly, 0/96).
+TRL #4543 (multi-turn IS correctness) was clear in our envelope on every census. All artifacts
+committed with full provenance:
+
+| File | What | Result |
+| --- | --- | --- |
+| `grpo-mt/smoke-report-attempt1.json` | GRPO ckpt, `cot` prompt | 0/96 tool calls; IS 0.979 in band |
+| `grpo-mt/smoke-report-attempt2.json` | GRPO ckpt, `mt` instruction | 0/96; IS 0.963 |
+| `grpo-mt/smoke-report-attempt3.json` | GRPO ckpt, `mt_demo` in-context demonstration | 0/96; IS 0.999 |
+| `grpo-mt/smoke-report-attempt4.json` | + tool-use SFT v1 (`tooluse-sft-r32`) | 0/96; policy imitates feedback text |
+| `grpo-mt/smoke-report-attempt5.json` | + tool-use SFT v2 (`tooluse-sft2-r32`, all diagnosed fixes) | 0/96; degraded generation |
+| `grpo-mt/smoke-report-probe-base.json` | PROBE: raw base (identity LoRA), `mt_demo` | 0/96 — entrenchment falsified |
+| `grpo-mt/smoke-report-probe-sft.json` | PROBE: Stage-1 SFT ckpt, `mt_demo` | 0/96 |
+| `grpo-mt/{spider,bird}-dev-zs-tooluse-sft-r32.json` | SFT-v1 forgetting gate (single-turn) | 0.6983 (−8.1pt) / 0.3748 (−3.3pt) |
+| `grpo-mt/{spider,bird}-dev-mt-tooluse-sft-r32(.transcripts).json` | SFT-v1 attribution baseline (multi-turn, no RL) | 0.1151 / 0.0469; 0 tool calls, transcripts persisted |
+| `grpo-mt/tooluse.manifest.json`, `grpo-mt/tooluse-v2.manifest.json` | tool-use SFT dataset manifests | 3,000 / 2,600 rows, sandbox-verified feedback |
+
+The Stage-3 scaffolding (env tool loop, multi-turn reward + diagnostics, smoke driver,
+`build-tooluse` dataset builder, `mt_eval` multi-turn inference eval) remains in the tree,
+tested, for any future attempt on a larger base model.

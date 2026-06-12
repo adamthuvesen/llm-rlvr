@@ -55,17 +55,15 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 
 ## Current state (update when stages move)
 
-Stage 3 (multi-turn GRPO, `openspec/changes/grpo-multi-turn/`) is **paused on the final user
-decision after five failed smoke attempts (zero tool calls in 480 episodes)**. In-context rungs
-(`cot`/`mt`/`mt_demo`) failed (attempts 1–3); the rung-2 tool-use SFT failed twice, two
-different ways: v1 (`sft/tooluse-sft-r32`) taught preamble direct answers (token-mass imbalance;
-−8.1pt Spider / −3.3pt BIRD single-turn), v2 (`sft/tooluse-sft2-r32`, all four diagnosed fixes
-implemented + verified) degraded mt-context generation outright — full journal, gate artifacts,
-and honest unknowns under task 2.1 in the change's `tasks.md`. Stage-2 artifacts are untouched
-(`grpo/grpo-s0` only read). Working new infra: tool-use dataset builder (`train/tooluse.py`,
-`build-tooluse` CLI), warm-start + tools-block-rendered SFT (`run_sft`), multi-turn inference
-eval (`eval/multiturn_generate.py`, `mt_eval`). **Pending: the user picks** — ship Stage 2 alone
-(recommended), or scope a real SCoRe-style cold start (~$10–20, new change). No paid Stage-3
-training before a smoke passes; task 2.1 stays unticked.
+**The project is complete at Stage 2; there is no active change.** Stage 3 (`grpo-multi-turn`)
+was **CLOSED 2026-06-12 without training — ship Stage 2 alone** (user decision; archived with
+stages 0–2 in `openspec/changes/archive/`). The probe-backed finding: the 3B model never adopts
+the `run_sql` tool protocol — 0 tool calls in 672 sampled episodes across base / SFT / GRPO /
+two tool-use-SFT checkpoints and every prompting strength; a pre-registered two-arm probe
+falsified RL-entrenchment as the cause (the raw base model also answers directly). TRL #4543
+stayed clear in our envelope throughout. Evidence pinned in ARTIFACTS (Stage-3 section) and the
+archived change's `tasks.md` task-2.1 journal. Stage-2 artifacts untouched; the Stage-3
+scaffolding (env tool loop, multi-turn reward + diagnostics, `build-tooluse`, `mt_eval`) stays
+in the tree, tested, for any future attempt on a larger base.
 Stage 2 shipped and is archived with stages 0–1 in `openspec/changes/archive/`: 3-seed headline
 (CI excludes zero on both benchmarks), near-binary ablation, and the Llama cross-family control.

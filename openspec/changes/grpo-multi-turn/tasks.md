@@ -192,12 +192,42 @@
       adapter's RL-tuned state; or the tool-call format simply requiring more optimization
       pressure than 900 short targets provide against ~190k steps of accumulated
       direct-answer training (base instruct → SFT → GRPO).
-  - **FINAL DECISION POINT (2026-06-12, pending user; the cheap-iteration well is dry):**
+  - ~~**FINAL DECISION POINT (2026-06-12, pending user; the cheap-iteration well is dry):**
     five smoke attempts, zero tool calls in 480 episodes, two SFT recipes failed two different
     ways. Recommendation: **ship Stage 2 alone** (untouched, fully intact). The remaining
     alternative is a properly-scoped SCoRe-style cold start (on-policy sampled tool traces,
     eval-gated SFT, ~$10–20 + real design work) — new scope, not an iteration. 2.1 stays
-    unticked either way.
+    unticked either way.~~ User chose: ship Stage 2 + run a pre-registered ~$1 entrenchment
+    probe first, gating any sequel → probe below.
+  - **ENTRENCHMENT PROBE (2026-06-12, pre-registered gate before any sequel; two arms, same
+    instrument as every attempt — temp-1.0 census, 96 episodes, `mt_demo` prompt; reports
+    committed at `results/grpo-mt/smoke-report-probe-{base,sft}.json`): the entrenchment
+    hypothesis is FALSIFIED.** The *raw base model* (fresh zero-init LoRA = identity; never
+    touched by our training; Qwen-Instruct ships with native function-calling training) calls
+    `run_sql` in **0/96** episodes; the pre-GRPO Stage-1 SFT checkpoint: **0/96**. TRL's own
+    `tools/call_frequency` reads 0.0 in both arms, and the logged completions are clean direct
+    answers — every checkpoint *chooses* to answer (base turn-1 progress 0.52, SFT 0.56; both
+    competent direct answers under the mt context). The full curve is flat zero:
+    | Checkpoint | Prompt | Tool calls |
+    |---|---|---|
+    | base (identity LoRA) | `mt_demo` | 0/96 |
+    | SFT `sft-r32` (pre-GRPO) | `mt_demo` | 0/96 |
+    | GRPO `grpo-s0` | `cot` / `mt` / `mt_demo` | 0/288 |
+    | + tool-SFT v1/v2 | `mt` | 0/192 |
+    - *Corrected finding:* the blocker was never RL format entrenchment — it is **protocol
+      non-adoption at this scale/setting**: Qwen2.5-Coder-3B-Instruct does not elect to call
+      an offered tool in this environment under any checkpoint or any strength of prompting,
+      and even 900 supervised tool-call targets (two recipes) failed to flip its rollout
+      behavior. Harness artifacts were ruled out as far as cheap evidence allows: the demo
+      verifiably rendered, the chat template byte-matches TRL's parser schema, and TRL's own
+      counter agrees with our census.
+    - *Gate verdict (as pre-registered):* the deeper problem means the ~$10–20 on-policy
+      cold-start sequel was very likely a write-off — **dodged for ≈ $1**. Total Stage-3
+      spend ≈ $8.
+  - **CLOSED per user decision (2026-06-12): ship Stage 2 alone.** 2.1 ends unticked —
+    honest record: its assertions were never validated on a real tool-calling rollout, and
+    after 7 censuses / 672 episodes across every checkpoint rung, zero tool calls were ever
+    observed.
 - [ ] 2.2 Measure the multi-turn memory + step-time envelope (3-turn transcripts); retune
   colocate `gpu_memory_utilization` and per-turn completion caps; re-extrapolate the cost.
   (Attempt-1 numbers above are zero-tool-call transcripts — a lower bound, not the envelope.)

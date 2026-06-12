@@ -59,3 +59,28 @@ foundation it builds on is now validated.
 - Risk: TRL issue #4543 (multi-turn IS correctness, open, both vLLM modes) — explicitly
   de-risked before paid training; if it blocks, the fallback is a hand-written `rollout_func`
   (stretch path), and Stage 2 remains shippable alone.
+
+## Resolution (2026-06-12): CLOSED — ship Stage 2 alone; finding probe-backed
+
+**Decision (user): ship the Stage-2 results standalone.** The design-sanctioned honest outcome:
+the de-risk gate blocked paid multi-turn training on evidence, at ≈ $8 total instead of $30–45.
+
+**The finding (committed evidence under `results/grpo-mt/`, full journal under task 2.1 in
+`tasks.md`):** Qwen2.5-Coder-3B-Instruct never adopts the `run_sql` tool protocol in this
+environment — 0 tool calls in 672 sampled episodes across every checkpoint rung (base, Stage-1
+SFT, Stage-2 GRPO, two tool-use SFT cold starts) and every prompting strength (bare `cot`,
+protocol instruction, full in-context demonstration verified rendered). A pre-registered ~$1
+two-arm probe **falsified the working "RL format entrenchment" hypothesis**: the raw base model,
+which carries Qwen's native function-calling training, also answers directly in 0/96 episodes.
+The blocker is protocol non-adoption at this model scale/setting, not anything our training did.
+Secondary findings: TRL #4543 was clear in our vLLM-colocate envelope on every census (IS ratio
+0.96–1.04, always in band), and two cheap supervised cold-start recipes not only failed to
+instill the protocol but measurably damaged the policy (v1: −8.1pt Spider via token-mass
+imbalance re-teaching preambles; v2: degraded generation, mechanism recorded as an open
+unknown).
+
+Disposition: the CPU scaffolding (env tool loop, multi-turn reward, collapse diagnostics, smoke
+driver, tool-use dataset builder, multi-turn inference eval) is built, tested, and stays in the
+tree. Tasks 2.2–6.3 are **not pursued** (not done); task 2.1 ends unticked. Delta specs are
+**not synced** — no multi-turn capability shipped. The project's headline remains Stage 2:
+Spider-dev 0.625→0.779, BIRD-dev 0.313→0.406, with controls.
