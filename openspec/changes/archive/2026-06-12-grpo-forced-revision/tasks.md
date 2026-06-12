@@ -153,6 +153,14 @@
         +4.5pt net at 1.07× compute (errors are ~7% of attempts), and a reopened RL attempt
         needs a reward that prices the hard class (wrong-rows) above the keep-it-safe
         equilibrium. Total change spend ≈ **$4.70** of the $45 cap.
+  - **CLOSED (2026-06-12): the change ends here per the pre-registered abort rule.** 2.2 stays
+    unticked — honest record: the pilot ran with D8 diagnostics and the transcript audit, the
+    gates decided ABORT, and the D6 matched-compute ladder (full run + full-dev controls) was
+    never bought. The forced-revision scaffolding (rollout_func + masking, `fr_smoke` /
+    `fr_train` / `fr_eval` entrypoints, `select-bestofn`, `fr-metrics`) remains in the tree,
+    smoke-validated and unit-tested, for a future attempt on a larger base or a reward that
+    prices the hard fix class properly. Docs synced: README progression table, ARTIFACTS
+    Stage-3b section, RUNBOOK Stage-3b procedure, architecture doc, AGENTS current-state.
   - **D6 CONTROLS (pre-registered):** the full-run verdict compares, on full Spider-dev +
     BIRD-dev: (a) the FR policy under the forced-revision harness (greedy, 2 generations per
     question); (b) the Stage-2 seed-0 single-turn greedy anchors (0.7795 / 0.4081, committed);

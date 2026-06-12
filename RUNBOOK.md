@@ -1,4 +1,4 @@
-# Runbook: eval foundation (Stage 0) → SFT cold-start (Stage 1) → single-turn GRPO (Stage 2)
+# Runbook: eval foundation (Stage 0) → SFT cold-start (Stage 1) → single-turn GRPO (Stage 2) → forced-revision (Stage 3b, aborted at gate)
 
 The procedure for fetching the data, running the base-model baseline, building the cold-start
 trace dataset, training the LoRA SFT adapter, running single-turn GRPO with its controls, and
@@ -228,6 +228,36 @@ group-relative signal; re-pilot before trusting results).
 → rely on dev-EX checkpoint selection, don't panic-stop; `frac_reward_zero_std` rising → groups
 are saturating (expected under near-binary; a shaped-arm rise means the dev slice is too easy);
 `clipped_ratio` > 0 → completions hitting the cap, raise it.
+
+## Stage 3b: forced-revision GRPO (smoke → pilot → ABORTED at the pre-registered gate)
+
+Stage 3 (tool election) closed without training — the 3B policy never calls an offered tool
+(0/672; see ARTIFACTS). Stage 3b removed election: every attempt is executed unconditionally,
+the gold-free feedback is spliced in loss-masked, and the policy revises (hand-written TRL
+`rollout_func`; see `train/forced_revision.py`). The ladder and its verdicts:
+
+```bash
+modal run modal_app.py::fr_smoke                  # ~$1: mask + IS-ratio + no-NaN assertions — PASSED
+modal run --detach modal_app.py::fr_train --run-id grpo-fr-pilot \
+  --limit 2000 --max-steps 60 --spawn              # ~$1.5 pilot — GATE FAILED (P1/P2), ladder aborted
+modal run --detach modal_app.py::fr_eval --dataset spider \
+  --adapter grpo-fr/grpo-fr-pilot --limit 200 --spawn   # forced-revision inference harness
+# best-of-N control: two sampled single-turn passes + gold-free CPU selection
+modal run --detach modal_app.py::main --dataset spider --adapter grpo-fr/grpo-fr-pilot \
+  --limit 200 --max-new-tokens 1024 --temperature 1.0 --sampling-seed 0 --spawn   # and seed 1
+uv run text2sql-rlvr select-bestofn --completions results/grpo-fr/spider-dev-zs-grpo-fr-pilot-t1.0-seed{0,1}-n200.json \
+  --db-root data/spider/spider_data/database \
+  --out results/grpo-fr/spider-dev-bo2-grpo-fr-pilot-n200.json \
+  --report results/grpo-fr/spider-dev-bo2-grpo-fr-pilot-n200.selection.json
+uv run text2sql-rlvr fr-metrics --completions results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.json \
+  --transcripts results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.transcripts.json \
+  --db-root data/spider/spider_data/database   # fix/harm decomposition of the revision pass
+```
+
+The pilot's continue/abort thresholds (P1–P6) were committed to the change's `tasks.md` BEFORE
+the pilot ran — same discipline as the probes. P1 (turn-1 quality) and P2 (delta-bonus floor)
+failed: GRPO drifts toward identity-resubmission instead of amplifying fixes, so the full run
+was never bought. `make eval` re-derives the n=200 documentation table.
 
 ## Reproduce the committed numbers (CPU only, no model)
 

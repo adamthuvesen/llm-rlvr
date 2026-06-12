@@ -148,3 +148,30 @@ committed with full provenance:
 The Stage-3 scaffolding (env tool loop, multi-turn reward + diagnostics, smoke driver,
 `build-tooluse` dataset builder, `mt_eval` multi-turn inference eval) remains in the tree,
 tested, for any future attempt on a larger base model.
+
+## Stage 3b: forced-revision GRPO — ABORTED at the pre-registered pilot gate (`results/grpo-fr/`)
+
+**Decision (2026-06-12): closed as an honest negative; no full run.** Sequel to the Stage-3
+closure: tool *election* was the falsified step, so this change removed it — the harness
+executes every answer unconditionally and the policy revises on visible feedback (SCoRe /
+ReEx-SQL shape), built as a hand-written TRL `rollout_func` with our own feedback-token loss
+masking. The ladder ran probe → build → smoke → pilot and stopped at the pilot's
+pre-registered gate. Total change spend ≈ **$4.70**; Stage-2 artifacts untouched.
+
+| File | What | Result |
+| --- | --- | --- |
+| `grpo-fr/revision-probe.json` | Pre-registered untrained-revision probe (~$0.30) | **PASS** — fix 14.9% (G1 ≥ 10%), harm 6.3% (G2 ≤ 10%); untrained net −1.65pt |
+| `grpo-fr/smoke-report.json` | De-risk smoke (`grpo-fr-smoke2`, 96 episodes) | **PASS** — feedback masked in 96/96 episodes, 0 gradient leaks; IS 0.982 in band; 0 NaNs; 15.0 s/step |
+| `grpo-fr/pilot-d8-diagnostics.json` | Pilot D8 series (60 steps @ LR 5e-5, 1,920 episodes) | **GATE FAIL** — P1 turn-1 0.737 < 0.754; P2 delta-bonus 0.008 < 0.01 (below untrained 0.0094); frac_revising 0.26→0.05 (identity-resubmission drift); `frac_reward_zero_std` ≈ 0.56–0.71 (signal starvation) |
+| `grpo-fr/spider-dev-zs-grpo-fr-pilot-n200.json` | Pilot ckpt, single-turn greedy (n=200) | 0.6800 — −2.5pt vs the Stage-2 anchor |
+| `grpo-fr/spider-dev-fr-grpo-fr-pilot-n200(.transcripts).json` | Pilot ckpt under the forced-revision harness (2 generations) | 0.7200; attempt 0.6750 → final 0.7200 (net +4.5pt); fix 9/65 (13.8%, all error-class), **harm 0/135** (untrained: 6.3%) |
+| `grpo-fr/spider-dev-zs-grpo-fr-pilot-t1.0-seed{0,1}-n200.json` | The matched-compute control's sampled passes | 0.6500 / 0.6600 |
+| `grpo-fr/spider-dev-bo2-grpo-fr-pilot-n200(.selection).json` | Best-of-2, gold-free selection (D6 control) | 0.7150 (selection report committed) |
+| `grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.metrics.json` | `fr-metrics` fix/harm decomposition | committed; re-derives via `make eval` |
+| Volume `grpo-fr/grpo-fr-pilot/` | Pilot adapter + provenance + D8 series | not evaluated further (aborted) |
+
+Stage-2 seed-0 anchor on the same 200 items: **0.7050**. The n=200 margins (FR +3 items vs the
+anchor, +1 vs best-of-2) are far inside noise and sit on eroding training dynamics — the
+pre-registered abort rule held. The full verdict narrative, the audit, and the reopening notes
+live in the archived change's `tasks.md`. All Stage-3b numbers re-derive on CPU via `make eval`
+(the `Stage 3b` block in `results/baseline/reproduce.py`).

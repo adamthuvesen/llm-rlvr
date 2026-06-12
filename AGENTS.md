@@ -55,15 +55,27 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 
 ## Current state (update when stages move)
 
-**The project is complete at Stage 2; there is no active change.** Stage 3 (`grpo-multi-turn`)
-was **CLOSED 2026-06-12 without training — ship Stage 2 alone** (user decision; archived with
-stages 0–2 in `openspec/changes/archive/`). The probe-backed finding: the 3B model never adopts
-the `run_sql` tool protocol — 0 tool calls in 672 sampled episodes across base / SFT / GRPO /
-two tool-use-SFT checkpoints and every prompting strength; a pre-registered two-arm probe
-falsified RL-entrenchment as the cause (the raw base model also answers directly). TRL #4543
-stayed clear in our envelope throughout. Evidence pinned in ARTIFACTS (Stage-3 section) and the
-archived change's `tasks.md` task-2.1 journal. Stage-2 artifacts untouched; the Stage-3
-scaffolding (env tool loop, multi-turn reward + diagnostics, `build-tooluse`, `mt_eval`) stays
-in the tree, tested, for any future attempt on a larger base.
-Stage 2 shipped and is archived with stages 0–1 in `openspec/changes/archive/`: 3-seed headline
-(CI excludes zero on both benchmarks), near-binary ablation, and the Llama cross-family control.
+**The project is complete at Stage 2; there is no active change.** The shipped headline is the
+Stage-2 single-turn GRPO result (3-seed CI excludes zero on both benchmarks, near-binary
+ablation, Llama cross-family control; archived with stages 0–1). Two self-correction sequels
+both closed honestly without a full training run, all archived in `openspec/changes/archive/`:
+
+- **Stage 3 (`grpo-multi-turn`, tool election) — CLOSED 2026-06-12 without training.** The 3B
+  model never adopts the `run_sql` protocol: 0 tool calls in 672 episodes across base / SFT /
+  GRPO / two tool-use-SFT checkpoints and every prompting strength; a pre-registered two-arm
+  probe falsified RL-entrenchment as the cause. TRL #4543 stayed clear throughout.
+- **Stage 3b (`grpo-forced-revision`) — ABORTED 2026-06-12 at the pre-registered pilot gate.**
+  Election removed (harness executes every answer; hand-written TRL `rollout_func` with
+  loss-masked feedback splice — its smoke validated mask + IS-ratio on real spliced rollouts,
+  the validation Stage 3 never reached). The probe passed (fix 14.9%, harm 6.3%), but the
+  60-step pilot failed gates P1/P2: GRPO drifts toward identity-resubmission (frac_revising
+  0.26→0.05, delta bonus below its untrained baseline, `frac_reward_zero_std` ≈ 0.6 signal
+  starvation). Pilot-ckpt documentation evals (n=200): FR harness 0.720 vs Stage-2 anchor
+  0.705 vs best-of-2 0.715 — nominal but inside noise, single-turn −2.5pt; the harm channel
+  trained to 0%. Stage-3b spend ≈ $4.70. Evidence: ARTIFACTS Stage-3b section,
+  `results/grpo-fr/`, the archived change's `tasks.md`.
+
+The README's progression table is the public 30-second narrative — keep it in sync. The
+self-correction scaffolding (env tool loop, forced-revision rollout + eval harness, multi-turn
+rewards + D8 diagnostics, `select-bestofn`, `fr-metrics`) stays in the tree, tested, for any
+future attempt on a larger base.

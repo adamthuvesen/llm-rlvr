@@ -8,10 +8,16 @@ artifact carries provenance, so committed numbers re-derive from disk.
 
 ```
 report/        progression.py — base→SFT→RL table; seed-level CIs; single-DB caveat
-train/         traces.py (STaR sampling+filter) · sft.py (LoRA SFT) · grpo.py (GRPO)
-rewards/       reward.py — shaped + near-binary arms over the verifier (TRL reward fn)
-eval/          generate · score · verifier · parsing · prompt · aggregate · provenance · cli
-env/           sandbox.py — read-only SQLite execution (the safety boundary)
+train/         traces.py (STaR sampling+filter) · sft.py (LoRA SFT) · grpo.py (GRPO) ·
+               multiturn.py (tool-loop smoke) · forced_revision.py (Stage-3b rollout_func) ·
+               diagnostics.py (D8 collapse alarms) · tooluse.py (tool-use SFT dataset)
+rewards/       reward.py — shaped + near-binary arms over the verifier (TRL reward fn) ·
+               multiturn.py — trajectory credit + improvement-delta bonus
+eval/          generate · score · verifier · parsing · prompt · aggregate · provenance · cli ·
+               multiturn_generate · forced_revision_generate · bestofn · fr_metrics ·
+               revision_probe
+env/           sandbox.py — read-only SQLite execution (the safety boundary) ·
+               text2sql_env.py — the run_sql tool environment + gold-free feedback
 data/          spider.py · bird.py · schema.py · artifacts.py (pinned checksums)
 _base.py       Frozen — pydantic base: frozen=True, extra="forbid"
 third_party/   vendored Test-Suite SQL Eval (execution-match path only; Apache 2.0)
@@ -81,9 +87,13 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (commi
 
 ## Stages (what exists, where it's specified)
 
-Stages 0–2 (eval foundation, SFT cold-start, single-turn GRPO) are archived in
-`openspec/changes/archive/` with capabilities synced to `openspec/specs/`; the archived
-`design.md`s record the decisions behind most of the above. Stage 3 (multi-turn self-correction)
-is the active change at `openspec/changes/grpo-multi-turn/` — it adds `env/text2sql_env.py`
-(the `run_sql` tool environment), `rewards/multiturn.py` (trajectory credit),
-`train/diagnostics.py` (collapse alarms), and `train/multiturn.py` (TRL wiring + the GPU smoke).
+All stages are archived in `openspec/changes/archive/`; the archived `design.md`s and
+`tasks.md` journals record the decisions and verdicts. Stages 0–2 shipped (capabilities synced
+to `openspec/specs/`). Stage 3 (`grpo-multi-turn`, tool election) closed WITHOUT training —
+0/672 tool calls across every checkpoint and prompting strength. Stage 3b
+(`grpo-forced-revision`) removed election via a hand-written TRL `rollout_func`
+(`train/forced_revision.py`: unconditional execution, loss-masked feedback splice, revision)
+— its smoke validated the masking + IS-ratio assertions on real spliced rollouts, and the
+ladder ABORTED at the pre-registered pilot gate (identity-resubmission drift; see the README
+progression table and `results/grpo-fr/`). The self-correction scaffolding stays tested in the
+tree for a future attempt on a larger base.
