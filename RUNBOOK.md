@@ -237,9 +237,9 @@ the gold-free feedback is spliced in loss-masked, and the policy revises (hand-w
 `rollout_func`; see `train/forced_revision.py`). The ladder and its verdicts:
 
 ```bash
-modal run modal_app.py::fr_smoke                  # ~$1: mask + IS-ratio + no-NaN assertions — PASSED
+modal run modal_app.py::fr_smoke                  # mask + IS-ratio + no-NaN assertions — PASSED
 modal run --detach modal_app.py::fr_train --run-id grpo-fr-pilot \
-  --limit 2000 --max-steps 60 --spawn              # ~$1.5 pilot — GATE FAILED (P1/P2), ladder aborted
+  --limit 2000 --max-steps 60 --spawn              # pilot — GATE FAILED (P1/P2), ladder aborted
 modal run --detach modal_app.py::fr_eval --dataset spider \
   --adapter grpo-fr/grpo-fr-pilot --limit 200 --spawn   # forced-revision inference harness
 # best-of-N control: two sampled single-turn passes + gold-free CPU selection

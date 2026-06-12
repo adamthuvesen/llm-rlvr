@@ -156,11 +156,11 @@ closure: tool *election* was the falsified step, so this change removed it — t
 executes every answer unconditionally and the policy revises on visible feedback (SCoRe /
 ReEx-SQL shape), built as a hand-written TRL `rollout_func` with our own feedback-token loss
 masking. The ladder ran probe → build → smoke → pilot and stopped at the pilot's
-pre-registered gate. Total change spend ≈ **$4.70**; Stage-2 artifacts untouched.
+pre-registered gate. Stage-2 artifacts untouched.
 
 | File | What | Result |
 | --- | --- | --- |
-| `grpo-fr/revision-probe.json` | Pre-registered untrained-revision probe (~$0.30) | **PASS** — fix 14.9% (G1 ≥ 10%), harm 6.3% (G2 ≤ 10%); untrained net −1.65pt |
+| `grpo-fr/revision-probe.json` | Pre-registered untrained-revision probe | **PASS** — fix 14.9% (G1 ≥ 10%), harm 6.3% (G2 ≤ 10%); untrained net −1.65pt |
 | `grpo-fr/smoke-report.json` | De-risk smoke (`grpo-fr-smoke2`, 96 episodes) | **PASS** — feedback masked in 96/96 episodes, 0 gradient leaks; IS 0.982 in band; 0 NaNs; 15.0 s/step |
 | `grpo-fr/pilot-d8-diagnostics.json` | Pilot D8 series (60 steps @ LR 5e-5, 1,920 episodes) | **GATE FAIL** — P1 turn-1 0.737 < 0.754; P2 delta-bonus 0.008 < 0.01 (below untrained 0.0094); frac_revising 0.26→0.05 (identity-resubmission drift); `frac_reward_zero_std` ≈ 0.56–0.71 (signal starvation) |
 | `grpo-fr/spider-dev-zs-grpo-fr-pilot-n200.json` | Pilot ckpt, single-turn greedy (n=200) | 0.6800 — −2.5pt vs the Stage-2 anchor |
