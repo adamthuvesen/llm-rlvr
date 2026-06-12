@@ -79,16 +79,23 @@ def test_revision_user_message_is_gold_free_and_keeps_the_format_contract() -> N
 
 
 class _FakeTemplate:
-    """A chat-template stand-in: each message renders to [HDR, hash(content)], plus GEN."""
+    """A chat-template stand-in: each message renders to [HDR, hash(content)], plus GEN.
+
+    Mimics transformers v5: returns a dict unless `return_dict=False` is passed — so any call
+    site that forgets the flag gets string keys instead of token ids, exactly like the real
+    tokenizer (this bit the first GPU smoke).
+    """
 
     HDR, GEN = 1000, 2000
 
-    def __call__(self, messages, add_generation_prompt=False, tokenize=True):
+    def __call__(self, messages, add_generation_prompt=False, tokenize=True, return_dict=True):
         ids: list[int] = []
         for message in messages:
             ids += [self.HDR, abs(hash((message["role"], message["content"]))) % 997]
         if add_generation_prompt:
             ids.append(self.GEN)
+        if return_dict:
+            return {"input_ids": ids, "attention_mask": [1] * len(ids)}
         return ids
 
 
@@ -96,13 +103,16 @@ def test_build_suffix_ids_is_the_appended_turn_plus_generation_prompt() -> None:
     template = _FakeTemplate()
     suffix = build_suffix_ids(template, "feedback text")
     expected_tail = template(
-        [{"role": "user", "content": "feedback text"}], add_generation_prompt=True
+        [{"role": "user", "content": "feedback text"}],
+        add_generation_prompt=True,
+        return_dict=False,
     )
     assert suffix == expected_tail
+    assert all(isinstance(t, int) for t in suffix)  # ids, not v5 dict keys
 
 
 def test_build_suffix_ids_rejects_non_prefix_templates() -> None:
-    def broken(messages, add_generation_prompt=False, tokenize=True):
+    def broken(messages, **_kwargs):
         # Renders differently depending on conversation length: differencing is unsound.
         return [len(messages)]
 

@@ -133,11 +133,16 @@ def build_suffix_ids(apply_chat_template: Callable[..., list[int]], user_content
     differencing is unsound must fail loudly, not corrupt the mask.
     """
     dummy = [dict(m) for m in _SUFFIX_DUMMY]
-    prefix = apply_chat_template(dummy, add_generation_prompt=False, tokenize=True)
+    # return_dict=False: transformers v5 defaults apply_chat_template to a dict return; we
+    # need the bare id list (TRL's own suffix builder passes the same flag).
+    prefix = apply_chat_template(
+        dummy, add_generation_prompt=False, tokenize=True, return_dict=False
+    )
     full = apply_chat_template(
         [*dummy, {"role": "user", "content": user_content}],
         add_generation_prompt=True,
         tokenize=True,
+        return_dict=False,
     )
     if full[: len(prefix)] != prefix:
         raise ValueError(
@@ -229,7 +234,7 @@ def make_forced_revision_rollout(
         prompt_ids = [
             list(
                 tokenizer.apply_chat_template(
-                    list(prompt), add_generation_prompt=True, tokenize=True
+                    list(prompt), add_generation_prompt=True, tokenize=True, return_dict=False
                 )
             )
             for prompt in prompts
