@@ -166,6 +166,7 @@ def run_sft(
         [c for c in dataset.column_names if c not in ("prompt", "completion")]
     )
     if render_tool_prompts:
+        from datasets import Features, Value
         from transformers import AutoTokenizer
         from transformers.utils import get_json_schema
 
@@ -177,11 +178,20 @@ def run_sft(
         )
         # The same schema-derivation TRL applies to the env's tool at rollout time.
         tools = [get_json_schema(SqliteText2SqlEnv(".").run_sql)]
+        # remove_columns + explicit string features: without them, datasets silently CASTS the
+        # rendered strings back into the original List(Json) column feature ("C" -> ["C"]) and
+        # TRL's add_eos crashes on a list — observed on the first tooluse-sft2 launch.
         dataset = dataset.map(
             lambda row: render_text_row(
                 row["prompt"], row["completion"], tokenizer.apply_chat_template, tools
-            )
+            ),
+            remove_columns=dataset.column_names,
+            features=Features({"prompt": Value("string"), "completion": Value("string")}),
         )
+        if not dataset[0]["completion"].endswith(tokenizer.eos_token):
+            raise ValueError(
+                "rendered completion does not end on the EOS token — chat template drift?"
+            )
 
     config = build_sft_config(hp, output_dir)
     if warm_start_adapter is None:
