@@ -1,0 +1,29 @@
+{
+  "dataset": "spider",
+  "dataset_revision": "0c350918f3f29ec754f1181c65cdce76cd6c133c",
+  "mix": {
+    "n_revise": 600,
+    "n_check": 300,
+    "n_direct": 600,
+    "seed": 0
+  },
+  "feedback": {
+    "max_turns": 3,
+    "error_message_chars": 300,
+    "include_rows": true,
+    "preview_rows": 5,
+    "preview_chars": 500
+  },
+  "trace_dataset_sha256": "b02435e49f183425299f3167503883d0b006faf884f7705fc02abc3ad34613e6",
+  "counts": {
+    "n_questions": 901,
+    "n_gold_errors": 1,
+    "n_corruption_fallbacks": 0,
+    "n_revise": 600,
+    "n_check": 300,
+    "n_direct": 600,
+    "n_rows": 3000
+  },
+  "git_commit": "b83e62c1997a5eca8c1eae02aba4527aab7f0e46",
+  "git_dirty": false
+}
