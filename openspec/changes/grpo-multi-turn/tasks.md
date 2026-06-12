@@ -110,6 +110,31 @@
     5. *Smoke re-run* (~$0.50, `mt` prompt — the demonstration is now trained in, not
        prompted): tick 2.1 only if assertions pass with real tool calls; else document
        attempt 4 and stop.
+  - **Rung-2 execution (2026-06-12): mini-SFT `sft/tooluse-sft-r32` trained** (3,000 rows,
+    manifest `results/grpo-mt/tooluse.manifest.json`, 188 steps, LR 2e-5, 1 epoch, ~14 min
+    A100 ≈ $0.60; warm-start `grpo/grpo-s0`; final loss ≈ 0.47, token-acc ≈ 0.89).
+  - **GATE RESULTS (2026-06-12, all four CompletionSets committed under `results/grpo-mt/`,
+    transcripts included; re-derive with `text2sql-rlvr score`):**
+    - *Gate (a) — forgetting (single-turn greedy, `cot`, vs the Stage-2 seed-0 anchor):*
+      Spider-dev **0.6983 vs 0.7795 (−8.1pt)**; BIRD-dev **0.3748 vs 0.4081 (−3.3pt)**.
+      Both remain above the Stage-1 SFT level (0.678 / 0.344), but a large share of the
+      Stage-2 RL gain is gone — the cold start is NOT behavior-neutral.
+    - *Gate (b) — attribution baseline (multi-turn greedy, no RL):* Spider-dev **0.1151**,
+      BIRD-dev **0.0469** — and **0/2,568 episodes called `run_sql`** (every episode answered
+      on generation 1). The transcripts show why both numbers are so low: under the `mt`
+      prompt the post-SFT policy answers in the *Stage-1 prose-preamble style*, often
+      truncating at the 1,024-token cap before the ```sql``` block. These numbers measure
+      prompt-context regression + truncation, not tool use.
+    - *Post-hoc diagnosis (recorded for the next attempt, if any):* the `direct` mix rows —
+      600 verbatim Stage-1 traces meant to *protect* Stage-2 behavior — are long
+      (preamble-style), while tool-call completions are short, so by **token mass** the
+      direct rows dominated the CE loss and taught "mt prompt → preamble answer" instead of
+      "check first". They also reintroduced the preamble style that Stage-2's GRPO had
+      specifically trained away, which is the likely mechanism of the gate-(a) drop. A
+      disclosed train/rollout delta compounds this: SFT prompts lacked the rendered `# Tools`
+      system block (TRL's SFT path takes no `tools=` kwarg), rollout prompts include it.
+    - Caveat: gate (b) is greedy — a small nonzero p(tool_call) would be invisible; the
+      temperature-1.0 smoke (96 sampled episodes) is the decisive instrument, per protocol.
 - [ ] 2.2 Measure the multi-turn memory + step-time envelope (3-turn transcripts); retune
   colocate `gpu_memory_utilization` and per-turn completion caps; re-extrapolate the cost.
   (Attempt-1 numbers above are zero-tool-call transcripts — a lower bound, not the envelope.)
