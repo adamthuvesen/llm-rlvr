@@ -187,6 +187,76 @@ def test_dataset_jsonl_round_trip_and_manifest(db_root: Path, tmp_path: Path) ->
     assert manifest.counts.n_rows == counts.n_rows and len(manifest.trace_dataset_sha256) == 64
 
 
+def test_direct_rows_strip_preambles_and_skip_thinkless(db_root: Path) -> None:
+    preambled = SftTrace(
+        db_id="shop",
+        question="Total?",
+        prompt=TRACES[0].prompt,
+        completion="To answer this, we sum.\n\n<think>Sum it.</think>\n```sql\nSELECT 1\n```",
+    )
+    thinkless = SftTrace(
+        db_id="shop",
+        question="No think?",
+        prompt=TRACES[0].prompt,
+        completion="```sql\nSELECT 2\n```",
+    )
+    rows, counts = build_tooluse_rows(
+        [],
+        {"shop": SCHEMA},
+        db_root,
+        (preambled, thinkless),
+        mix=ToolUseMix(n_revise=0, n_check=0, n_direct=2),
+    )
+    assert counts.n_direct == 1 and counts.n_direct_skipped == 1
+    (direct,) = rows
+    # The preamble is gone; the completion now LEADS with <think> (the Stage-2 format).
+    assert direct.completion[0]["content"].startswith("<think>Sum it.</think>")
+
+
+def test_no_completion_ever_quotes_the_feedback_marker(db_root: Path) -> None:
+    """Attempt-4 regression: a think template quoting 'Execution feedback' taught the policy to
+    generate it. No training target may contain the marker."""
+    rows, _ = build_tooluse_rows(
+        [_example()],
+        {"shop": SCHEMA},
+        db_root,
+        TRACES,
+        mix=ToolUseMix(n_revise=1, n_check=1, n_direct=1),
+    )
+    for row in rows:
+        assert "Execution feedback" not in str(row.completion[0].get("content", ""))
+
+
+def test_render_text_row_prefix_split() -> None:
+    from text2sql_rlvr.train.tooluse import render_text_row
+
+    def fake_template(messages, tools, add_generation_prompt, tokenize):
+        text = f"[tools:{len(tools)}]" + "".join(
+            f"<{m['role']}>{m.get('content', '')}" for m in messages
+        )
+        return text + ("<assistant>" if add_generation_prompt else "\n")
+
+    row = render_text_row(
+        [{"role": "user", "content": "q"}],
+        [{"role": "assistant", "content": "a"}],
+        fake_template,
+        [{"name": "run_sql"}],
+    )
+    assert row == {"prompt": "[tools:1]<user>q<assistant>", "completion": "a"}
+
+
+def test_render_text_row_raises_when_not_prefix_stable() -> None:
+    import pytest
+
+    from text2sql_rlvr.train.tooluse import render_text_row
+
+    def broken_template(messages, tools, add_generation_prompt, tokenize):
+        return "X" if add_generation_prompt else "Y"
+
+    with pytest.raises(ValueError, match="prefix-stable"):
+        render_text_row([{"role": "user", "content": "q"}], [], broken_template, [])
+
+
 def test_build_is_deterministic(db_root: Path) -> None:
     mix = ToolUseMix(n_revise=1, n_check=0, n_direct=1, seed=7)
     a = build_tooluse_rows([_example()], {"shop": SCHEMA}, db_root, TRACES, mix=mix)

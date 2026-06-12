@@ -78,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
     tooluse.add_argument("--manifest", required=True, help="output manifest json path")
     tooluse.add_argument("--n-revise", type=int, default=600)
     tooluse.add_argument("--n-check", type=int, default=300)
-    tooluse.add_argument("--n-direct", type=int, default=600)
+    tooluse.add_argument("--n-direct", type=int, default=200)
     tooluse.add_argument("--seed", type=int, default=0)
     tooluse.set_defaults(func=_cmd_build_tooluse)
 

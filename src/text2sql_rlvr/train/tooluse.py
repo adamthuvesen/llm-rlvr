@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import random
 import re
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from pathlib import Path
 
 from text2sql_rlvr._base import Frozen
@@ -42,11 +42,17 @@ Message = dict[str, object]
 
 
 class ToolUseMix(Frozen):
-    """How many transcripts of each shape, and the seed that picks questions + templates."""
+    """How many transcripts of each shape, and the seed that picks questions + templates.
+
+    The defaults balance the first-turn decision by TOKEN mass, not transcript count —
+    attempt 4's lesson: 600 long direct traces out-massed 900 short tool calls ~5:1 and
+    taught direct answering. 200 preamble-stripped direct completions ≈ the ~900 tool-call
+    rows' token mass.
+    """
 
     n_revise: int = 600
     n_check: int = 300
-    n_direct: int = 600
+    n_direct: int = 200
     seed: int = 0
 
 
@@ -69,6 +75,7 @@ class ToolUseCounts(Frozen):
     n_revise: int
     n_check: int
     n_direct: int
+    n_direct_skipped: int = 0  # traces with no `<think>` span (nothing left after the strip)
     n_rows: int
 
 
@@ -86,13 +93,15 @@ class ToolUseManifest(Frozen):
 
 
 # Seeded final-answer templates — varied so the SFT does not teach one frozen sentence. The
-# `<think>` text references the *observed* feedback (revise) or the check outcome, never gold.
+# `<think>` text references the *observed* feedback (revise) or the check outcome, never gold,
+# and never quotes the env's "Execution feedback" marker (attempt 4 showed the policy will
+# learn to *generate* the marker if a template contains it — the mask check then fires).
 _REVISE_THINKS = (
-    "The first query failed — the feedback says {reason}. I fixed the query, re-checked it, "
+    "The first query failed — the error says {reason}. I fixed the query, re-checked it, "
     "and it executed and returned {rows}, which answers the question.",
     "My check surfaced an error ({reason}), so I revised the query. The second check executed "
     "and returned {rows}, matching what the question asks for.",
-    "Execution feedback flagged {reason} in my first attempt. The corrected query checks out "
+    "The check flagged {reason} in my first attempt. The corrected query checks out "
     "({rows}), so I commit to it.",
 )
 _CHECK_THINKS = (
@@ -284,10 +293,19 @@ def build_tooluse_rows(
 
     # `direct` rows: real Stage-1 trace completions, re-homed under the mt instruction so the
     # policy keeps producing its own reasoning style when it chooses not to call the tool.
+    # Preambles are STRIPPED (everything before `<think>`): Stage-2's GRPO trained the leading-
+    # `<think>` format, and attempt 4 showed verbatim preamble traces both re-teach the preamble
+    # and out-mass the tool-call rows. A trace with no `<think>` span is skipped and counted.
     direct_pool = list(traces)
     rng.shuffle(direct_pool)
-    n_direct = 0
-    for trace in direct_pool[: mixed.n_direct]:
+    n_direct = n_direct_skipped = 0
+    for trace in direct_pool:
+        if n_direct >= mixed.n_direct:
+            break
+        think_start = trace.completion.find("<think>")
+        if think_start == -1:
+            n_direct_skipped += 1
+            continue
         rows.append(
             ToolUseRow(
                 db_id=trace.db_id,
@@ -297,7 +315,7 @@ def build_tooluse_rows(
                     {"role": "system", "content": MULTITURN_INSTRUCTION},
                     *(m for m in trace.prompt if m.get("role") != "system"),
                 ),
-                completion=({"role": "assistant", "content": trace.completion},),
+                completion=({"role": "assistant", "content": trace.completion[think_start:]},),
             )
         )
         n_direct += 1
@@ -309,9 +327,38 @@ def build_tooluse_rows(
         n_revise=n_revise,
         n_check=n_check,
         n_direct=n_direct,
+        n_direct_skipped=n_direct_skipped,
         n_rows=len(rows),
     )
     return tuple(rows), counts
+
+
+def render_text_row(
+    prompt: Sequence[Message],
+    completion: Sequence[Message],
+    apply_chat_template: Callable[..., str],
+    tools: Sequence[Mapping[str, object]],
+) -> dict[str, str]:
+    """Render one conversational row to TEXT prompt/completion through the real chat template,
+    WITH the tools block — byte parity with what the rollout renders (attempt 4's disclosed
+    train/rollout delta, closed).
+
+    The split relies on the template being prefix-stable: rendering the prompt with the
+    generation prompt appended must be a strict prefix of rendering prompt+completion. The
+    completion's trailing newline (after `<|im_end|>`) is stripped so the row ends exactly on
+    the EOS token and the trainer's own EOS append stays idempotent.
+    """
+    prefix = apply_chat_template(
+        list(prompt), tools=list(tools), add_generation_prompt=True, tokenize=False
+    )
+    full = apply_chat_template(
+        [*prompt, *completion], tools=list(tools), add_generation_prompt=False, tokenize=False
+    )
+    if not full.startswith(prefix):
+        raise ValueError(
+            "chat template render is not prefix-stable; cannot split prompt/completion"
+        )
+    return {"prompt": prefix, "completion": full[len(prefix) :].rstrip("\n")}
 
 
 def write_tooluse_dataset(rows: Sequence[ToolUseRow], path: str | Path) -> Path:

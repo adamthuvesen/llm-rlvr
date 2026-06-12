@@ -96,6 +96,8 @@ class AdapterProvenance(Frozen):
     # Set when SFT continues an existing adapter (the Stage-3 tool-use cold start warm-starts
     # from the Stage-2 GRPO checkpoint); None = fresh LoRA from the base (Stage 1).
     warm_start_adapter: str | None = None
+    # True when rows were pre-rendered to text with the run_sql tools block (rollout parity).
+    render_tool_prompts: bool = False
     hyperparams: SftHyperparams
     trace_dataset_path: str
     trace_dataset_sha256: str
@@ -113,6 +115,7 @@ def build_adapter_provenance(
     n_traces: int,
     base_model_revision: str | None = None,
     warm_start_adapter: str | Path | None = None,
+    render_tool_prompts: bool = False,
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> AdapterProvenance:
@@ -121,6 +124,7 @@ def build_adapter_provenance(
         base_model=base_model,
         base_model_revision=base_model_revision,
         warm_start_adapter=str(warm_start_adapter) if warm_start_adapter is not None else None,
+        render_tool_prompts=render_tool_prompts,
         hyperparams=hyperparams,
         trace_dataset_path=str(trace_dataset_path),
         trace_dataset_sha256=sha256_of(trace_dataset_path),
@@ -138,6 +142,7 @@ def run_sft(
     base_model: str,
     base_model_revision: str | None = None,
     warm_start_adapter: str | Path | None = None,
+    render_tool_prompts: bool = False,
     hyperparams: SftHyperparams | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
@@ -148,6 +153,8 @@ def run_sft(
     under it, and writes `provenance.json` alongside. The base model is never modified.
     `warm_start_adapter` continues an existing LoRA adapter instead of creating a fresh one
     (the Stage-3 tool-use cold start continues the Stage-2 GRPO checkpoint).
+    `render_tool_prompts` pre-renders every conversational row to text through the real chat
+    template with the `run_sql` tools block — byte parity with the rollout prompt.
     """
     from datasets import load_dataset  # lazy: heavy training stack, train extra only
     from trl import SFTTrainer
@@ -158,6 +165,23 @@ def run_sft(
     dataset = dataset.remove_columns(
         [c for c in dataset.column_names if c not in ("prompt", "completion")]
     )
+    if render_tool_prompts:
+        from transformers import AutoTokenizer
+        from transformers.utils import get_json_schema
+
+        from text2sql_rlvr.env.text2sql_env import SqliteText2SqlEnv
+        from text2sql_rlvr.train.tooluse import render_text_row
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            base_model, **({"revision": base_model_revision} if base_model_revision else {})
+        )
+        # The same schema-derivation TRL applies to the env's tool at rollout time.
+        tools = [get_json_schema(SqliteText2SqlEnv(".").run_sql)]
+        dataset = dataset.map(
+            lambda row: render_text_row(
+                row["prompt"], row["completion"], tokenizer.apply_chat_template, tools
+            )
+        )
 
     config = build_sft_config(hp, output_dir)
     if warm_start_adapter is None:
@@ -188,6 +212,7 @@ def run_sft(
         base_model=base_model,
         base_model_revision=base_model_revision,
         warm_start_adapter=warm_start_adapter,
+        render_tool_prompts=render_tool_prompts,
         hyperparams=hp,
         trace_dataset_path=trace_path,
         n_traces=len(dataset),
