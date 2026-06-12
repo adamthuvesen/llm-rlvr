@@ -42,8 +42,56 @@
     sampling mass on useful revision.** Per the pre-registered outcome rule: STOP here —
     section 2 (the build) is a separate user decision.
 
-## 2. Build (NOT approved — requires user decision on a passing probe)
+## 2. Build (APPROVED 2026-06-12 — user green-light on the passing probe; spend cap $45 total)
 
 - [ ] 2.1 Hand-written forced-execution rollout_func + feedback-token masking; smoke with the
   archived change's assertions (mask + IS-ratio band) before any paid run.
+  - **Build (2026-06-12, committed):** TRL v1.5.1 `rollout_func` path (the archived D1
+    fallback), verified against the tagged source: the rollout returns
+    `prompt_ids`/`completion_ids`/`logprobs` plus an `env_mask` extra field the trainer
+    consumes as `tool_mask` — the loss mask becomes `completion_mask * tool_mask` and the
+    IS-ratio metrics are computed under the same combined mask, so spliced feedback tokens
+    carry no gradient and never pollute the #4543 band check. Episode: greedy-free sampled
+    attempt under the frozen `cot` prompt (no tool schema — the layer that killed Stage 3a is
+    gone) → SQL extracted + executed unconditionally in the sandbox (agent caps, byte-same
+    feedback as the probe; fixed gold-free message for unparseable attempts) → feedback +
+    revise instruction spliced as a user turn via chat-template differencing (TRL's own
+    `_get_tool_suffix_ids` technique, same disclosed one-newline artifact) → revision sampled
+    → reward = the shipped multi-turn hybrid (`score_trajectory`: attempt as the executed
+    turn, revision as the final answer; improvement-delta bonus live, identity resubmission
+    free). D8 diagnostics logged every 128 episodes. 19 CPU tests; `make check` green.
 - [ ] 2.2 Pilot with D8 diagnostics + transcript audit; then the D6 matched-compute ladder.
+  - **PILOT GATES (pre-registered BEFORE the pilot runs; this commit is the record).**
+    Pilot shape: `fr_train`, 2,000-question Spider-train subset, `max_steps 60`, LR 5e-5
+    (Stage-2 locked), seed 0, G=4 — ~$2–3. Instruments: the windowed D8 series (window=128
+    episodes), trainer logs, a hand audit of ≥20 pilot transcripts, and a 200-item Spider-dev
+    forced-revision eval of the pilot checkpoint (~$0.5). CONTINUE to the full run only if
+    ALL hold; otherwise ABORT (stop, commit evidence, report — no re-tuning past the cap):
+    - **P1 — no turn-1 sandbagging (SCoRe collapse #1):** mean_turn1_progress over the last
+      D8 window ≥ 0.85 × the first window's value.
+    - **P2 — the fix channel is alive:** mean delta_bonus > 0.01 averaged over the second
+      half of D8 windows (the policy earns real improvement bonuses for GRPO to amplify).
+    - **P3 — training health:** every logged IS-ratio step mean in [0.8, 1.25]; zero NaN
+      loss/grad_norm; zero NaN sampling logprobs.
+    - **P4 — no trivial-edit collapse (SCoRe collapse #2):** NOT (frac_revising > 0.8 AND
+      mean_edit_distance < 0.05) in the last D8 window.
+    - **P5 — eval-path sanity:** pilot-checkpoint forced-revision EX on the first 200
+      Spider-dev items ≥ (Stage-2 grpo-s0 single-turn EX on the same 200 items, re-scored
+      from the committed CompletionSet) − 5pt. Catastrophic regression = structural bug or
+      distribution shock; diagnose, don't pay for the full run.
+    - **P6 — cost projection:** measured pilot step time × full-run step count must project
+      the full training run ≤ $26. If over: train on a 4,000-question subset (~500 steps)
+      and re-project; if still over, escalate to the user before spending.
+    - Transcript audit (qualitative, can override to ABORT): revisions must be genuine edits
+      responding to feedback — not feedback-marker imitation inside completions (the leak
+      assertion also fires on this), not systematic answer-destruction on success feedback.
+  - **D6 CONTROLS (pre-registered):** the full-run verdict compares, on full Spider-dev +
+    BIRD-dev: (a) the FR policy under the forced-revision harness (greedy, 2 generations per
+    question); (b) the Stage-2 seed-0 single-turn greedy anchors (0.7795 / 0.4081, committed);
+    (c) **best-of-2 from the same FR checkpoint** — 2 sampled single-turn passes (T=1.0,
+    seeds 0/1, `cot` prompt), gold-free selection (executes-without-error + non-empty
+    heuristic, disclosed selection report committed) — the archived D6's "same checkpoint, no
+    feedback" arm at matched compute. SUCCESS = (a) > (b) AND (a) > (c) on both benchmarks;
+    anything else ships as an honest negative. Checkpoint under evaluation: the final one,
+    unless the full-run D8 series fails P1/P4 late — then the latest `save_steps` checkpoint
+    whose window passes, disclosed. Single-seed point estimates; no CI claims.
