@@ -11,7 +11,7 @@ import random
 from collections.abc import Mapping, Sequence
 
 from text2sql_rlvr._base import Frozen
-from text2sql_rlvr.data.models import DatabaseSchema, Example
+from text2sql_rlvr.data.models import Column, DatabaseSchema, Example, Table
 from text2sql_rlvr.data.schema import serialize_schema
 
 INSTRUCTION = (
@@ -38,7 +38,73 @@ MULTITURN_INSTRUCTION = (
     "Then reason step by step inside <think></think> and give the final query in a "
     "```sql ... ``` code block."
 )
-INSTRUCTIONS = {"cot": INSTRUCTION, "direct": DIRECT_INSTRUCTION, "mt": MULTITURN_INSTRUCTION}
+# `mt_demo` = the `mt` instruction + a fixed in-context demonstration of the tool protocol
+# (smoke attempt 3, the rung after attempt 2 showed the instruction alone leaves p(tool_call)
+# at zero: the policy has never seen the tool-call wire format it must emit). The demonstration
+# is structured chat messages (assistant `tool_calls` + `tool` feedback), so the chat template
+# itself renders the exact format the trainer's parser expects — nothing is hand-rolled.
+INSTRUCTIONS = {
+    "cot": INSTRUCTION,
+    "direct": DIRECT_INSTRUCTION,
+    "mt": MULTITURN_INSTRUCTION,
+    "mt_demo": MULTITURN_INSTRUCTION,
+}
+
+# The demonstration database is synthetic — not from any dataset split, so nothing can leak.
+# Schema text goes through `serialize_schema` like every real example's.
+_DEMO_SCHEMA = DatabaseSchema(
+    db_id="office_plants",
+    tables=(
+        Table(
+            name="plants",
+            columns=(
+                Column(name="id", type="int"),
+                Column(name="species", type="text"),
+                Column(name="room", type="text"),
+            ),
+            primary_key=("id",),
+        ),
+    ),
+)
+DEMO_SCHEMA_TEXT = serialize_schema(_DEMO_SCHEMA)
+DEMO_QUESTION = "How many plants are in the Atrium?"
+DEMO_WRONG_SQL = "SELECT COUNT(*) FROM plants WHERE location = 'Atrium'"
+DEMO_FIXED_SQL = "SELECT COUNT(*) FROM plants WHERE room = 'Atrium'"
+# Both feedback strings byte-match what `format_feedback` produces for these queries on the
+# demonstration database — a unit test executes them in the real sandbox and asserts equality,
+# so drift in the env's wording breaks the build, not the demonstration.
+DEMO_ERROR_FEEDBACK = "Execution feedback: error (syntax): no such column: location"
+DEMO_SUCCESS_FEEDBACK = "Execution feedback: query executed, returned 1 row. First rows: ((3,),)"
+DEMO_FINAL_ANSWER = (
+    '<think>My first query failed because the rooms are stored in the "room" column, not '
+    '"location". The corrected query executed and returned a count, which is what the question '
+    "asks for, so I can commit to it.</think>\n"
+    f"```sql\n{DEMO_FIXED_SQL}\n```"
+)
+
+
+def _tool_call_message(query: str) -> dict[str, object]:
+    return {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {"type": "function", "function": {"name": "run_sql", "arguments": {"query": query}}}
+        ],
+    }
+
+
+def tool_demo_messages() -> list[dict[str, object]]:
+    """The fixed tool-protocol demonstration: wrong column → read the error → revise → success →
+    final `<think>` + ```sql``` answer (two tool turns, the shape the smoke asserts). Fresh
+    structures on every call so callers can never mutate shared state."""
+    return [
+        {"role": "user", "content": _user_content(DEMO_SCHEMA_TEXT, DEMO_QUESTION)},
+        _tool_call_message(DEMO_WRONG_SQL),
+        {"role": "tool", "content": DEMO_ERROR_FEEDBACK},
+        _tool_call_message(DEMO_FIXED_SQL),
+        {"role": "tool", "content": DEMO_SUCCESS_FEEDBACK},
+        {"role": "assistant", "content": DEMO_FINAL_ANSWER},
+    ]
 
 
 class FewShotExemplar(Frozen):
@@ -64,11 +130,14 @@ def build_messages(
     exemplars: Sequence[FewShotExemplar] = (),
     evidence: str | None = None,
     style: str = "cot",
-) -> list[dict[str, str]]:
-    """Chat messages: system, few-shot user/assistant pairs, then the target question."""
+) -> list[dict[str, object]]:
+    """Chat messages: system, the tool demonstration (`mt_demo` only), few-shot user/assistant
+    pairs, then the target question."""
     if style not in INSTRUCTIONS:
         raise ValueError(f"unknown prompt style {style!r}; expected one of {sorted(INSTRUCTIONS)}")
-    messages = [{"role": "system", "content": INSTRUCTIONS[style]}]
+    messages: list[dict[str, object]] = [{"role": "system", "content": INSTRUCTIONS[style]}]
+    if style == "mt_demo":
+        messages.extend(tool_demo_messages())
     for exemplar in exemplars:
         messages.append(
             {

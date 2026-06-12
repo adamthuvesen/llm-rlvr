@@ -16,7 +16,8 @@ from text2sql_rlvr.eval.completions import CompletionSet, assemble_completion_se
 from text2sql_rlvr.eval.prompt import FewShotExemplar, build_messages, select_exemplars
 from text2sql_rlvr.eval.provenance import DecodingConfig, build_generation_provenance
 
-Messages = list[dict[str, str]]
+# Values are `object`, not `str`: the `mt_demo` style carries structured `tool_calls` entries.
+Messages = list[dict[str, object]]
 
 
 def build_prompts(

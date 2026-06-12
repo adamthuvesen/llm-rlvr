@@ -284,7 +284,7 @@ def run_multiturn_smoke(
     hyperparams: MultiTurnHyperparams | None = None,
     environment: FeedbackConfig | None = None,
     multiturn_reward: MultiTurnRewardConfig | None = None,
-    prompt_style: str = "mt",
+    prompt_style: str = "mt_demo",
     max_steps: int | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
