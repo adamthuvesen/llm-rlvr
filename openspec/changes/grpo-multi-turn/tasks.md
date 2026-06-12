@@ -52,10 +52,36 @@
     policy, so GRPO has no exploration signal to amplify — the protocol must be seeded
     (in-context demonstration or a small tool-use SFT pass), the same reason SCoRe needs its
     own stage-1. IS ratio again in band (0.963). Spend so far: 2 smoke attempts ≈ $1 total.
-  - **NEXT STEP (pending user decision, 2026-06-11):** pick a rung — (1) few-shot tool
+  - ~~**NEXT STEP (pending user decision, 2026-06-11):** pick a rung — (1) few-shot tool
     demonstration in the prompt, ~$0.50 smoke re-run (recommended first); (2) small tool-use
     SFT cold-start before GRPO, ~$5–10 + scaffolding; (3) stop and ship Stage 2 alone (the
-    design-sanctioned honest outcome). 2.1 stays unticked until a smoke passes its assertions.
+    design-sanctioned honest outcome). 2.1 stays unticked until a smoke passes its assertions.~~
+    Rung 1 picked and executed 2026-06-12 → attempt 3.
+  - **Attempt 3 (2026-06-12, `grpo-mt-smoke3`, same shape + `mt_demo` prompt = `mt` instruction
+    + a fixed in-context tool demonstration, report committed at
+    `results/grpo-mt/smoke-report-attempt3.json`): still 0/96 tool calls — rung 1 FAILED.**
+    The demonstration is structured chat messages (two `run_sql` tool calls: wrong column →
+    real error feedback → revised query → success → final answer), rendered by the chat
+    template itself, with feedback strings byte-matched to real sandbox execution by a unit
+    test. The rollout log proves it rendered in full — `<tool_call>` wire format, both
+    `<tool_response>` turns, the worked self-correction — directly above the target question,
+    and the policy still answered `<think>`+```sql``` at full reward (1.60 on the logged
+    sample; mean completion 65 tokens). With direct answers earning full reward and advantage
+    0.00, GRPO sees no exploration signal. Conclusion: in-context seeding cannot move
+    p(tool_call) off ≈0 for this policy — two RL-trained stages on the direct-answer format
+    dominate a one-shot demonstration; the protocol must be trained in (tool-use SFT
+    cold-start), exactly SCoRe's stage-1 rationale. IS ratio again in band (0.999, logp-diff
+    0.0079); envelope 34.5 GiB torch peak / 36.5 GiB device, 14.8 s/step (longer prompts).
+    Side observation: the demo slightly *hurt* direct answering (mean turn-1 progress 0.81 vs
+    0.91 in attempt 2) — a longer prompt with no tool-use payoff. Spend ≈ $0.50; smoke total
+    ≈ $1.50.
+  - **NEXT STEP (pending user decision, 2026-06-12):** the in-context rung is exhausted; two
+    rungs remain — (2) small tool-use SFT cold-start before GRPO, ~$5–10 + scaffolding (the
+    evidence now directly supports this: the format must be trained, not prompted); (3) stop
+    and ship Stage 2 alone (the design-sanctioned honest outcome). A cheap diagnostic variant
+    of (2)'s premise the design already names: re-run the smoke warm-started from the SFT
+    adapter instead of `grpo-s0` (~$0.50) to test whether the GRPO stage specifically
+    entrenched the direct-answer prior. 2.1 stays unticked until a smoke passes its assertions.
 - [ ] 2.2 Measure the multi-turn memory + step-time envelope (3-turn transcripts); retune
   colocate `gpu_memory_utilization` and per-turn completion caps; re-extrapolate the cost.
   (Attempt-1 numbers above are zero-tool-call transcripts — a lower bound, not the envelope.)

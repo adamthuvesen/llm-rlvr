@@ -127,11 +127,14 @@ Rollback = don't merge the change; Stage 2 stands alone.
   equally true in Stage 2 vs the SFT policy). A turn-1-span-only anchor needs a custom loss;
   start with the stock whole-completion anchor and build the span-restricted variant only if
   pilot diagnostics show turn-1 sandbagging despite it.
-- **Tool-use affordance** (from the attempt-1 smoke): the Stage-2 policy never calls `run_sql`
-  under the frozen `cot` prompt (0/96 episodes) — Stage 3 trains with the `mt` prompt style
-  (protocol affordance, same final-answer format), disclosed in provenance. If the policy still
-  refuses the tool under `mt`, next rungs: few-shot tool demonstration in the prompt, or
-  warm-start from the SFT adapter instead (weaker direct-answer prior).
+- **Tool-use affordance** (updated after smoke attempts 1–3): the Stage-2 policy never calls
+  `run_sql` under the frozen `cot` prompt (attempt 1, 0/96), under the `mt` protocol
+  instruction (attempt 2, 0/96), or under `mt_demo` — the instruction plus a full in-context
+  demonstration of the tool-call wire format, verified rendered in the rollout log (attempt 3,
+  0/96). In-context seeding is exhausted: p(tool_call) ≈ 0 is a property of the trained policy,
+  not of the prompt. Remaining rungs: a small tool-use SFT cold-start before GRPO, or
+  warm-start from the SFT adapter instead (weaker direct-answer prior) as a cheap diagnostic;
+  else ship Stage 2 alone.
 - ~~**Group structure**~~ RESOLVED (v1.5.1 source): `num_generations` semantics are unchanged
   under environment_factory — G independent multi-turn trajectories per prompt (RepeatSampler),
   one env instance per rollout slot, advantages per group of G.
