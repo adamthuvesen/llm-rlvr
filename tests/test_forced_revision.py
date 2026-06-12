@@ -465,3 +465,78 @@ def test_eval_revision_messages_continue_the_conversation() -> None:
     assert messages[-2] == {"role": "assistant", "content": ATTEMPT_OK}
     assert messages[-1]["role"] == "user"
     assert REVISE_INSTRUCTION in str(messages[-1]["content"])
+
+
+# --- fr-metrics (fix/harm decomposition) ---
+
+
+def test_fr_metrics_decomposes_fix_and_harm(scoring_root: Path, provenance) -> None:
+    from text2sql_rlvr.eval.forced_revision_generate import (
+        ForcedRevisionEpisode,
+        ForcedRevisionTranscriptSet,
+    )
+    from text2sql_rlvr.eval.fr_metrics import compute_fr_metrics
+
+    wrong_sql = "SELECT a FROM t WHERE a = 999"  # executes, empty result -> wrong
+    err_sql = "SELECT nope FROM missing"
+
+    def _item(question: str, final_text: str, final_sql: str | None) -> ProblemCompletions:
+        return ProblemCompletions(
+            example=Example(
+                dataset="spider",
+                split="dev",
+                db_id=DB_PATH_KEY,
+                question=question,
+                gold_sql=GOLD,
+            ),
+            samples=(GenerationSample(text=final_text, sql=final_sql),),
+        )
+
+    def _episode(question: str, attempt_sql: str, feedback: str) -> ForcedRevisionEpisode:
+        return ForcedRevisionEpisode(
+            db_id=DB_PATH_KEY,
+            question=question,
+            attempt_text=f"<think>x</think>\n```sql\n{attempt_sql}\n```",
+            feedback=feedback,
+            final_text="ignored",
+        )
+
+    completion_set = CompletionSet(
+        provenance=provenance,
+        items=(
+            _item("q0", REVISION, GOLD),  # error attempt -> fixed (error feedback)
+            _item("q1", REVISION, GOLD),  # wrong-rows attempt -> fixed (result feedback)
+            _item("q2", "broken", wrong_sql),  # right attempt -> harmed
+            _item("q3", REVISION, GOLD),  # right attempt -> kept (identical SQL)
+        ),
+    )
+    transcripts = ForcedRevisionTranscriptSet(
+        provenance=provenance,
+        items=(
+            _episode("q0", err_sql, "Execution feedback: error (syntax): no such column"),
+            _episode("q1", wrong_sql, "Execution feedback: query executed, returned 0 rows."),
+            _episode("q2", GOLD, "Execution feedback: query executed, returned 2 rows."),
+            _episode("q3", GOLD, "Execution feedback: query executed, returned 2 rows."),
+        ),
+    )
+
+    report = compute_fr_metrics(completion_set, transcripts, scoring_root)
+
+    assert report.n == 4 and report.n_skipped_gold_error == 0
+    assert report.attempt_ex == pytest.approx(0.5)
+    assert report.final_ex == pytest.approx(0.75)
+    assert report.n_fixed == 2 and report.fix_rate == pytest.approx(1.0)
+    assert report.n_fixed_from_error_feedback == 1
+    assert report.n_fixed_from_result_feedback == 1
+    assert report.n_harmed == 1 and report.harm_rate == pytest.approx(0.5)
+    assert report.n_revised == 3  # q3 kept its SQL
+    assert report.net_delta == pytest.approx(0.25)
+
+
+def test_fr_metrics_rejects_misaligned_inputs(scoring_root: Path, provenance) -> None:
+    from text2sql_rlvr.eval.forced_revision_generate import ForcedRevisionTranscriptSet
+    from text2sql_rlvr.eval.fr_metrics import compute_fr_metrics
+
+    completion_set = CompletionSet(provenance=provenance, items=())
+    transcripts = ForcedRevisionTranscriptSet(provenance=provenance, items=())
+    assert compute_fr_metrics(completion_set, transcripts, scoring_root).n == 0

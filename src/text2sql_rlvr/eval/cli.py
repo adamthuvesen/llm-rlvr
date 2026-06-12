@@ -94,6 +94,16 @@ def main(argv: list[str] | None = None) -> int:
     bestofn.add_argument("--report", required=True, help="output selection-report json path")
     bestofn.set_defaults(func=_cmd_select_bestofn)
 
+    fr_metrics = sub.add_parser(
+        "fr-metrics",
+        help="fix/harm decomposition of a forced-revision eval (CPU, from committed artifacts)",
+    )
+    fr_metrics.add_argument("--completions", required=True, help="FR CompletionSet json path")
+    fr_metrics.add_argument("--transcripts", required=True, help="FR transcripts json path")
+    fr_metrics.add_argument("--db-root", required=True, help="extracted database/ directory")
+    fr_metrics.add_argument("--out", default=None, help="optional FrMetricsReport json path")
+    fr_metrics.set_defaults(func=_cmd_fr_metrics)
+
     args = parser.parse_args(argv)
     try:
         return args.func(args)
@@ -225,6 +235,30 @@ def _cmd_select_bestofn(args: argparse.Namespace) -> int:
         f"(non-empty {report.n_selected_nonempty}, executes {report.n_selected_executes}, "
         f"fallback {report.n_fallback_first}, "
         f"disagreeing {report.n_items_with_disagreeing_candidates}) -> {path}"
+    )
+    return 0
+
+
+def _cmd_fr_metrics(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from text2sql_rlvr.eval.forced_revision_generate import ForcedRevisionTranscriptSet
+    from text2sql_rlvr.eval.fr_metrics import compute_fr_metrics
+
+    completion_set = read_completion_set(args.completions)
+    transcripts = ForcedRevisionTranscriptSet.model_validate_json(
+        Path(args.transcripts).read_text(encoding="utf-8")
+    )
+    report = compute_fr_metrics(completion_set, transcripts, args.db_root)
+    if args.out:
+        write_json(report, args.out)
+    print(
+        f"attempt_ex={report.attempt_ex:.4f} final_ex={report.final_ex:.4f} "
+        f"net={report.net_delta:+.4f} | fixed {report.n_fixed}/{report.n_attempt_wrong} "
+        f"({report.fix_rate:.1%}; err-fb {report.n_fixed_from_error_feedback}, "
+        f"result-fb {report.n_fixed_from_result_feedback}) | "
+        f"harmed {report.n_harmed}/{report.n_attempt_right} ({report.harm_rate:.1%}) | "
+        f"revised {report.n_revised}/{report.n}"
     )
     return 0
 
