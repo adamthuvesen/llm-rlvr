@@ -1,0 +1,126 @@
+{
+  "passed": true,
+  "failures": [],
+  "n_train": 24,
+  "n_steps": 3,
+  "wall_time_s": 50.486669903000006,
+  "mean_step_time_s": 15.045700245000015,
+  "n_episodes": 96,
+  "n_unparseable_attempts": 0,
+  "n_final_sql_missing": 5,
+  "mask": {
+    "n_rows": 96,
+    "rows_with_masked_tokens": 96,
+    "masked_tokens_total": 10291,
+    "feedback_in_masked_text": true,
+    "feedback_in_unmasked_text": false
+  },
+  "is_ratio": {
+    "n_logged": 1,
+    "mean_of_means": 0.982338011264801,
+    "overall_min": 0.1577256123224894,
+    "overall_max": 2.1313648223876953,
+    "logp_diff_mean": 0.010368061251938343,
+    "band": [
+      0.8,
+      1.25
+    ],
+    "in_band": true
+  },
+  "nan_log_values": 0,
+  "none_logprob_tokens": 0,
+  "diagnostics": {
+    "n_episodes": 96,
+    "mean_turns_used": 2.0,
+    "frac_revising": 0.21875,
+    "mean_edit_distance": 0.24698226148668317,
+    "mean_turn1_progress": 0.9239583333333333,
+    "mean_final_reward": 1.173828125,
+    "mean_delta_bonus": 0.009375
+  },
+  "mean_reward": 1.4346093734105427,
+  "peak_torch_memory_gib": 42.42531967163086,
+  "device_memory_used_gib": 45.45196533203125,
+  "completions_mean_length": 198.39583333333334,
+  "provenance": {
+    "grpo": {
+      "base_model": "Qwen/Qwen2.5-Coder-3B-Instruct",
+      "base_model_revision": null,
+      "warm_start_adapter": "/runs/grpo/grpo-s0",
+      "hyperparams": {
+        "lora_rank": 32,
+        "lora_alpha": 64,
+        "lora_dropout": 0.05,
+        "learning_rate": 0.00001,
+        "beta": 0.04,
+        "num_generations": 4,
+        "max_completion_length": 1024,
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "per_device_batch_size": 8,
+        "gradient_accumulation_steps": 4,
+        "num_train_epochs": 1,
+        "warmup_ratio": 0.03,
+        "vllm_gpu_memory_utilization": 0.3,
+        "save_steps": 50,
+        "eval_slice_size": 8,
+        "seed": 0
+      },
+      "reward": {
+        "arm": "shaped",
+        "w_format": 0.2,
+        "w_executable": 0.2,
+        "w_result_match": 1.0,
+        "w_length": 0.1,
+        "preamble_credit": 0.3,
+        "length_target_chars": 400,
+        "length_max_chars": 1600,
+        "guard_trivial_empty": true
+      },
+      "dataset": "spider",
+      "dataset_revision": "0c350918f3f29ec754f1181c65cdce76cd6c133c",
+      "n_train": 24,
+      "n_dev": 8,
+      "library_versions": {
+        "rlvr-sql-agent": "0.1.0",
+        "trl": "1.5.1",
+        "peft": "0.19.1",
+        "transformers": "5.10.2",
+        "torch": "2.11.0",
+        "accelerate": "1.13.0",
+        "vllm": "0.22.1"
+      },
+      "git_commit": "483304a5d452a79b24b2958e5b9173e3d6ec1b7a",
+      "git_dirty": false
+    },
+    "environment": {
+      "max_turns": 3,
+      "error_message_chars": 300,
+      "include_rows": true,
+      "preview_rows": 5,
+      "preview_chars": 500
+    },
+    "multiturn_reward": {
+      "base": {
+        "arm": "shaped",
+        "w_format": 0.2,
+        "w_executable": 0.2,
+        "w_result_match": 1.0,
+        "w_length": 0.1,
+        "preamble_credit": 0.3,
+        "length_target_chars": 400,
+        "length_max_chars": 1600,
+        "guard_trivial_empty": true
+      },
+      "credit": "hybrid",
+      "w_final": 1.0,
+      "w_per_turn": 0.3,
+      "w_delta": 0.3,
+      "first_turn_kl_anchor": true,
+      "delta_bonus": true
+    },
+    "rollout": "forced_revision",
+    "prompt_style": "cot",
+    "revise_instruction": "Above is the execution feedback for your query. If the query errored or its result does not answer the question, revise it; if it is already correct, you may keep it. Reason step by step inside <think></think>, then give the final query in a ```sql ... ``` code block."
+  }
+}

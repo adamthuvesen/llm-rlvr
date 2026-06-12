@@ -44,8 +44,22 @@
 
 ## 2. Build (APPROVED 2026-06-12 — user green-light on the passing probe; spend cap $45 total)
 
-- [ ] 2.1 Hand-written forced-execution rollout_func + feedback-token masking; smoke with the
+- [x] 2.1 Hand-written forced-execution rollout_func + feedback-token masking; smoke with the
   archived change's assertions (mask + IS-ratio band) before any paid run.
+  - **SMOKE PASSED (2026-06-12, `grpo-fr-smoke2`, 32 train / 8 dev, 3 steps, 96 episodes;
+    report committed at `results/grpo-fr/smoke-report.json`; ≈ $0.85 incl. one crashed launch
+    — transformers-v5 `apply_chat_template` returns a dict by default, fixed with
+    `return_dict=False`).** The assertions the archived change never got to validate now pass
+    on real spliced rollouts: every one of 96 episodes carries a masked feedback segment
+    (10,291 masked tokens; feedback present in masked spans, NEVER in gradient-carrying
+    spans); IS ratio mean 0.982 in [0.8, 1.25], logp-diff 0.0104 ≈ Stage-2's 0.0076 (TRL
+    #4543 clear on spliced sequences); 0 NaN losses, 0 NaN sampling logprobs; 0 unparseable
+    attempts. Untrained D8 baselines for the pilot gates: turn-1 progress **0.924**,
+    frac_revising **0.219**, edit distance 0.247, delta bonus **0.0094**, mean reward 1.43.
+    Envelope: 42.4 GiB torch peak / 45.5 GiB device, **15.0 s/step**, completions ≈ 198
+    tokens — full-run projection ≈ 812 steps ≈ 3.4 h ≈ **$9–12**, inside the P6 ceiling.
+    P5 anchor (CPU, committed set): grpo-s0 single-turn EX on the first 200 Spider-dev items
+    = **0.7050** → pilot FR eval must score ≥ 0.6550.
   - **Build (2026-06-12, committed):** TRL v1.5.1 `rollout_func` path (the archived D1
     fallback), verified against the tagged source: the rollout returns
     `prompt_ids`/`completion_ids`/`logprobs` plus an `env_mask` extra field the trainer
