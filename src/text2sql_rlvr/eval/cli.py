@@ -82,6 +82,18 @@ def main(argv: list[str] | None = None) -> int:
     tooluse.add_argument("--seed", type=int, default=0)
     tooluse.set_defaults(func=_cmd_build_tooluse)
 
+    bestofn = sub.add_parser(
+        "select-bestofn",
+        help="gold-free best-of-N selection over sampled CompletionSets (the D6 control; CPU)",
+    )
+    bestofn.add_argument(
+        "--completions", required=True, nargs="+", help="N aligned sampled CompletionSet paths"
+    )
+    bestofn.add_argument("--db-root", required=True, help="extracted database/ directory")
+    bestofn.add_argument("--out", required=True, help="output selection CompletionSet path")
+    bestofn.add_argument("--report", required=True, help="output selection-report json path")
+    bestofn.set_defaults(func=_cmd_select_bestofn)
+
     args = parser.parse_args(argv)
     try:
         return args.func(args)
@@ -197,6 +209,22 @@ def _cmd_build_tooluse(args: argparse.Namespace) -> int:
         f"built {counts.n_rows} rows ({counts.n_revise} revise / {counts.n_check} check / "
         f"{counts.n_direct} direct; {counts.n_gold_errors} gold errors, "
         f"{counts.n_corruption_fallbacks} corruption fallbacks) -> {path}"
+    )
+    return 0
+
+
+def _cmd_select_bestofn(args: argparse.Namespace) -> int:
+    from text2sql_rlvr.eval.bestofn import select_best_of_n
+
+    sets = [read_completion_set(path) for path in args.completions]
+    selection, report = select_best_of_n(sets, args.db_root)
+    path = write_completion_set(selection, args.out)
+    write_json(report, args.report)
+    print(
+        f"selected {report.n_items} of {report.n_candidates_per_item} candidates each "
+        f"(non-empty {report.n_selected_nonempty}, executes {report.n_selected_executes}, "
+        f"fallback {report.n_fallback_first}, "
+        f"disagreeing {report.n_items_with_disagreeing_candidates}) -> {path}"
     )
     return 0
 

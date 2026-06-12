@@ -96,6 +96,8 @@ def baseline(
     base_model: str = MODEL,
     limit: int | None = None,
     max_new_tokens: int = 512,
+    temperature: float = 0.0,
+    sampling_seed: int = 0,
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> str:
@@ -142,7 +144,9 @@ def baseline(
         schemas,
         model=base_model,
         backend="vllm",
-        decoding=DecodingConfig(temperature=0.0, max_new_tokens=max_new_tokens),
+        decoding=DecodingConfig(
+            temperature=temperature, max_new_tokens=max_new_tokens, seed=sampling_seed
+        ),
         dataset=dataset,
         dataset_revision=dataset_revision,
         split=split,
@@ -160,7 +164,9 @@ def baseline(
     adapter_tag = f"-{Path(adapter).name}" if adapter else ""
     # Non-default bases get a family tag so a Llama eval can't overwrite the Qwen artifact.
     base_tag = "" if base_model == MODEL else f"-{_model_tag(base_model)}"
-    name = f"{dataset}-{split}-{shot}{style_tag}{base_tag}{adapter_tag}" + (
+    # Sampled (temperature > 0) runs get a sampling tag so they can't overwrite greedy artifacts.
+    sample_tag = f"-t{temperature}-seed{sampling_seed}" if temperature > 0 else ""
+    name = f"{dataset}-{split}-{shot}{style_tag}{base_tag}{adapter_tag}{sample_tag}" + (
         f"-n{limit}" if limit else ""
     )
     out = write_completion_set(completion_set, Path(RUNS_DIR) / f"{name}.json")
@@ -459,6 +465,192 @@ def multiturn_eval(
     volumes={RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache},
     timeout=2 * 60 * 60,
 )
+def forced_revision_smoke(
+    run_id: str = "grpo-fr-smoke",
+    warm_start: str = "grpo/grpo-s0",
+    base_model: str = MODEL,
+    base_model_revision: str | None = None,
+    limit: int = 32,
+    dev_size: int = 8,
+    max_steps: int | None = None,
+    commit: str | None = None,
+    dirty: bool | None = None,
+) -> str:
+    """The forced-revision de-risk smoke (grpo-forced-revision task 2.1): a few real
+    attempt→execute→feedback→revise GRPO steps from the Stage-2 adapter, asserting feedback
+    masking, the TRL #4543 IS-ratio band, and no NaNs. Report lands under `grpo-fr/<run-id>/`;
+    a failed assertion exits non-zero AFTER persisting the report.
+    """
+    from pathlib import Path
+
+    from text2sql_rlvr.data.artifacts import SPIDER_HF_REVISION
+    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from text2sql_rlvr.train.forced_revision import run_forced_revision_smoke
+    from text2sql_rlvr.train.grpo import GrpoHyperparams
+
+    dbs = ensure_spider_databases(Path(RUNS_DIR) / "data" / "spider")
+    schemas = load_schemas(dbs.tables_json)
+    examples = list(load_examples("train"))[:limit]
+
+    out = run_forced_revision_smoke(
+        examples,
+        schemas,
+        dbs.database_root,
+        Path(RUNS_DIR) / "grpo-fr" / run_id,
+        base_model=base_model,
+        base_model_revision=base_model_revision,
+        warm_start_adapter=Path(RUNS_DIR) / warm_start,
+        dataset="spider",
+        dataset_revision=SPIDER_HF_REVISION,
+        hyperparams=GrpoHyperparams(eval_slice_size=dev_size),
+        max_steps=max_steps,
+        commit=commit,
+        dirty=dirty,
+    )
+    runs.commit()
+    print(f"forced-revision smoke report -> {out}")
+    return str(out)
+
+
+@app.function(
+    image=image,
+    gpu="A100-80GB",
+    volumes={RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache},
+    timeout=12 * 60 * 60,
+)
+def forced_revision_train(
+    run_id: str = "grpo-fr-s0",
+    warm_start: str = "grpo/grpo-s0",
+    base_model: str = MODEL,
+    base_model_revision: str | None = None,
+    learning_rate: float = 5e-5,
+    seed: int = 0,
+    dev_size: int | None = None,
+    limit: int | None = None,
+    max_steps: int | None = None,
+    commit: str | None = None,
+    dirty: bool | None = None,
+) -> str:
+    """Forced-revision GRPO on Spider-train, warm-started from the Stage-2 adapter (Stage 3b).
+
+    `max_steps` bounds the pilot; the full run leaves it unset. Adapter + provenance + the D8
+    diagnostics series land under `grpo-fr/<run-id>/`.
+    """
+    from pathlib import Path
+
+    from text2sql_rlvr.data.artifacts import SPIDER_HF_REVISION
+    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from text2sql_rlvr.train.forced_revision import run_forced_revision_train
+    from text2sql_rlvr.train.grpo import GrpoHyperparams
+
+    dbs = ensure_spider_databases(Path(RUNS_DIR) / "data" / "spider")
+    schemas = load_schemas(dbs.tables_json)
+    examples = list(load_examples("train"))
+    if limit is not None:
+        examples = examples[:limit]
+
+    hp_kwargs: dict[str, object] = {"learning_rate": learning_rate, "seed": seed}
+    if dev_size is not None:
+        hp_kwargs["eval_slice_size"] = dev_size
+
+    out = run_forced_revision_train(
+        examples,
+        schemas,
+        dbs.database_root,
+        Path(RUNS_DIR) / "grpo-fr" / run_id,
+        base_model=base_model,
+        base_model_revision=base_model_revision,
+        warm_start_adapter=Path(RUNS_DIR) / warm_start,
+        dataset="spider",
+        dataset_revision=SPIDER_HF_REVISION,
+        hyperparams=GrpoHyperparams(**hp_kwargs),
+        max_steps=max_steps,
+        commit=commit,
+        dirty=dirty,
+    )
+    runs.commit()
+    print(f"forced-revision adapter + provenance + D8 series -> {out}")
+    return str(out)
+
+
+@app.function(
+    image=image,
+    gpu="A100-80GB",
+    volumes={RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache},
+    timeout=4 * 60 * 60,
+)
+def forced_revision_eval(
+    dataset: str = "spider",
+    adapter: str | None = None,
+    base_model: str = MODEL,
+    limit: int | None = None,
+    max_new_tokens: int = 1024,
+    temperature: float = 0.0,
+    sampling_seed: int = 0,
+    commit: str | None = None,
+    dirty: bool | None = None,
+) -> str:
+    """Forced-revision eval: greedy attempt → unconditional execution → greedy revision.
+    Writes a normal CompletionSet plus the full transcripts under `grpo-fr/eval/`."""
+    from pathlib import Path
+
+    from text2sql_rlvr.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
+    from text2sql_rlvr.data.bird import ensure_bird_dev, load_bird_examples
+    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from text2sql_rlvr.eval.completions import write_completion_set, write_json
+    from text2sql_rlvr.eval.forced_revision_generate import generate_forced_revision
+    from text2sql_rlvr.eval.provenance import DecodingConfig
+
+    data_root = Path(RUNS_DIR) / "data"
+    if dataset == "spider":
+        dbs = ensure_spider_databases(data_root / "spider")
+        schemas = load_schemas(dbs.tables_json)
+        examples = list(load_examples("dev"))
+        db_root = dbs.database_root
+        dataset_revision, db_sha = SPIDER_HF_REVISION, SPIDER_DB_ARCHIVE.sha256
+    elif dataset == "bird":
+        bird = ensure_bird_dev(data_root / "bird")
+        schemas = load_schemas(bird.tables_json)
+        examples = list(load_bird_examples(bird.dev_json))
+        db_root = bird.database_root
+        dataset_revision, db_sha = BIRD_ARCHIVE.revision, BIRD_ARCHIVE.sha256
+    else:
+        raise ValueError(f"dataset must be 'spider' or 'bird', got {dataset!r}")
+    if limit is not None:
+        examples = examples[:limit]
+
+    completion_set, transcripts = generate_forced_revision(
+        examples,
+        schemas,
+        db_root,
+        model=base_model,
+        decoding=DecodingConfig(
+            temperature=temperature, max_new_tokens=max_new_tokens, seed=sampling_seed
+        ),
+        dataset=dataset,
+        dataset_revision=dataset_revision,
+        split="dev",
+        adapter_path=(Path(RUNS_DIR) / adapter) if adapter else None,
+        db_archive_sha256=db_sha,
+        commit=commit,
+        dirty=dirty,
+    )
+    adapter_tag = f"-{Path(adapter).name}" if adapter else ""
+    seed_tag = f"-t{temperature}-seed{sampling_seed}" if temperature > 0 else ""
+    name = f"{dataset}-dev-fr{adapter_tag}{seed_tag}" + (f"-n{limit}" if limit else "")
+    out = write_completion_set(completion_set, Path(RUNS_DIR) / "grpo-fr" / "eval" / f"{name}.json")
+    write_json(transcripts, Path(RUNS_DIR) / "grpo-fr" / "eval" / f"{name}.transcripts.json")
+    runs.commit()
+    print(f"wrote {len(completion_set.items)} forced-revision completions -> {out}")
+    return str(out)
+
+
+@app.function(
+    image=image,
+    gpu="A100-80GB",
+    volumes={RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache},
+    timeout=2 * 60 * 60,
+)
 def raw_generate(
     prompts: str,
     out: str,
@@ -522,6 +714,103 @@ def generate_raw(
 
 
 @app.local_entrypoint()
+def fr_smoke(
+    run_id: str = "grpo-fr-smoke",
+    warm_start: str = "grpo/grpo-s0",
+    base_model: str = MODEL,
+    base_model_revision: str | None = None,
+    limit: int = 32,
+    dev_size: int = 8,
+    max_steps: int | None = None,
+    spawn: bool = False,
+) -> None:
+    """Launch the forced-revision de-risk smoke (~$1, blocks paid runs on failure)."""
+    kwargs = {
+        "run_id": run_id,
+        "warm_start": warm_start,
+        "base_model": base_model,
+        "base_model_revision": base_model_revision,
+        "limit": limit,
+        "dev_size": dev_size,
+        "max_steps": max_steps,
+        # The image strips .git, so compute git state locally and pass it into provenance.
+        "commit": _local_git_commit(),
+        "dirty": _local_git_dirty(),
+    }
+    if spawn:
+        call = forced_revision_smoke.spawn(**kwargs)
+        print(f"forced-revision smoke dispatched (spawn): function call {call.object_id}")
+    else:
+        print(f"forced-revision smoke complete: {forced_revision_smoke.remote(**kwargs)}")
+
+
+@app.local_entrypoint()
+def fr_train(
+    run_id: str = "grpo-fr-s0",
+    warm_start: str = "grpo/grpo-s0",
+    base_model: str = MODEL,
+    base_model_revision: str | None = None,
+    learning_rate: float = 5e-5,
+    seed: int = 0,
+    dev_size: int | None = None,
+    limit: int | None = None,
+    max_steps: int | None = None,
+    spawn: bool = False,
+) -> None:
+    """Launch forced-revision GRPO. Use --detach --spawn for the pilot and the full run."""
+    kwargs = {
+        "run_id": run_id,
+        "warm_start": warm_start,
+        "base_model": base_model,
+        "base_model_revision": base_model_revision,
+        "learning_rate": learning_rate,
+        "seed": seed,
+        "dev_size": dev_size,
+        "limit": limit,
+        "max_steps": max_steps,
+        # The image strips .git, so compute git state locally and pass it into provenance.
+        "commit": _local_git_commit(),
+        "dirty": _local_git_dirty(),
+    }
+    if spawn:
+        call = forced_revision_train.spawn(**kwargs)
+        print(f"forced-revision training dispatched (spawn): function call {call.object_id}")
+    else:
+        print(f"forced-revision training complete: {forced_revision_train.remote(**kwargs)}")
+
+
+@app.local_entrypoint()
+def fr_eval(
+    dataset: str = "spider",
+    adapter: str | None = None,
+    base_model: str = MODEL,
+    limit: int | None = None,
+    max_new_tokens: int = 1024,
+    temperature: float = 0.0,
+    sampling_seed: int = 0,
+    spawn: bool = False,
+) -> None:
+    """Launch the forced-revision eval. Use --detach --spawn for full-dev runs."""
+    kwargs = {
+        "dataset": dataset,
+        "adapter": adapter,
+        "base_model": base_model,
+        "limit": limit,
+        "max_new_tokens": max_new_tokens,
+        "temperature": temperature,
+        "sampling_seed": sampling_seed,
+        # The image strips .git, so compute git state locally and pass it into provenance.
+        "commit": _local_git_commit(),
+        "dirty": _local_git_dirty(),
+    }
+    if spawn:
+        call = forced_revision_eval.spawn(**kwargs)
+        print(f"forced-revision eval dispatched (spawn): function call {call.object_id}")
+    else:
+        print(f"forced-revision eval complete: {forced_revision_eval.remote(**kwargs)}")
+
+
+@app.local_entrypoint()
 def mt_eval(
     dataset: str = "spider",
     adapter: str | None = None,
@@ -559,6 +848,8 @@ def main(
     base_model: str = MODEL,
     limit: int | None = None,
     max_new_tokens: int = 512,
+    temperature: float = 0.0,
+    sampling_seed: int = 0,
     spawn: bool = False,
 ) -> None:
     """Launch a baseline generation on the GPU. Use --detach --spawn for long (full-dev) runs."""
@@ -572,6 +863,8 @@ def main(
         "base_model": base_model,
         "limit": limit,
         "max_new_tokens": max_new_tokens,
+        "temperature": temperature,
+        "sampling_seed": sampling_seed,
         # The image strips .git, so compute git state locally and pass it into provenance.
         "commit": _local_git_commit(),
         "dirty": _local_git_dirty(),
