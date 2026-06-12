@@ -1,0 +1,8 @@
+{
+  "n_items": 200,
+  "n_candidates_per_item": 2,
+  "n_selected_nonempty": 171,
+  "n_selected_executes": 19,
+  "n_fallback_first": 10,
+  "n_items_with_disagreeing_candidates": 155
+}

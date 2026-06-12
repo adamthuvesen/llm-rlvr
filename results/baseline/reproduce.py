@@ -109,6 +109,56 @@ def main() -> None:
             )
         )
 
+    _stage3b_forced_revision(spider_db)
+
+
+def _stage3b_forced_revision(spider_db) -> None:
+    """Stage 3b (grpo-forced-revision, ABORTED at the pre-registered pilot gate): re-derive
+    the n=200 pilot-checkpoint documentation table — FR harness vs Stage-2 anchor vs the
+    gold-free best-of-2 control — plus the fix/harm decomposition. Point estimates on a
+    200-item slice; differences of 1–3 items are inside noise and no claim rests on them."""
+    from text2sql_rlvr.eval import CompletionSet
+    from text2sql_rlvr.eval.bestofn import select_best_of_n
+    from text2sql_rlvr.eval.forced_revision_generate import ForcedRevisionTranscriptSet
+    from text2sql_rlvr.eval.fr_metrics import compute_fr_metrics
+
+    fr = HERE.parent / "grpo-fr"
+    print()
+    print("Stage 3b — forced revision (pilot checkpoint, n=200 Spider-dev; ABORTED at gate)")
+
+    s2 = read_completion_set(GRPO / "spider-dev-zs-grpo-s0.json")
+    rows = [
+        ("Stage-2 grpo-s0 single-turn", CompletionSet(provenance=s2.provenance, items=s2.items[:200])),
+        ("FR-pilot single-turn greedy", read_completion_set(fr / "spider-dev-zs-grpo-fr-pilot-n200.json")),
+        ("FR-pilot forced-revision (2 gen)", read_completion_set(fr / "spider-dev-fr-grpo-fr-pilot-n200.json")),
+    ]
+    sampled = [
+        read_completion_set(fr / f"spider-dev-zs-grpo-fr-pilot-t1.0-seed{seed}-n200.json")
+        for seed in (0, 1)
+    ]
+    selection, bo2 = select_best_of_n(sampled, spider_db)
+    rows.append(("FR-pilot best-of-2 (T=1.0, gold-free)", selection))
+    for setting, completion_set in rows:
+        report = score_completion_set(completion_set, spider_db, workers=WORKERS)
+        print(f"  {setting:<38} {report.execution_accuracy:>7.4f}  {report.n_correct}/{report.n}")
+    print(
+        f"  best-of-2 selection (gold-free): nonempty {bo2.n_selected_nonempty}, "
+        f"executes {bo2.n_selected_executes}, fallback {bo2.n_fallback_first}"
+    )
+
+    transcripts = ForcedRevisionTranscriptSet.model_validate_json(
+        (fr / "spider-dev-fr-grpo-fr-pilot-n200.transcripts.json").read_text(encoding="utf-8")
+    )
+    metrics = compute_fr_metrics(
+        read_completion_set(fr / "spider-dev-fr-grpo-fr-pilot-n200.json"), transcripts, spider_db
+    )
+    print(
+        f"  revision pass: attempt {metrics.attempt_ex:.4f} -> final {metrics.final_ex:.4f} "
+        f"(net {metrics.net_delta:+.4f}); fixed {metrics.n_fixed}/{metrics.n_attempt_wrong} "
+        f"({metrics.fix_rate:.1%}), harmed {metrics.n_harmed}/{metrics.n_attempt_right} "
+        f"({metrics.harm_rate:.1%}), revised {metrics.n_revised}/{metrics.n}"
+    )
+
 
 if __name__ == "__main__":
     main()

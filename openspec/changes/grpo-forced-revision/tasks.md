@@ -124,8 +124,35 @@
       against w_final ≈ 1.6 of "keep it safe". This is SCoRe's collapse mode in a new
       costume — reached with the guards ON (delta bonus live, KL anchor live, identity
       resubmission earning zero delta).
-    - Pilot-checkpoint documentation evals (n=200 Spider-dev slice, pilot rung budget):
-      recorded below for the abort report; they do not gate anything.
+    - **Pilot-checkpoint documentation evals (n=200 Spider-dev slice, ≈ $2.30; committed
+      under `results/grpo-fr/`, re-derived by `make eval`). They do not gate anything — the
+      abort was decided by P1/P2 — but they make the negative precise, and they cut both
+      ways:**
+      | Arm (pilot ckpt = 60 steps, point estimates, n=200) | EX |
+      |---|---|
+      | Stage-2 `grpo-s0` single-turn greedy (anchor) | 0.7050 (141/200) |
+      | FR-pilot single-turn greedy | 0.6800 (136/200) — **−2.5pt single-turn cost** |
+      | FR-pilot forced-revision harness (2 generations) | **0.7200 (144/200)** |
+      | FR-pilot best-of-2 (T=1.0 seeds 0/1, gold-free selection) | 0.7150 (143/200) |
+      - At greedy eval the trained policy DOES show the intended shape: attempt 0.6750 →
+        final 0.7200 (**net +4.5pt** — the untrained probe's net was −1.65pt), fix rate
+        13.8% (9/65, all error-feedback class; the hard wrong-rows class: 0), **harm 0/135
+        (0.0% vs 6.3% untrained)** — training suppressed the harm channel completely and
+        kept the easy-class fixes. Transcript audit (24 revised episodes): genuine
+        feedback-grounded edits, zero feedback-marker imitation.
+      - But the D6-shaped margins — FR 0.7200 vs anchor 0.7050 (+3 items) and vs best-of-2
+        0.7150 (+1 item) — are far inside n=200 noise (95% binomial CI ≈ ±6pt), sit on a
+        −2.5pt-degraded single-turn policy, and the D8 trends say continued training erodes
+        the very channels producing them (delta bonus ↓ below the untrained baseline,
+        frac_revising 0.26→0.05). The pre-registered abort stands: no $25 full run on
+        noise-level evidence with deteriorating dynamics — that is the discipline this
+        ladder exists to enforce.
+      - *If anyone reopens this:* the learned equilibrium ("fix execution errors, never
+        touch working queries") is real and cheap to exploit at inference with NO training —
+        a rules-based variant (revise only on error feedback) would capture most of the
+        +4.5pt net at 1.07× compute (errors are ~7% of attempts), and a reopened RL attempt
+        needs a reward that prices the hard class (wrong-rows) above the keep-it-safe
+        equilibrium. Total change spend ≈ **$4.70** of the $45 cap.
   - **D6 CONTROLS (pre-registered):** the full-run verdict compares, on full Spider-dev +
     BIRD-dev: (a) the FR policy under the forced-revision harness (greedy, 2 generations per
     question); (b) the Stage-2 seed-0 single-turn greedy anchors (0.7795 / 0.4081, committed);

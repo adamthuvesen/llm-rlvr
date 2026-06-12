@@ -1,0 +1,16 @@
+{
+  "n": 200,
+  "n_skipped_gold_error": 0,
+  "attempt_ex": 0.675,
+  "final_ex": 0.72,
+  "n_attempt_wrong": 65,
+  "n_fixed": 9,
+  "n_fixed_from_error_feedback": 9,
+  "n_fixed_from_result_feedback": 0,
+  "fix_rate": 0.13846153846153847,
+  "n_attempt_right": 135,
+  "n_harmed": 0,
+  "harm_rate": 0.0,
+  "n_revised": 24,
+  "net_delta": 0.045
+}
