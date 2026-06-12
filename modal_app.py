@@ -453,6 +453,74 @@ def multiturn_eval(
     return str(out)
 
 
+@app.function(
+    image=image,
+    gpu="A100-80GB",
+    volumes={RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache},
+    timeout=2 * 60 * 60,
+)
+def raw_generate(
+    prompts: str,
+    out: str,
+    adapter: str | None = None,
+    base_model: str = MODEL,
+    max_new_tokens: int = 1024,
+) -> str:
+    """Generic prompts-in/completions-out greedy pass: reads a JSONL whose rows carry a
+    `prompt` (chat messages) column, writes an aligned JSONL of `{"completion": text}`.
+    Used by the grpo-forced-revision probe; the caller's report records the source artifact
+    + commit, so this fn carries no provenance of its own."""
+    import json
+    from pathlib import Path
+
+    from text2sql_rlvr.eval.generate import _run_vllm
+    from text2sql_rlvr.eval.provenance import DecodingConfig
+
+    rows = [
+        json.loads(line)
+        for line in (Path(RUNS_DIR) / prompts).read_text(encoding="utf-8").splitlines()
+    ]
+    texts = _run_vllm(
+        [row["prompt"] for row in rows],
+        model=base_model,
+        decoding=DecodingConfig(temperature=0.0, max_new_tokens=max_new_tokens),
+        adapter_path=(Path(RUNS_DIR) / adapter) if adapter else None,
+    )
+    out_path = Path(RUNS_DIR) / out
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        "\n".join(json.dumps({"completion": t}, ensure_ascii=False) for t in texts) + "\n",
+        encoding="utf-8",
+    )
+    runs.commit()
+    print(f"wrote {len(texts)} completions -> {out_path}")
+    return str(out_path)
+
+
+@app.local_entrypoint()
+def generate_raw(
+    prompts: str,
+    out: str,
+    adapter: str | None = None,
+    base_model: str = MODEL,
+    max_new_tokens: int = 1024,
+    spawn: bool = False,
+) -> None:
+    """Launch the generic greedy pass over a prompts JSONL on the Volume."""
+    kwargs = {
+        "prompts": prompts,
+        "out": out,
+        "adapter": adapter,
+        "base_model": base_model,
+        "max_new_tokens": max_new_tokens,
+    }
+    if spawn:
+        call = raw_generate.spawn(**kwargs)
+        print(f"raw generation dispatched (spawn): function call {call.object_id}")
+    else:
+        print(f"raw generation complete: {raw_generate.remote(**kwargs)}")
+
+
 @app.local_entrypoint()
 def mt_eval(
     dataset: str = "spider",
