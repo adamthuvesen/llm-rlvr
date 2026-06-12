@@ -1,0 +1,23 @@
+{
+  "source_completions": "results/grpo/spider-dev-zs-grpo-s0.json",
+  "source_sha256": "196708cee7dc5f1e766286a4d9f6c8eccbdf0d3fcafa1b46912fcd45c8a8a81a",
+  "n_source": 1034,
+  "n_skipped": 0,
+  "n_wrong": 228,
+  "n_right": 806,
+  "n_right_sampled": 300,
+  "n_fixed": 34,
+  "n_fixed_from_error_feedback": 15,
+  "n_fixed_from_result_feedback": 19,
+  "n_wrong_with_error_feedback": 28,
+  "n_harmed": 19,
+  "fix_rate": 0.14912280701754385,
+  "harm_rate": 0.06333333333333334,
+  "net_ex_delta_estimate": -0.016486137975499686,
+  "g1_fix_rate_threshold": 0.1,
+  "g2_harm_rate_threshold": 0.1,
+  "g1_passed": true,
+  "g2_passed": true,
+  "passed": true,
+  "git_commit": "0e7601e6eb5f2f63567f6b3741a44bc25e319a2e"
+}

@@ -2,7 +2,7 @@
 
 ## 1. Pre-registered revision probe (~$1, approved 2026-06-12)
 
-- [ ] 1.1 **GATE THRESHOLDS (pre-registered BEFORE the probe runs; this commit is the record).**
+- [x] 1.1 **GATE THRESHOLDS (pre-registered BEFORE the probe runs; this commit is the record).**
   Instrument: Stage-2 seed-0 committed completions (`results/grpo/spider-dev-zs-grpo-s0.json`),
   per-item verdicts re-derived with the committed verifier; every item's SQL executed in the
   real sandbox; one greedy revision turn from the same checkpoint (`grpo/grpo-s0`), prompted
@@ -25,9 +25,22 @@
     failures and is the hard class); unparseable/skip counts.
   - Outcome rule: PASS → stop and report (the build is a separate user decision). FAIL →
     document the no-go honestly; this change closes as a second cheap dodge.
-- [ ] 1.2 Probe implementation (CPU builders + one generic GPU generation pass) + committed
+- [x] 1.2 Probe implementation (CPU builders + one generic GPU generation pass) + committed
   probe report under `results/grpo-fr/` with full provenance; `make check` green.
-- [ ] 1.3 Probe verdict recorded here against G1/G2, with numbers.
+- [x] 1.3 **Probe verdict (2026-06-12, report committed at `results/grpo-fr/revision-probe.json`,
+  generation `raw_generate` greedy from `grpo/grpo-s0`, ~$0.30): PASS on both gates.**
+  - **G1 PASS — fix rate 14.9%** (34/228 wrong answers corrected; threshold ≥ 10%). By
+    feedback class: error-feedback 15/28 (54% — the easy class is highly fixable), 
+    executed-but-wrong-rows 19/200 (9.5% — the hard class, modest but real signal).
+  - **G2 PASS — harm rate 6.3%** (19/300 right answers broken; threshold ≤ 10%).
+  - Context (not gated): untrained net-EX estimate of one forced revision pass = **−1.65pt**
+    (the 6.3% harm on the 806-item right mass outweighs the 34 fixes). This is precisely the
+    shape RL is for — amplify the fix behavior, suppress the harm channel (improvement-delta
+    bonus + KL anchor + free identity-resubmission are already designed for it) — and exactly
+    why the matched-compute best-of-N control (D6) stays the success bar.
+  - **The forced-revision premise is validated where tool election failed: the policy HAS
+    sampling mass on useful revision.** Per the pre-registered outcome rule: STOP here —
+    section 2 (the build) is a separate user decision.
 
 ## 2. Build (NOT approved — requires user decision on a passing probe)
 
