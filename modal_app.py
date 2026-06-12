@@ -383,6 +383,101 @@ def multiturn_smoke(
     return str(out)
 
 
+@app.function(
+    image=image,
+    gpu="A100-80GB",
+    volumes={RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache},
+    timeout=4 * 60 * 60,
+)
+def multiturn_eval(
+    dataset: str = "spider",
+    adapter: str | None = None,
+    base_model: str = MODEL,
+    limit: int | None = None,
+    max_new_tokens: int = 1024,
+    commit: str | None = None,
+    dirty: bool | None = None,
+) -> str:
+    """Multi-turn greedy eval (no RL): the tool loop at inference time. Writes a normal
+    CompletionSet plus the full `MultiTurnTranscriptSet` under `grpo-mt/eval/` on the Volume.
+    """
+    from pathlib import Path
+
+    from text2sql_rlvr.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
+    from text2sql_rlvr.data.bird import ensure_bird_dev, load_bird_examples
+    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from text2sql_rlvr.eval.completions import write_completion_set, write_json
+    from text2sql_rlvr.eval.multiturn_generate import generate_multiturn
+    from text2sql_rlvr.eval.provenance import DecodingConfig
+
+    data_root = Path(RUNS_DIR) / "data"
+    if dataset == "spider":
+        dbs = ensure_spider_databases(data_root / "spider")
+        schemas = load_schemas(dbs.tables_json)
+        examples = list(load_examples("dev"))
+        db_root = dbs.database_root
+        dataset_revision, db_sha = SPIDER_HF_REVISION, SPIDER_DB_ARCHIVE.sha256
+    elif dataset == "bird":
+        bird = ensure_bird_dev(data_root / "bird")
+        schemas = load_schemas(bird.tables_json)
+        examples = list(load_bird_examples(bird.dev_json))
+        db_root = bird.database_root
+        dataset_revision, db_sha = BIRD_ARCHIVE.revision, BIRD_ARCHIVE.sha256
+    else:
+        raise ValueError(f"dataset must be 'spider' or 'bird', got {dataset!r}")
+    if limit is not None:
+        examples = examples[:limit]
+
+    completion_set, transcripts = generate_multiturn(
+        examples,
+        schemas,
+        db_root,
+        model=base_model,
+        decoding=DecodingConfig(temperature=0.0, max_new_tokens=max_new_tokens),
+        dataset=dataset,
+        dataset_revision=dataset_revision,
+        split="dev",
+        adapter_path=(Path(RUNS_DIR) / adapter) if adapter else None,
+        db_archive_sha256=db_sha,
+        commit=commit,
+        dirty=dirty,
+    )
+    adapter_tag = f"-{Path(adapter).name}" if adapter else ""
+    name = f"{dataset}-dev-mt{adapter_tag}" + (f"-n{limit}" if limit else "")
+    out = write_completion_set(completion_set, Path(RUNS_DIR) / "grpo-mt" / "eval" / f"{name}.json")
+    write_json(transcripts, Path(RUNS_DIR) / "grpo-mt" / "eval" / f"{name}.transcripts.json")
+    runs.commit()
+    print(f"wrote {len(completion_set.items)} multi-turn completions -> {out}")
+    return str(out)
+
+
+@app.local_entrypoint()
+def mt_eval(
+    dataset: str = "spider",
+    adapter: str | None = None,
+    base_model: str = MODEL,
+    limit: int | None = None,
+    max_new_tokens: int = 1024,
+    spawn: bool = False,
+) -> None:
+    """Launch the multi-turn greedy eval (no RL). Use --detach --spawn for full-dev runs."""
+    kwargs = {
+        "dataset": dataset,
+        "adapter": adapter,
+        "base_model": base_model,
+        "limit": limit,
+        "max_new_tokens": max_new_tokens,
+        # The image strips .git, so compute git state locally and pass it into provenance.
+        "commit": _local_git_commit(),
+        "dirty": _local_git_dirty(),
+    }
+    if spawn:
+        call = multiturn_eval.spawn(**kwargs)
+        print(f"multi-turn eval dispatched (spawn): function call {call.object_id}")
+    else:
+        print(f"multi-turn eval complete: {multiturn_eval.remote(**kwargs)}")
+
+
 @app.local_entrypoint()
 def main(
     dataset: str = "spider",
