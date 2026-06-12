@@ -135,6 +135,40 @@
       system block (TRL's SFT path takes no `tools=` kwarg), rollout prompts include it.
     - Caveat: gate (b) is greedy — a small nonzero p(tool_call) would be invisible; the
       temperature-1.0 smoke (96 sampled episodes) is the decisive instrument, per protocol.
+  - **Attempt 4 (2026-06-12, `grpo-mt-smoke4`, same shape, `mt` prompt, warm-start
+    `sft/tooluse-sft-r32`, report committed at `results/grpo-mt/smoke-report-attempt4.json`):
+    still 0/96 tool calls — rung 2 as executed FAILED.** Temperature-1.0 sampling from the
+    tool-use-SFT'd checkpoint confirms the greedy gate: p(tool_call) stayed ≈ 0. Two new
+    signatures beyond the gate evals: (1) a fifth assertion fired — "env feedback leaked into
+    gradient-carrying tokens" — because the policy now *generates* "Execution feedback …"
+    phrases inside its own completions: it learned to imitate the transcript wording (one
+    revise `<think>` template literally began with the marker phrase) instead of calling the
+    tool; (2) the mt-context quality collapse is visible in-reward (mean turn-1 progress
+    0.10 vs 0.91 in attempt 2, mean reward 0.21 vs 1.19). IS ratio in band again (0.978);
+    envelope 50.5 GiB peak, 23.5 s/step. Rung-2 spend ≈ $4 (SFT $0.60 + four gate evals
+    ≈ $2.50 + smoke $0.50); Stage-3 total ≈ $5.50. **The Stage-2 artifacts are untouched** —
+    `grpo/grpo-s0` was only read, never written; the damaged checkpoint is the separate
+    `sft/tooluse-sft-r32`.
+    - *Why it failed (mechanism, from the committed evidence):* the SFT objective was
+      dominated by the wrong tokens. By token mass, the 600 verbatim Stage-1 `direct` traces
+      (long, preamble-style) outweighed the 900 short tool-call completions ~5:1, so the
+      first-turn decision the model actually learned was "answer directly, in the old
+      preamble style" — simultaneously failing to instill the tool call AND undoing Stage-2's
+      learned no-preamble format (the gate-(a) −8.1pt). Compounding deltas: SFT prompts
+      lacked the `# Tools` system block the rollout renders, and the think templates quoted
+      the feedback marker verbatim.
+    - *What a second iteration would change (NOT approved, recorded for the decision):*
+      restart from `grpo/grpo-s0` (never stack on the damaged adapter); rebalance by tokens,
+      not transcripts (strip preambles from direct completions or drop the direct arm to
+      ~10% of token mass); pre-render prompts WITH the tools block as text rows (full byte
+      parity with rollout); reword think templates to never quote the feedback marker;
+      optionally upweight the bare-prompt→tool-call rows. Cost of one iteration ≈ $1.50
+      (rebuild $0 + SFT $0.60 + forgetting gate $1 + smoke $0.50, skipping the multi-turn
+      attribution evals until a smoke passes).
+  - **DECISION POINT (2026-06-12, pending user):** (i) one diagnosed-fix iteration of rung 2,
+    ≈ $1.50, with the concrete changes above; or (ii) ship Stage 2 alone (unchanged, fully
+    intact). Pilot/full multi-turn GRPO (3.x onward) remain unapproved either way. 2.1 stays
+    unticked: four smoke attempts, none with a single tool call.
 - [ ] 2.2 Measure the multi-turn memory + step-time envelope (3-turn transcripts); retune
   colocate `gpu_memory_utilization` and per-turn completion caps; re-extrapolate the cost.
   (Attempt-1 numbers above are zero-tool-call transcripts — a lower bound, not the envelope.)

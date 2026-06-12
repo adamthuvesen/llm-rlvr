@@ -56,13 +56,16 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 ## Current state (update when stages move)
 
 Stage 3 (multi-turn GRPO, `openspec/changes/grpo-multi-turn/`) is active and **paused on a user
-decision**. CPU scaffolding done; three GPU smoke attempts cleared the TRL #4543 check and
-measured the envelope, but the Stage-2 policy never calls `run_sql` (0/288 episodes — not under
-the `cot` prompt, the `mt` instruction, or `mt_demo`'s full in-context tool demonstration,
-verified rendered in the rollout log), so task 2.1's mask assertions are unvalidated — see the
-journal under task 2.1 in the change's `tasks.md`. In-context seeding is exhausted. **Next step:
-the user picks a rung** (recorded there): (2) small tool-use SFT cold-start, ~$5–10; (3) ship
-Stage 2 alone; optional ~$0.50 diagnostic first — re-run the smoke warm-started from the SFT
-adapter. Do not start paid Stage-3 training before a smoke passes.
+decision after rung 2 failed**. Four GPU smoke attempts, zero tool calls in 384 episodes: the
+in-context rungs (`cot`/`mt`/`mt_demo`) failed (attempts 1–3), and the rung-2 tool-use SFT cold
+start (`sft/tooluse-sft-r32`, executed 2026-06-12) also failed — its token mass was dominated by
+the long Stage-1 direct traces, so it taught preamble-style direct answers instead of tool
+calls, and cost −8.1pt Spider / −3.3pt BIRD single-turn (gate results + diagnosis + a concrete
+fix list under task 2.1 in the change's `tasks.md`). Stage-2 artifacts are untouched
+(`grpo/grpo-s0` only read). New since rung 2: a multi-turn inference eval
+(`eval/multiturn_generate.py`, `mt_eval` entrypoint) and the tool-use dataset builder
+(`train/tooluse.py`, `build-tooluse` CLI). **Next step: the user decides** — one diagnosed-fix
+iteration of rung 2 (≈$1.50) or ship Stage 2 alone. Do not start paid Stage-3 training before a
+smoke passes; task 2.1 stays unticked.
 Stage 2 shipped and is archived with stages 0–1 in `openspec/changes/archive/`: 3-seed headline
 (CI excludes zero on both benchmarks), near-binary ablation, and the Llama cross-family control.
