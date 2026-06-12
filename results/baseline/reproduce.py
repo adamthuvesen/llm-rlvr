@@ -116,7 +116,7 @@ def _stage3b_forced_revision(spider_db) -> None:
     """Stage 3b (grpo-forced-revision, ABORTED at the pre-registered pilot gate): re-derive
     the n=200 pilot-checkpoint documentation table — FR harness vs Stage-2 anchor vs the
     gold-free best-of-2 control — plus the fix/harm decomposition. Point estimates on a
-    200-item slice; differences of 1–3 items are inside noise and no claim rests on them."""
+    200-item slice; differences of 1-3 items are inside noise and no claim rests on them."""
     from text2sql_rlvr.eval import CompletionSet
     from text2sql_rlvr.eval.bestofn import select_best_of_n
     from text2sql_rlvr.eval.forced_revision_generate import ForcedRevisionTranscriptSet
@@ -127,10 +127,17 @@ def _stage3b_forced_revision(spider_db) -> None:
     print("Stage 3b — forced revision (pilot checkpoint, n=200 Spider-dev; ABORTED at gate)")
 
     s2 = read_completion_set(GRPO / "spider-dev-zs-grpo-s0.json")
+    s2_slice = CompletionSet(provenance=s2.provenance, items=s2.items[:200])
     rows = [
-        ("Stage-2 grpo-s0 single-turn", CompletionSet(provenance=s2.provenance, items=s2.items[:200])),
-        ("FR-pilot single-turn greedy", read_completion_set(fr / "spider-dev-zs-grpo-fr-pilot-n200.json")),
-        ("FR-pilot forced-revision (2 gen)", read_completion_set(fr / "spider-dev-fr-grpo-fr-pilot-n200.json")),
+        ("Stage-2 grpo-s0 single-turn", s2_slice),
+        (
+            "FR-pilot single-turn greedy",
+            read_completion_set(fr / "spider-dev-zs-grpo-fr-pilot-n200.json"),
+        ),
+        (
+            "FR-pilot forced-revision (2 gen)",
+            read_completion_set(fr / "spider-dev-fr-grpo-fr-pilot-n200.json"),
+        ),
     ]
     sampled = [
         read_completion_set(fr / f"spider-dev-zs-grpo-fr-pilot-t1.0-seed{seed}-n200.json")
