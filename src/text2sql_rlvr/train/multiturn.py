@@ -47,6 +47,7 @@ from text2sql_rlvr.train.grpo import (
     GrpoHyperparams,
     build_grpo_config_from_kwargs,
     build_grpo_rows,
+    build_lora_config,
     grpo_config_kwargs,
     split_train_dev,
 )
@@ -277,7 +278,7 @@ def run_multiturn_smoke(
     output_dir: str | Path,
     *,
     base_model: str,
-    warm_start_adapter: str | Path,
+    warm_start_adapter: str | Path | None,
     dataset: str,
     dataset_revision: str,
     base_model_revision: str | None = None,
@@ -349,9 +350,16 @@ def run_multiturn_smoke(
         dtype="bfloat16",
         **({"revision": base_model_revision} if base_model_revision else {}),
     )
-    # Warm-start from the Stage-2 adapter; with beta != 0 TRL snapshots it as the frozen "ref"
-    # adapter, so the KL anchors to the Stage-2 policy (the D4 anchor, whole-completion form).
-    policy = PeftModel.from_pretrained(base, str(warm_start_adapter), is_trainable=True)
+    if warm_start_adapter is not None:
+        # Warm-start from the Stage-2 adapter; with beta != 0 TRL snapshots it as the frozen
+        # "ref" adapter, so the KL anchors to the Stage-2 policy (the D4 anchor).
+        policy = PeftModel.from_pretrained(base, str(warm_start_adapter), is_trainable=True)
+    else:
+        # Fresh LoRA: zero-init B matrices make this an identity at step 0, so the first
+        # rollouts sample the BASE policy exactly — the entrenchment-probe arm.
+        from peft import get_peft_model
+
+        policy = get_peft_model(base, build_lora_config(hp))
 
     torch.cuda.reset_peak_memory_stats()
     trainer = _CapturingTrainer(
@@ -411,7 +419,11 @@ def run_multiturn_smoke(
         completions_mean_length=_logged_mean(log_history, "completions/mean_length"),
         provenance=build_multiturn_provenance(
             base_model=base_model,
-            warm_start_adapter=warm_start_adapter,
+            warm_start_adapter=(
+                warm_start_adapter
+                if warm_start_adapter is not None
+                else "none (fresh identity LoRA from base — entrenchment probe)"
+            ),
             # Down-cast to the declared provenance type; the tool-loop bound it would lose is
             # pinned to environment.max_turns by the equality check above.
             hyperparams=GrpoHyperparams.model_validate(

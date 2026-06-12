@@ -317,7 +317,7 @@ def grpo_train(
         Path(RUNS_DIR) / "grpo" / run_id,
         base_model=base_model,
         base_model_revision=base_model_revision,
-        warm_start_adapter=Path(RUNS_DIR) / warm_start,
+        warm_start_adapter=(Path(RUNS_DIR) / warm_start) if warm_start else None,
         dataset="spider",
         dataset_revision=SPIDER_HF_REVISION,
         hyperparams=GrpoHyperparams(**hp_kwargs),
@@ -338,7 +338,7 @@ def grpo_train(
 )
 def multiturn_smoke(
     run_id: str = "grpo-mt-smoke",
-    warm_start: str = "grpo/grpo-s0",
+    warm_start: str | None = "grpo/grpo-s0",
     base_model: str = MODEL,
     base_model_revision: str | None = None,
     prompt_style: str = "mt_demo",
@@ -370,7 +370,7 @@ def multiturn_smoke(
         Path(RUNS_DIR) / "grpo-mt" / run_id,
         base_model=base_model,
         base_model_revision=base_model_revision,
-        warm_start_adapter=Path(RUNS_DIR) / warm_start,
+        warm_start_adapter=(Path(RUNS_DIR) / warm_start) if warm_start else None,
         dataset="spider",
         dataset_revision=SPIDER_HF_REVISION,
         # The Stage-2 smoke shape: a tiny dev slice so the train split isn't starved.
@@ -620,7 +620,7 @@ def grpo(
 @app.local_entrypoint()
 def mt_smoke(
     run_id: str = "grpo-mt-smoke",
-    warm_start: str = "grpo/grpo-s0",
+    warm_start: str | None = "grpo/grpo-s0",
     base_model: str = MODEL,
     base_model_revision: str | None = None,
     prompt_style: str = "mt_demo",
