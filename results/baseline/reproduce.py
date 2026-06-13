@@ -109,10 +109,10 @@ def main() -> None:
             )
         )
 
-    _stage3b_forced_revision(spider_db)
+    _stage3b_forced_revision(spider_db, bird_db)
 
 
-def _stage3b_forced_revision(spider_db) -> None:
+def _stage3b_forced_revision(spider_db, bird_db) -> None:
     """Stage 3b (grpo-forced-revision, ABORTED at the pre-registered pilot gate): re-derive
     the n=200 pilot-checkpoint documentation table — FR harness vs Stage-2 anchor vs the
     gold-free best-of-2 control — plus the fix/harm decomposition. Point estimates on a
@@ -194,6 +194,27 @@ def _stage3b_forced_revision(spider_db) -> None:
         f"second generations {fresh_report.n_second_generation}/{len(fresh_transcripts.items)} "
         f"({fresh_report.second_generation_rate:.1%}), fixed {fresh_report.n_fixed}, "
         f"harmed {fresh_report.n_harmed}"
+    )
+
+    bird_error_only = read_completion_set(fr / "bird-dev-fr-error-only-grpo-fr-pilot.json")
+    bird_transcripts = ForcedRevisionTranscriptSet.model_validate_json(
+        (fr / "bird-dev-fr-error-only-grpo-fr-pilot.transcripts.json").read_text(encoding="utf-8")
+    )
+    bird_score = score_completion_set(bird_error_only, bird_db, workers=WORKERS)
+    bird_report = compute_forced_revision_eval_report(
+        bird_error_only, bird_transcripts, bird_db, policy="error_only"
+    )
+    gold_note = (
+        f"; local gold-query timeouts {bird_score.n_gold_errors}"
+        if bird_score.n_gold_errors
+        else ""
+    )
+    print(
+        f"  fresh full BIRD error-only: attempt {bird_report.attempt_ex:.4f} -> "
+        f"final {bird_score.execution_accuracy:.4f} ({bird_score.n_correct}/{bird_score.n}"
+        f"{gold_note}); second generations {bird_report.n_second_generation}/"
+        f"{len(bird_transcripts.items)} ({bird_report.second_generation_rate:.1%}), "
+        f"fixed {bird_report.n_fixed}, harmed {bird_report.n_harmed}"
     )
 
 

@@ -1,0 +1,31 @@
+{
+  "policy": "error_only",
+  "n": 1534,
+  "n_skipped_gold_error": 0,
+  "attempt_ex": 0.4048239895697523,
+  "final_ex": 0.4348109517601043,
+  "n_attempt_wrong": 913,
+  "n_fixed": 46,
+  "n_fixed_from_error_feedback": 46,
+  "n_fixed_from_result_feedback": 0,
+  "fix_rate": 0.050383351588170866,
+  "n_attempt_right": 621,
+  "n_harmed": 0,
+  "harm_rate": 0.0,
+  "n_sql_changed": 244,
+  "net_delta": 0.02998696219035202,
+  "n_error_feedback": 297,
+  "n_second_generation": 297,
+  "second_generation_rate": 0.19361147327249023,
+  "n_kept_attempt": 1237,
+  "runtime_notes": [
+    "first pass generated for every example",
+    "second pass generated only for selected feedback under the policy",
+    "report computed locally from transcripts and read-only database execution"
+  ],
+  "cost_notes": [
+    "second_generation_count=297",
+    "second_generation_rate=0.1936",
+    "no GPU/model cost is incurred by this CPU report"
+  ]
+}
