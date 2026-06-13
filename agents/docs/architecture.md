@@ -1,8 +1,8 @@
 # Architecture
 
-The one-sentence design: **the execution-match verifier that scores the baseline is the same code
-that becomes the RL training reward** — a bug in the eval layer is a bug in training. Every
-artifact carries provenance, so committed numbers re-derive from disk.
+Core design: **the execution-match verifier that scores the baseline is the same code used as the
+RL training reward**. A bug in eval is a bug in training. Every result file carries enough metadata
+to re-derive committed numbers from disk.
 
 ## Module map (dependency direction: top imports bottom, never the reverse)
 
@@ -25,7 +25,7 @@ third_party/   vendored Test-Suite SQL Eval (execution-match path only; Apache 2
 
 `modal_app.py` (repo root) is the only GPU surface; `src/` never imports Modal.
 
-## The data/artifact flow
+## Data and result flow
 
 ```
 HF mirrors (pinned)         GPU (Modal A100-80GB)              CPU (local, model-free)
@@ -35,9 +35,9 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (commi
 
 - **CompletionSet** is the boundary object: `generate` (the *only* model-loading step) writes one
   JSON per (model, dataset, decoding) cell; `score` reads it anywhere, deterministically.
-- **Committed artifacts re-derive**: everything under `results/` must be reproducible via
-  `make eval` from the committed CompletionSets — no number in a doc without its artifact.
-- **Provenance chain**: every artifact embeds model+revision, dataset+revision, DB archive sha256,
+- **Committed result files re-derive**: everything under `results/` must be reproducible via
+  `make eval` from the committed CompletionSets — no number in a doc without its source file.
+- **Metadata chain**: every artifact embeds model+revision, dataset+revision, DB archive sha256,
   decoding/hyperparams, library versions, and git commit/dirty. The Modal image strips `.git`, so
   local entrypoints compute git state and pass it in (`_local_git_commit()` in `modal_app.py`).
 
@@ -68,7 +68,7 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (commi
 ## Evaluation discipline
 
 - **Seed-level aggregation only** (`eval/aggregate.py`): mean + 95% Student-t CI over per-seed EX;
-  never pool rollouts across seeds. Headline bar = the RL-vs-SFT gain CI excludes zero.
+  never pool rollouts across seeds. Main success check = the RL-vs-SFT gain CI excludes zero.
   Single-seed controls are point estimates — no CI claim (`report/progression.py` enforces both).
 - **EX is single-DB execution-match** with a disclosed ~6.5% false-positive caveat; the verifier
   already supports test-suite multi-DB via `db_dir` if distilled DBs are self-hosted later.
@@ -89,11 +89,11 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (commi
 
 All stages are archived in `openspec/changes/archive/`; the archived `design.md`s and
 `tasks.md` journals record the decisions and verdicts. Stages 0–2 shipped (capabilities synced
-to `openspec/specs/`). Stage 3 (`grpo-multi-turn`, tool election) closed WITHOUT training —
+to `openspec/specs/`). Stage 3 (`grpo-multi-turn`, tool choice) closed WITHOUT training —
 0/672 tool calls across every checkpoint and prompting strength. Stage 3b
-(`grpo-forced-revision`) removed election via a hand-written TRL `rollout_func`
+(`grpo-forced-revision`) removed tool choice via a hand-written TRL `rollout_func`
 (`train/forced_revision.py`: unconditional execution, loss-masked feedback splice, revision)
 — its smoke validated the masking + IS-ratio assertions on real spliced rollouts, and the
-ladder ABORTED at the pre-registered pilot gate (identity-resubmission drift; see the README
-progression table and `results/grpo-fr/`). The self-correction scaffolding stays tested in the
+sequence ABORTED at the pilot gate set before the run (identity-resubmission drift; see the README
+progression table and `results/grpo-fr/`). The self-correction support code stays tested in the
 tree for a future attempt on a larger base.

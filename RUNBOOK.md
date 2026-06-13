@@ -2,7 +2,7 @@
 
 The procedure for fetching the data, running the base-model baseline, building the cold-start
 trace dataset, training the LoRA SFT adapter, running single-turn GRPO with its controls, and
-reproducing the headline numbers. Everything here is CPU/MPS-runnable except the GPU passes
+reproducing the main numbers. Everything here is CPU/MPS-runnable except the GPU passes
 (noted below). Exact external pins live in [`ARTIFACTS.md`](ARTIFACTS.md).
 
 ## One-time setup
@@ -51,10 +51,10 @@ uv run text2sql-rlvr score --completions runs/baseline_3b_dev50.json \
   --db-root data/spider/spider_data/database --out results/baseline_3b_dev50.json
 ```
 
-The 50-example slice above is a **local smoke** (n=50 has a wide CI); the headline numbers come from
+The 50-example slice above is a **local smoke** (n=50 has a wide CI); the main numbers come from
 the full-dev Modal GPU pass below.
 
-## The headline baseline (full dev + BIRD — Modal GPU)
+## Main baseline (full dev + BIRD — Modal GPU)
 
 `modal_app.py` runs the same `generate()` on a single A100 via vLLM and writes the `CompletionSet`
 to a Modal Volume. Run with the `modal` CLI (`uv tool install modal`); public HF data/model, no token.
@@ -64,7 +64,7 @@ modal run modal_app.py::main --dataset spider --limit 8          # day-1 smoke f
 modal run --detach modal_app.py::main --dataset spider --spawn   # Spider-dev zero-shot (<think>)
 modal run --detach modal_app.py::main --dataset spider --few-shot-k 3 --spawn
 modal run --detach modal_app.py::main --dataset spider --prompt-style direct --spawn
-modal run --detach modal_app.py::main --dataset bird --spawn     # BIRD-dev (headline)
+modal run --detach modal_app.py::main --dataset bird --spawn     # BIRD-dev
 modal run --detach modal_app.py::main --dataset bird --prompt-style direct --spawn
 
 # pull a result from the Volume and score on CPU
@@ -87,7 +87,7 @@ the `<think>` chain-of-thought prompt depresses it (long rambling answers, ~1200
 - **`<think>` matched** (0.625 / 0.313) — the before-RL anchor, since the RL model will use `<think>`.
 
 Reporting both prevents an artificially-low baseline from inflating the later RL gain. (Both sit
-below SQL-R1's ~77% base, which adds schema-linking + a tuned harness we deliberately keep minimal.)
+below SQL-R1's ~77% base, which adds schema-linking + a tuned runner we deliberately keep minimal.)
 BIRD few-shot is deferred (it needs BIRD-train exemplars — a small follow-up).
 
 ## Stage 1: SFT cold-start (trace-gen → filter → SFT → adapter eval)
@@ -145,15 +145,15 @@ uv run text2sql-rlvr score --completions runs/spider-dev-zs-sft-r32.json \
 `score` now reports `well_formed_rate` alongside execution accuracy. **Success bar (D6):**
 format rate near-100% on dev AND no EX regression below the base `<think>` anchor (0.625
 Spider-dev / 0.313 BIRD-dev; target ≥ the direct anchor). If the bar is missed, the fallback
-ladder is documented in `openspec/changes/sft-coldstart/design.md` (more traces → SynSQL pull →
+sequence is documented in `openspec/changes/sft-coldstart/design.md` (more traces → SynSQL pull →
 teacher distillation).
 
-## Stage 2: single-turn GRPO (smoke → LR pilot → headline → controls)
+## Stage 2: single-turn GRPO (smoke → LR pilot → main run → controls)
 
 GRPO trains the SFT adapter further with an execution-grounded reward: 4 rollouts per question
 (vLLM colocate on one A100-80GB), each scored by running its SQL and comparing rows to gold
 (`rewards/reward.py` — shaped arm by default, empty-result guard ON, full format credit only
-when `<think>` leads). The spend ladder is mandatory: **smoke → pilot → paid runs**, each step
+when `<think>` leads). The spend sequence is mandatory: **smoke → pilot → paid runs**, each step
 validating the next one's assumptions.
 
 **Modal discipline** (learned the hard way): long runs use `modal run --detach … --spawn` — a
@@ -176,9 +176,9 @@ modal run --detach modal_app.py::grpo --run-id grpo-pilot-lr5e5 --learning-rate 
   --limit 2000 --spawn   # repeat per LR, staggered
 ```
 
-**3. Headline** (~$22): 3 seeds at the locked LR on full Spider-train — the **seed policy**:
+**3. Main run** (~$22): 3 seeds at the locked LR on full Spider-train — the **seed rule**:
 never fewer than 3 seeds for a CI claim, never pool rollouts across seeds, aggregate per-seed EX
-with a Student-t CI (`eval/aggregate.py`), success bar = the RL-vs-SFT gain CI excludes zero.
+with a Student-t CI (`eval/aggregate.py`), success check = the RL-vs-SFT gain CI excludes zero.
 
 ```bash
 for SEED in 0 1 2; do
@@ -189,7 +189,7 @@ done
 ```
 
 **4. Controls** (~$32): the reward ablation re-runs one seed with `--reward-arm near_binary`
-(the shaped arm reuses headline seed 0 — already paid). The cross-family control runs the FULL
+(the shaped arm reuses main-run seed 0 — already paid). The cross-family control runs the FULL
 matched pipeline on Llama-3.2-3B — traces → SFT → GRPO, same configs, only the family changes:
 
 ```bash
@@ -219,29 +219,29 @@ uv run text2sql-rlvr score --completions results/grpo/bird-dev-zs-grpo-s0.json \
   --db-root <bird-db-root> --workers 8
 ```
 
-**Colocate OOM fallback ladder** (untouched — the smoke fit at `gpu_memory_utilization=0.3`):
+**Colocate OOM fallback sequence** (untouched — the smoke fit at `gpu_memory_utilization=0.3`):
 lower `vllm_gpu_memory_utilization` → halve `per_device_train_batch_size` (raise grad-accum to
 match) → cap `max_completion_length` at 1024 → last resort, `num_generations` 4→2 (costs
 group-relative signal; re-pilot before trusting results).
 
-**Training health, what to watch** (from the headline + ablation logs): `kl` drifting past ~0.2
+**Training health, what to watch** (from the main run + ablation logs): `kl` drifting past ~0.2
 → rely on dev-EX checkpoint selection, don't panic-stop; `frac_reward_zero_std` rising → groups
 are saturating (expected under near-binary; a shaped-arm rise means the dev slice is too easy);
 `clipped_ratio` > 0 → completions hitting the cap, raise it.
 
-## Stage 3b: forced-revision GRPO (smoke → pilot → ABORTED at the pre-registered gate)
+## Stage 3b: forced-revision GRPO (smoke → pilot → ABORTED at the pilot gate)
 
-Stage 3 (tool election) closed without training — the 3B policy never calls an offered tool
-(0/672; see ARTIFACTS). Stage 3b removed election: every attempt is executed unconditionally,
-the gold-free feedback is spliced in loss-masked, and the policy revises (hand-written TRL
-`rollout_func`; see `train/forced_revision.py`). The ladder and its verdicts:
+Stage 3 (tool choice) closed without training — the 3B model never calls an offered tool
+(0/672; see ARTIFACTS). Stage 3b removed tool choice: every attempt is executed unconditionally,
+the gold-free feedback is spliced in loss-masked, and the model revises (hand-written TRL
+`rollout_func`; see `train/forced_revision.py`). The sequence and its verdicts:
 
 ```bash
 modal run modal_app.py::fr_smoke                  # mask + IS-ratio + no-NaN assertions — PASSED
 modal run --detach modal_app.py::fr_train --run-id grpo-fr-pilot \
-  --limit 2000 --max-steps 60 --spawn              # pilot — GATE FAILED (P1/P2), ladder aborted
+  --limit 2000 --max-steps 60 --spawn              # pilot — GATE FAILED (P1/P2), full run stopped
 modal run --detach modal_app.py::fr_eval --dataset spider \
-  --adapter grpo-fr/grpo-fr-pilot --limit 200 --spawn   # forced-revision inference harness
+  --adapter grpo-fr/grpo-fr-pilot --limit 200 --spawn   # forced-revision inference runner
 # best-of-N control: two sampled single-turn passes + gold-free CPU selection
 modal run --detach modal_app.py::main --dataset spider --adapter grpo-fr/grpo-fr-pilot \
   --limit 200 --max-new-tokens 1024 --temperature 1.0 --sampling-seed 0 --spawn   # and seed 1
@@ -261,7 +261,7 @@ was never bought. `make eval` re-derives the n=200 documentation table.
 
 ## Reproduce the committed numbers (CPU only, no model)
 
-Every number in this repo — baseline, SFT, the GRPO headline with CIs, both controls — is a
+Every number in this repo — baseline, SFT, the GRPO main result with CIs, both controls — is a
 deterministic re-score of a committed `CompletionSet`:
 
 ```bash

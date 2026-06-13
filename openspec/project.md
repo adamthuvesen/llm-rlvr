@@ -1,21 +1,20 @@
 # Project: text2sql-rlvr
 
 ## What this is
-A self-correcting **text-to-SQL agent trained with RL**. The model answers natural-language
-questions over a database by **writing SQL, executing it, reading the result/error, and
-revising** — with the self-correction *learned* via RL, not prompted. It is the build-and-train
-companion to a prior repo (`grpo-gain-decomposition`) that focused on rigorous *measurement* of
-RL gains; the throughline is verifying that RL gains are real.
+A text-to-SQL project for learning and testing SFT, RLVR, GRPO, and related post-training ideas.
+The shipped path trains a 3B model from base → SFT → single-turn GRPO and verifies the gains with
+committed results. A later self-correction follow-up tried tool use and forced revision, but did
+not produce a working self-correcting 3B agent. It is the build-and-train companion to
+`grpo-gain-decomposition`, which focused on measuring whether RL gains are real.
 
-The plan behind the stages below was stress-tested against primary sources (June 2026)
-before work began.
+The initial stage plan was checked against primary sources (June 2026) before work began.
 
 ## Approach (staged, each stage a checkpoint with a fallback)
 - **Stage 0 — evaluation foundation** *(this is the first change)*: data loaders, a read-only
   SQLite sandbox, a vendored execution-match verifier, schema serialization, and a baseline
   "before RL" execution-accuracy number. All CPU-testable except baseline generation.
 - **Stage 1 — SFT cold-start** (LoRA): teach the `<think>…</think>` + ```sql``` output format.
-- **Stage 2 — single-turn GRPO** (RLVR, the de-risked core): GRPO with a shaped execution reward;
+- **Stage 2 — single-turn GRPO** (RLVR, the core): GRPO with a shaped execution reward;
   multi-seed CIs; a Llama-3.2-3B cross-family control; a shaped-vs-near-binary reward ablation.
 - **Stage 3 — multi-turn self-correction**: TRL `environment_factory` multi-turn rollout; the
   "is the gain real?" matched-compute feedback-vs-best-of-N control.
@@ -24,7 +23,7 @@ before work began.
 - **Base model:** Qwen2.5-Coder-3B-**Instruct** (anchor; Qwen3-4B-Instruct-2507 noted as a stronger
   modern alternative). Cross-family control: Llama-3.2-3B-Instruct.
 - **Data:** train/verify on **Spider** (clean, deterministic execution-match); **report BIRD-dev**
-  too as the legible headline (vanilla Spider gains at 3B are small).
+  too as the readable second benchmark (vanilla Spider gains at 3B are small).
 - **Verifier:** vendor the official Test-Suite SQL Eval (`taoyds/test-suite-sql-eval`,
   `exec_eval.py`) — do NOT hand-roll set-compare. It is multiset (duplicate-exact),
   column-order-insensitive, gates order-sensitivity on whether the *gold* has `ORDER BY`, and the
@@ -45,10 +44,10 @@ before work began.
 - CPU/GPU dependency split via optional extras: the eval/verifier/data layer installs and tests on
   a CPU box; the training stack (TRL/vLLM/torch) is a separate `train` extra.
 - Modal A100-80GB for GPU runs (reuse the `grpo-gain-decomposition` Modal patterns: two-layer image
-  keyed on `pyproject.toml`+`uv.lock`, `--detach --spawn` for long runs, git-commit-in-provenance).
-- **Provenance/repro:** deterministic seeds, pinned dataset revisions + checksums, recorded
-  model/commit/config + library-version hashes; a `make eval` that reproduces headline numbers from
-  committed artifacts.
+  keyed on `pyproject.toml`+`uv.lock`, `--detach --spawn` for long runs, git commit recorded).
+- **Repro:** deterministic seeds, pinned dataset revisions + checksums, recorded
+  model/commit/config + library-version hashes; a `make eval` that reproduces main numbers from
+  committed result files.
 
 ## Conventions for AI agents
 - Reuse patterns from [`grpo-gain-decomposition`](https://github.com/adamthuvesen/grpo-gain-decomposition)
