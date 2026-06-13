@@ -168,11 +168,13 @@ untouched.
 | `grpo-fr/spider-dev-bo2-grpo-fr-pilot-n200(.selection).json` | Best-of-2, gold-free selection (D6 control) | 0.7150 (selection report committed) |
 | `grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.metrics.json` | `fr-metrics` fix/harm decomposition | committed; re-derives via `make eval` |
 | `grpo-fr/spider-dev-fr-error-only-grpo-fr-pilot-n200(.report).json` | CPU replay: revise only when first-attempt feedback is an error | 0.7200; same 144/200 EX as always-revise with 23/200 second generations (11.5%), 9 fixes, 0 harms |
+| `grpo-fr/spider-dev-fr-error-only-grpo-fr-pilot(.transcripts/.report).json` | Fresh full Spider-dev error-only runner | 0.7824; attempt 0.7679 → final 0.7824; 40/1034 second generations (3.9%), 15 fixes, 0 harms |
 | Volume `grpo-fr/grpo-fr-pilot/` | Pilot adapter + provenance + D8 series | not evaluated further (aborted) |
 
 Stage-2 seed-0 anchor on the same 200 items: **0.7050**. The n=200 margins (FR +3 items vs the
 anchor, +1 vs best-of-2) are far inside noise and sit on eroding training dynamics — the
-abort rule held. The error-only replay is an inference-time cost note, not new training evidence.
+abort rule held. The error-only full-dev run is an inference-time cost note, not new training
+evidence.
 The full verdict narrative, the audit, and the reopening notes live in the archived change's
 `tasks.md`. All Stage-3b numbers re-derive on CPU via `make eval` (the `Stage 3b` block in
 `results/baseline/reproduce.py`).
