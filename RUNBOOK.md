@@ -242,6 +242,8 @@ modal run --detach modal_app.py::fr_train --run-id grpo-fr-pilot \
   --limit 2000 --max-steps 60 --spawn              # pilot — GATE FAILED (P1/P2), full run stopped
 modal run --detach modal_app.py::fr_eval --dataset spider \
   --adapter grpo-fr/grpo-fr-pilot --limit 200 --spawn   # forced-revision inference runner
+modal run --detach modal_app.py::fr_eval --dataset spider --policy error_only \
+  --adapter grpo-fr/grpo-fr-pilot --limit 200 --spawn   # fresh error-only runner; writes *-fr-error-only-*
 # best-of-N control: two sampled single-turn passes + gold-free CPU selection
 modal run --detach modal_app.py::main --dataset spider --adapter grpo-fr/grpo-fr-pilot \
   --limit 200 --max-new-tokens 1024 --temperature 1.0 --sampling-seed 0 --spawn   # and seed 1

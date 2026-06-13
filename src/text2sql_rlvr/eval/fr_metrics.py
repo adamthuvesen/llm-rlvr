@@ -19,7 +19,10 @@ from pathlib import Path
 from text2sql_rlvr._base import Frozen
 from text2sql_rlvr.data.spider import resolve_database
 from text2sql_rlvr.eval.completions import CompletionSet
-from text2sql_rlvr.eval.forced_revision_generate import ForcedRevisionTranscriptSet
+from text2sql_rlvr.eval.forced_revision_generate import (
+    ForcedRevisionPolicy,
+    ForcedRevisionTranscriptSet,
+)
 from text2sql_rlvr.eval.parsing import extract_sql
 from text2sql_rlvr.eval.verifier import VerifierConfig, execution_match
 
@@ -41,6 +44,32 @@ class FrMetricsReport(Frozen):
     harm_rate: float  # n_harmed / n_attempt_right
     n_revised: int  # final SQL differs from attempt SQL
     net_delta: float  # final_ex - attempt_ex
+
+
+class ForcedRevisionEvalReport(Frozen):
+    """Run-level accounting for a fresh forced-revision inference artifact."""
+
+    policy: ForcedRevisionPolicy
+    n: int
+    n_skipped_gold_error: int
+    attempt_ex: float
+    final_ex: float
+    n_attempt_wrong: int
+    n_fixed: int
+    n_fixed_from_error_feedback: int
+    n_fixed_from_result_feedback: int
+    fix_rate: float
+    n_attempt_right: int
+    n_harmed: int
+    harm_rate: float
+    n_sql_changed: int
+    net_delta: float
+    n_error_feedback: int
+    n_second_generation: int
+    second_generation_rate: float
+    n_kept_attempt: int
+    runtime_notes: tuple[str, ...]
+    cost_notes: tuple[str, ...]
 
 
 def compute_fr_metrics(
@@ -118,4 +147,59 @@ def compute_fr_metrics(
         harm_rate=n_harmed / n_right if n_right else 0.0,
         n_revised=n_revised,
         net_delta=(final_correct - attempt_correct) / n if n else 0.0,
+    )
+
+
+def compute_forced_revision_eval_report(
+    completion_set: CompletionSet,
+    transcripts: ForcedRevisionTranscriptSet,
+    db_root: str | Path,
+    *,
+    policy: ForcedRevisionPolicy,
+    verifier: VerifierConfig | None = None,
+) -> ForcedRevisionEvalReport:
+    """Combine EX/fix/harm metrics with second-generation accounting."""
+    metrics = compute_fr_metrics(completion_set, transcripts, db_root, verifier=verifier)
+    n_items = len(transcripts.items)
+    n_second_generation = sum(episode.revision_requested for episode in transcripts.items)
+    n_error_feedback = sum(
+        episode.feedback.startswith("Execution feedback: error") for episode in transcripts.items
+    )
+    if policy == "error_only" and n_second_generation != n_error_feedback:
+        raise ValueError(
+            "error_only report accounting mismatch: "
+            f"{n_second_generation} second generations for {n_error_feedback} error feedbacks"
+        )
+    runtime_notes = (
+        "first pass generated for every example",
+        "second pass generated only for selected feedback under the policy",
+        "report computed locally from transcripts and read-only database execution",
+    )
+    cost_notes = (
+        f"second_generation_count={n_second_generation}",
+        f"second_generation_rate={n_second_generation / n_items:.4f}" if n_items else "n/a",
+        "no GPU/model cost is incurred by this CPU report",
+    )
+    return ForcedRevisionEvalReport(
+        policy=policy,
+        n=metrics.n,
+        n_skipped_gold_error=metrics.n_skipped_gold_error,
+        attempt_ex=metrics.attempt_ex,
+        final_ex=metrics.final_ex,
+        n_attempt_wrong=metrics.n_attempt_wrong,
+        n_fixed=metrics.n_fixed,
+        n_fixed_from_error_feedback=metrics.n_fixed_from_error_feedback,
+        n_fixed_from_result_feedback=metrics.n_fixed_from_result_feedback,
+        fix_rate=metrics.fix_rate,
+        n_attempt_right=metrics.n_attempt_right,
+        n_harmed=metrics.n_harmed,
+        harm_rate=metrics.harm_rate,
+        n_sql_changed=metrics.n_revised,
+        net_delta=metrics.net_delta,
+        n_error_feedback=n_error_feedback,
+        n_second_generation=n_second_generation,
+        second_generation_rate=n_second_generation / n_items if n_items else 0.0,
+        n_kept_attempt=n_items - n_second_generation,
+        runtime_notes=runtime_notes,
+        cost_notes=cost_notes,
     )
