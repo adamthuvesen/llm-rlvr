@@ -246,6 +246,10 @@ modal run --detach modal_app.py::fr_eval --dataset spider --policy error_only \
   --adapter grpo-fr/grpo-fr-pilot --limit 200 --spawn   # fresh error-only runner; writes *-fr-error-only-*
 modal run --detach modal_app.py::fr_eval --dataset spider --policy error_only \
   --adapter grpo-fr/grpo-fr-pilot --spawn               # full Spider-dev error-only runner
+modal run --detach modal_app.py::fr_eval --dataset bird --policy error_only \
+  --adapter grpo-fr/grpo-fr-pilot --limit 8 --spawn     # BIRD smoke
+modal run --detach modal_app.py::fr_eval --dataset bird --policy error_only \
+  --adapter grpo-fr/grpo-fr-pilot --spawn               # full BIRD-dev error-only runner
 # best-of-N control: two sampled single-turn passes + gold-free CPU selection
 modal run --detach modal_app.py::main --dataset spider --adapter grpo-fr/grpo-fr-pilot \
   --limit 200 --max-new-tokens 1024 --temperature 1.0 --sampling-seed 0 --spawn   # and seed 1
@@ -267,7 +271,9 @@ uv run text2sql-rlvr fr-error-only-replay \
 The pilot's continue/abort thresholds (P1–P6) were committed to the change's `tasks.md` BEFORE
 the pilot ran — same discipline as the probes. P1 (turn-1 quality) and P2 (delta-bonus floor)
 failed: GRPO drifts toward identity-resubmission instead of amplifying fixes, so the full run
-was never bought. `make eval` re-derives the n=200 documentation table.
+was never bought. The full Spider/BIRD error-only evals are inference-time cost notes on the
+aborted pilot checkpoint, not new training evidence. `make eval` re-derives the documentation
+table.
 
 ## Reproduce the committed numbers (CPU only, no model)
 
