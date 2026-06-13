@@ -252,6 +252,12 @@ uv run text2sql-rlvr select-bestofn --completions results/grpo-fr/spider-dev-zs-
 uv run text2sql-rlvr fr-metrics --completions results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.json \
   --transcripts results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.transcripts.json \
   --db-root data/spider/spider_data/database   # fix/harm decomposition of the revision pass
+uv run text2sql-rlvr fr-error-only-replay \
+  --completions results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.json \
+  --transcripts results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.transcripts.json \
+  --db-root data/spider/spider_data/database \
+  --out results/grpo-fr/spider-dev-fr-error-only-grpo-fr-pilot-n200.json \
+  --report results/grpo-fr/spider-dev-fr-error-only-grpo-fr-pilot-n200.report.json
 ```
 
 The pilot's continue/abort thresholds (P1–P6) were committed to the change's `tasks.md` BEFORE

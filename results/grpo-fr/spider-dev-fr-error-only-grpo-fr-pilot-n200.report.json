@@ -1,0 +1,11 @@
+{
+  "n": 200,
+  "n_skipped_gold_error": 0,
+  "attempt_ex": 0.675,
+  "always_revise_ex": 0.72,
+  "error_only_ex": 0.72,
+  "n_revised": 23,
+  "revised_rate": 0.115,
+  "n_fixed": 9,
+  "n_harmed": 0
+}

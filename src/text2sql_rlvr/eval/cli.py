@@ -104,6 +104,17 @@ def main(argv: list[str] | None = None) -> int:
     fr_metrics.add_argument("--out", default=None, help="optional FrMetricsReport json path")
     fr_metrics.set_defaults(func=_cmd_fr_metrics)
 
+    fr_error_only = sub.add_parser(
+        "fr-error-only-replay",
+        help="replay a forced-revision eval with second generation only on error feedback",
+    )
+    fr_error_only.add_argument("--completions", required=True, help="FR CompletionSet json path")
+    fr_error_only.add_argument("--transcripts", required=True, help="FR transcripts json path")
+    fr_error_only.add_argument("--db-root", required=True, help="extracted database/ directory")
+    fr_error_only.add_argument("--out", required=True, help="output replay CompletionSet path")
+    fr_error_only.add_argument("--report", required=True, help="output replay report json path")
+    fr_error_only.set_defaults(func=_cmd_fr_error_only_replay)
+
     args = parser.parse_args(argv)
     try:
         return args.func(args)
@@ -259,6 +270,30 @@ def _cmd_fr_metrics(args: argparse.Namespace) -> int:
         f"result-fb {report.n_fixed_from_result_feedback}) | "
         f"harmed {report.n_harmed}/{report.n_attempt_right} ({report.harm_rate:.1%}) | "
         f"revised {report.n_revised}/{report.n}"
+    )
+    return 0
+
+
+def _cmd_fr_error_only_replay(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from text2sql_rlvr.eval.forced_revision_generate import (
+        ForcedRevisionTranscriptSet,
+        replay_error_only_revision,
+    )
+
+    completion_set = read_completion_set(args.completions)
+    transcripts = ForcedRevisionTranscriptSet.model_validate_json(
+        Path(args.transcripts).read_text(encoding="utf-8")
+    )
+    replay, report = replay_error_only_revision(completion_set, transcripts, args.db_root)
+    path = write_completion_set(replay, args.out)
+    write_json(report, args.report)
+    print(
+        f"attempt_ex={report.attempt_ex:.4f} always_revise_ex={report.always_revise_ex:.4f} "
+        f"error_only_ex={report.error_only_ex:.4f} | revised {report.n_revised}/{report.n} "
+        f"({report.revised_rate:.1%}) | fixed {report.n_fixed}, harmed {report.n_harmed} "
+        f"-> {path}"
     )
     return 0
 

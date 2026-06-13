@@ -21,7 +21,12 @@ from text2sql_rlvr._base import Frozen
 from text2sql_rlvr.data.models import DatabaseSchema, Example
 from text2sql_rlvr.data.spider import resolve_database
 from text2sql_rlvr.env.text2sql_env import FeedbackConfig
-from text2sql_rlvr.eval.completions import CompletionSet, assemble_completion_set
+from text2sql_rlvr.eval.completions import (
+    CompletionSet,
+    GenerationSample,
+    ProblemCompletions,
+    assemble_completion_set,
+)
 from text2sql_rlvr.eval.generate import build_prompts
 from text2sql_rlvr.eval.provenance import (
     DecodingConfig,
@@ -46,6 +51,118 @@ class ForcedRevisionTranscriptSet(Frozen):
 
     provenance: GenerationProvenance
     items: tuple[ForcedRevisionEpisode, ...]
+
+
+class ErrorOnlyRevisionReport(Frozen):
+    """CPU replay summary for the cheap error-only forced-revision policy."""
+
+    n: int
+    n_skipped_gold_error: int
+    attempt_ex: float
+    always_revise_ex: float
+    error_only_ex: float
+    n_revised: int
+    revised_rate: float
+    n_fixed: int
+    n_harmed: int
+
+
+def is_error_feedback(feedback: str) -> bool:
+    """Whether a feedback turn should trigger a second generation."""
+    return feedback.startswith("Execution feedback: error")
+
+
+def replay_error_only_revision(
+    completion_set: CompletionSet,
+    transcripts: ForcedRevisionTranscriptSet,
+    db_root: str | Path,
+) -> tuple[CompletionSet, ErrorOnlyRevisionReport]:
+    """Replay committed always-revise transcripts under the cheaper inference policy.
+
+    The policy is: use the first attempt unless the gold-free execution feedback was an
+    error; only error feedback consumes the already-recorded revision. This is model-free and
+    deterministic, so it can turn the n=200 always-revise artifacts into a committed
+    CompletionSet for `make eval`.
+    """
+    from text2sql_rlvr.eval.parsing import extract_sql
+    from text2sql_rlvr.eval.verifier import GoldExecutionError, execution_match
+
+    if len(completion_set.items) != len(transcripts.items):
+        raise ValueError(
+            f"{len(completion_set.items)} completions but {len(transcripts.items)} transcripts"
+        )
+
+    selected_items: list[ProblemCompletions] = []
+    n_revised = 0
+    n_skipped = 0
+    attempt_correct = always_correct = error_only_correct = 0
+    n_fixed = n_harmed = 0
+    n_scored = 0
+    for item, episode in zip(completion_set.items, transcripts.items, strict=True):
+        example = item.example
+        if example.db_id != episode.db_id or example.question != episode.question:
+            raise ValueError("completion set and transcripts are not aligned")
+
+        use_revision = is_error_feedback(episode.feedback)
+        selected_text = episode.final_text if use_revision else episode.attempt_text
+        if use_revision:
+            n_revised += 1
+        selected_sql = extract_sql(selected_text)
+        selected_items.append(
+            ProblemCompletions(
+                example=example,
+                samples=(GenerationSample(text=selected_text, sql=selected_sql),),
+            )
+        )
+
+        db_path = resolve_database(example.db_id, db_root)
+        attempt_sql = extract_sql(episode.attempt_text)
+        always_sql = item.samples[0].sql
+
+        def verdict(
+            sql: str | None,
+            gold_sql: str = example.gold_sql,
+            database_path: Path = db_path,
+        ) -> bool:
+            if sql is None:
+                return False
+            return execution_match(sql, gold_sql, database_path).matched
+
+        try:
+            attempt_ok = verdict(attempt_sql)
+            always_ok = verdict(always_sql)
+            error_only_ok = verdict(selected_sql)
+        except GoldExecutionError:
+            n_skipped += 1
+            continue
+
+        n_scored += 1
+        attempt_correct += attempt_ok
+        always_correct += always_ok
+        error_only_correct += error_only_ok
+        if not attempt_ok and error_only_ok:
+            n_fixed += 1
+        if attempt_ok and not error_only_ok:
+            n_harmed += 1
+
+    replay = CompletionSet(
+        provenance=completion_set.provenance.model_copy(
+            update={"backend": "forced-revision-error-only-replay"}
+        ),
+        items=tuple(selected_items),
+    )
+    report = ErrorOnlyRevisionReport(
+        n=n_scored,
+        n_skipped_gold_error=n_skipped,
+        attempt_ex=attempt_correct / n_scored if n_scored else 0.0,
+        always_revise_ex=always_correct / n_scored if n_scored else 0.0,
+        error_only_ex=error_only_correct / n_scored if n_scored else 0.0,
+        n_revised=n_revised,
+        revised_rate=n_revised / len(completion_set.items) if completion_set.items else 0.0,
+        n_fixed=n_fixed,
+        n_harmed=n_harmed,
+    )
+    return replay, report
 
 
 def build_revision_messages(
