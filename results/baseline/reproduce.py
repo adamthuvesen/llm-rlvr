@@ -123,7 +123,10 @@ def _stage3b_forced_revision(spider_db) -> None:
         ForcedRevisionTranscriptSet,
         replay_error_only_revision,
     )
-    from text2sql_rlvr.eval.fr_metrics import compute_fr_metrics
+    from text2sql_rlvr.eval.fr_metrics import (
+        compute_forced_revision_eval_report,
+        compute_fr_metrics,
+    )
 
     fr = HERE.parent / "grpo-fr"
     print()
@@ -175,6 +178,22 @@ def _stage3b_forced_revision(spider_db) -> None:
         f"  error-only replay: revised {error_only_report.n_revised}/{error_only_report.n} "
         f"({error_only_report.revised_rate:.1%}), fixed {error_only_report.n_fixed}, "
         f"harmed {error_only_report.n_harmed}"
+    )
+
+    fresh_error_only = read_completion_set(fr / "spider-dev-fr-error-only-grpo-fr-pilot.json")
+    fresh_transcripts = ForcedRevisionTranscriptSet.model_validate_json(
+        (fr / "spider-dev-fr-error-only-grpo-fr-pilot.transcripts.json").read_text(encoding="utf-8")
+    )
+    fresh_score = score_completion_set(fresh_error_only, spider_db, workers=WORKERS)
+    fresh_report = compute_forced_revision_eval_report(
+        fresh_error_only, fresh_transcripts, spider_db, policy="error_only"
+    )
+    print(
+        f"  fresh full Spider error-only: attempt {fresh_report.attempt_ex:.4f} -> "
+        f"final {fresh_score.execution_accuracy:.4f} ({fresh_score.n_correct}/{fresh_score.n}); "
+        f"second generations {fresh_report.n_second_generation}/{len(fresh_transcripts.items)} "
+        f"({fresh_report.second_generation_rate:.1%}), fixed {fresh_report.n_fixed}, "
+        f"harmed {fresh_report.n_harmed}"
     )
 
 
