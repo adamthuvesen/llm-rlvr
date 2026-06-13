@@ -540,3 +540,146 @@ def test_fr_metrics_rejects_misaligned_inputs(scoring_root: Path, provenance) ->
     completion_set = CompletionSet(provenance=provenance, items=())
     transcripts = ForcedRevisionTranscriptSet(provenance=provenance, items=())
     assert compute_fr_metrics(completion_set, transcripts, scoring_root).n == 0
+
+
+# --- error-only forced-revision replay ---
+
+
+def test_error_only_replay_revises_only_on_error_feedback(scoring_root: Path, provenance) -> None:
+    from text2sql_rlvr.eval.forced_revision_generate import (
+        ForcedRevisionEpisode,
+        ForcedRevisionTranscriptSet,
+        replay_error_only_revision,
+    )
+
+    err_attempt = "<think>x</think>\n```sql\nSELECT nope FROM missing\n```"
+    non_error_attempt = REVISION
+    harmful_revision = "<think>x</think>\n```sql\nSELECT a FROM t WHERE a = 999\n```"
+    completion_set = CompletionSet(
+        provenance=provenance,
+        items=(
+            ProblemCompletions(
+                example=Example(
+                    dataset="spider",
+                    split="dev",
+                    db_id=DB_PATH_KEY,
+                    question="q0",
+                    gold_sql=GOLD,
+                ),
+                samples=(GenerationSample(text=REVISION, sql=GOLD),),
+            ),
+            ProblemCompletions(
+                example=Example(
+                    dataset="spider",
+                    split="dev",
+                    db_id=DB_PATH_KEY,
+                    question="q1",
+                    gold_sql=GOLD,
+                ),
+                samples=(
+                    GenerationSample(
+                        text=harmful_revision,
+                        sql="SELECT a FROM t WHERE a = 999",
+                    ),
+                ),
+            ),
+        ),
+    )
+    transcripts = ForcedRevisionTranscriptSet(
+        provenance=provenance,
+        items=(
+            ForcedRevisionEpisode(
+                db_id=DB_PATH_KEY,
+                question="q0",
+                attempt_text=err_attempt,
+                feedback="Execution feedback: error (syntax): no such table",
+                final_text=REVISION,
+            ),
+            ForcedRevisionEpisode(
+                db_id=DB_PATH_KEY,
+                question="q1",
+                attempt_text=non_error_attempt,
+                feedback="Execution feedback: query executed, returned 2 rows.",
+                final_text=harmful_revision,
+            ),
+        ),
+    )
+
+    replay, report = replay_error_only_revision(completion_set, transcripts, scoring_root)
+
+    assert [item.samples[0].text for item in replay.items] == [REVISION, non_error_attempt]
+    assert replay.provenance.backend == "forced-revision-error-only-replay"
+    assert report.attempt_ex == pytest.approx(0.5)
+    assert report.always_revise_ex == pytest.approx(0.5)
+    assert report.error_only_ex == pytest.approx(1.0)
+    assert report.n_revised == 1 and report.revised_rate == pytest.approx(0.5)
+    assert report.n_fixed == 1 and report.n_harmed == 0
+
+
+def test_error_only_replay_keeps_parse_error_attempts_on_error_feedback(
+    scoring_root: Path, provenance
+) -> None:
+    from text2sql_rlvr.eval.forced_revision_generate import (
+        ForcedRevisionEpisode,
+        ForcedRevisionTranscriptSet,
+        replay_error_only_revision,
+    )
+
+    completion_set = CompletionSet(
+        provenance=provenance,
+        items=(
+            ProblemCompletions(
+                example=Example(
+                    dataset="spider",
+                    split="dev",
+                    db_id=DB_PATH_KEY,
+                    question="q",
+                    gold_sql=GOLD,
+                ),
+                samples=(GenerationSample(text=REVISION, sql=GOLD),),
+            ),
+        ),
+    )
+    transcripts = ForcedRevisionTranscriptSet(
+        provenance=provenance,
+        items=(
+            ForcedRevisionEpisode(
+                db_id=DB_PATH_KEY,
+                question="q",
+                attempt_text="no sql",
+                feedback=UNPARSEABLE_FEEDBACK,
+                final_text=REVISION,
+            ),
+        ),
+    )
+
+    replay, report = replay_error_only_revision(completion_set, transcripts, scoring_root)
+
+    assert replay.items[0].samples[0].text == REVISION
+    assert report.n_revised == 1
+    assert report.n_fixed == 1
+
+
+def test_error_only_replay_rejects_misaligned_inputs(scoring_root: Path, provenance) -> None:
+    from text2sql_rlvr.eval.forced_revision_generate import (
+        ForcedRevisionEpisode,
+        ForcedRevisionTranscriptSet,
+        replay_error_only_revision,
+    )
+
+    completion_set = _completion_set(provenance, [(REVISION, GOLD)])
+    transcripts = ForcedRevisionTranscriptSet(
+        provenance=provenance,
+        items=(
+            ForcedRevisionEpisode(
+                db_id=DB_PATH_KEY,
+                question="different",
+                attempt_text=REVISION,
+                feedback="Execution feedback: query executed, returned 2 rows.",
+                final_text=REVISION,
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="not aligned"):
+        replay_error_only_revision(completion_set, transcripts, scoring_root)

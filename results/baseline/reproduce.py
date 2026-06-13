@@ -119,7 +119,10 @@ def _stage3b_forced_revision(spider_db) -> None:
     200-item slice; differences of 1-3 items are inside noise and no claim rests on them."""
     from text2sql_rlvr.eval import CompletionSet
     from text2sql_rlvr.eval.bestofn import select_best_of_n
-    from text2sql_rlvr.eval.forced_revision_generate import ForcedRevisionTranscriptSet
+    from text2sql_rlvr.eval.forced_revision_generate import (
+        ForcedRevisionTranscriptSet,
+        replay_error_only_revision,
+    )
     from text2sql_rlvr.eval.fr_metrics import compute_fr_metrics
 
     fr = HERE.parent / "grpo-fr"
@@ -139,6 +142,13 @@ def _stage3b_forced_revision(spider_db) -> None:
             read_completion_set(fr / "spider-dev-fr-grpo-fr-pilot-n200.json"),
         ),
     ]
+    transcripts = ForcedRevisionTranscriptSet.model_validate_json(
+        (fr / "spider-dev-fr-grpo-fr-pilot-n200.transcripts.json").read_text(encoding="utf-8")
+    )
+    error_only, error_only_report = replay_error_only_revision(
+        read_completion_set(fr / "spider-dev-fr-grpo-fr-pilot-n200.json"), transcripts, spider_db
+    )
+    rows.append(("FR-pilot error-only revision", error_only))
     sampled = [
         read_completion_set(fr / f"spider-dev-zs-grpo-fr-pilot-t1.0-seed{seed}-n200.json")
         for seed in (0, 1)
@@ -152,10 +162,6 @@ def _stage3b_forced_revision(spider_db) -> None:
         f"  best-of-2 selection (gold-free): nonempty {bo2.n_selected_nonempty}, "
         f"executes {bo2.n_selected_executes}, fallback {bo2.n_fallback_first}"
     )
-
-    transcripts = ForcedRevisionTranscriptSet.model_validate_json(
-        (fr / "spider-dev-fr-grpo-fr-pilot-n200.transcripts.json").read_text(encoding="utf-8")
-    )
     metrics = compute_fr_metrics(
         read_completion_set(fr / "spider-dev-fr-grpo-fr-pilot-n200.json"), transcripts, spider_db
     )
@@ -164,6 +170,11 @@ def _stage3b_forced_revision(spider_db) -> None:
         f"(net {metrics.net_delta:+.4f}); fixed {metrics.n_fixed}/{metrics.n_attempt_wrong} "
         f"({metrics.fix_rate:.1%}), harmed {metrics.n_harmed}/{metrics.n_attempt_right} "
         f"({metrics.harm_rate:.1%}), revised {metrics.n_revised}/{metrics.n}"
+    )
+    print(
+        f"  error-only replay: revised {error_only_report.n_revised}/{error_only_report.n} "
+        f"({error_only_report.revised_rate:.1%}), fixed {error_only_report.n_fixed}, "
+        f"harmed {error_only_report.n_harmed}"
     )
 
 
