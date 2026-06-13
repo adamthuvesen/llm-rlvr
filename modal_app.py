@@ -587,10 +587,11 @@ def forced_revision_eval(
     max_new_tokens: int = 1024,
     temperature: float = 0.0,
     sampling_seed: int = 0,
+    policy: str = "always",
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> str:
-    """Forced-revision eval: greedy attempt → unconditional execution → greedy revision.
+    """Forced-revision eval: greedy attempt, execution feedback, optional greedy revision.
     Writes a normal CompletionSet plus the full transcripts under `grpo-fr/eval/`."""
     from pathlib import Path
 
@@ -598,9 +599,15 @@ def forced_revision_eval(
     from text2sql_rlvr.data.bird import ensure_bird_dev, load_bird_examples
     from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
     from text2sql_rlvr.eval.completions import write_completion_set, write_json
-    from text2sql_rlvr.eval.forced_revision_generate import generate_forced_revision
+    from text2sql_rlvr.eval.forced_revision_generate import (
+        forced_revision_artifact_stem,
+        generate_forced_revision,
+        validate_forced_revision_policy,
+    )
+    from text2sql_rlvr.eval.fr_metrics import compute_forced_revision_eval_report
     from text2sql_rlvr.eval.provenance import DecodingConfig
 
+    policy = validate_forced_revision_policy(policy)
     data_root = Path(RUNS_DIR) / "data"
     if dataset == "spider":
         dbs = ensure_spider_databases(data_root / "spider")
@@ -632,16 +639,29 @@ def forced_revision_eval(
         split="dev",
         adapter_path=(Path(RUNS_DIR) / adapter) if adapter else None,
         db_archive_sha256=db_sha,
+        policy=policy,
         commit=commit,
         dirty=dirty,
     )
-    adapter_tag = f"-{Path(adapter).name}" if adapter else ""
-    seed_tag = f"-t{temperature}-seed{sampling_seed}" if temperature > 0 else ""
-    name = f"{dataset}-dev-fr{adapter_tag}{seed_tag}" + (f"-n{limit}" if limit else "")
+    report = compute_forced_revision_eval_report(
+        completion_set, transcripts, db_root, policy=policy
+    )
+    name = forced_revision_artifact_stem(
+        dataset=dataset,
+        adapter=adapter,
+        limit=limit,
+        temperature=temperature,
+        sampling_seed=sampling_seed,
+        policy=policy,
+    )
     out = write_completion_set(completion_set, Path(RUNS_DIR) / "grpo-fr" / "eval" / f"{name}.json")
     write_json(transcripts, Path(RUNS_DIR) / "grpo-fr" / "eval" / f"{name}.transcripts.json")
+    write_json(report, Path(RUNS_DIR) / "grpo-fr" / "eval" / f"{name}.report.json")
     runs.commit()
-    print(f"wrote {len(completion_set.items)} forced-revision completions -> {out}")
+    print(
+        f"wrote {len(completion_set.items)} forced-revision completions "
+        f"(policy={policy}, second_generation={report.n_second_generation}) -> {out}"
+    )
     return str(out)
 
 
@@ -788,9 +808,10 @@ def fr_eval(
     max_new_tokens: int = 1024,
     temperature: float = 0.0,
     sampling_seed: int = 0,
+    policy: str = "always",
     spawn: bool = False,
 ) -> None:
-    """Launch the forced-revision eval. Use --detach --spawn for full-dev runs."""
+    """Launch the forced-revision eval. Use --policy error_only for error-gated revision."""
     kwargs = {
         "dataset": dataset,
         "adapter": adapter,
@@ -799,6 +820,7 @@ def fr_eval(
         "max_new_tokens": max_new_tokens,
         "temperature": temperature,
         "sampling_seed": sampling_seed,
+        "policy": policy,
         # The image strips .git, so compute git state locally and pass it into provenance.
         "commit": _local_git_commit(),
         "dirty": _local_git_dirty(),

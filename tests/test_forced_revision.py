@@ -5,11 +5,14 @@ no trl import."""
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from types import SimpleNamespace
+from typing import ClassVar
 
 import pytest
 
-from text2sql_rlvr.data.models import Example
+from text2sql_rlvr.data.models import Column, DatabaseSchema, Example, Table
 from text2sql_rlvr.env.text2sql_env import FeedbackConfig
 from text2sql_rlvr.eval.bestofn import select_best_of_n
 from text2sql_rlvr.eval.completions import (
@@ -17,7 +20,12 @@ from text2sql_rlvr.eval.completions import (
     GenerationSample,
     ProblemCompletions,
 )
-from text2sql_rlvr.eval.forced_revision_generate import build_revision_messages
+from text2sql_rlvr.eval.forced_revision_generate import (
+    build_revision_messages,
+    forced_revision_artifact_stem,
+    generate_forced_revision,
+)
+from text2sql_rlvr.eval.provenance import DecodingConfig
 from text2sql_rlvr.rewards.multiturn import MultiTurnRewardConfig, score_trajectory
 from text2sql_rlvr.train.forced_revision import (
     REVISE_INSTRUCTION,
@@ -51,6 +59,18 @@ DB_PATH_KEY = "concert"
 
 def _db(scoring_root: Path) -> Path:
     return scoring_root / DB_PATH_KEY / f"{DB_PATH_KEY}.sqlite"
+
+
+def _schema() -> DatabaseSchema:
+    return DatabaseSchema(
+        db_id=DB_PATH_KEY,
+        tables=(
+            Table(
+                name="t",
+                columns=(Column(name="a", type="integer"), Column(name="b", type="text")),
+            ),
+        ),
+    )
 
 
 # --- feedback ---
@@ -467,6 +487,135 @@ def test_eval_revision_messages_continue_the_conversation() -> None:
     assert REVISE_INSTRUCTION in str(messages[-1]["content"])
 
 
+def test_error_only_fresh_generation_batches_only_error_feedback(
+    monkeypatch: pytest.MonkeyPatch, scoring_root: Path
+) -> None:
+    class _Output:
+        def __init__(self, text: str) -> None:
+            self.outputs = [SimpleNamespace(text=text)]
+
+    class _FakeLLM:
+        instances: ClassVar[list[_FakeLLM]] = []
+
+        def __init__(self, **_kwargs) -> None:
+            self.calls: list[list[object]] = []
+            _FakeLLM.instances.append(self)
+
+        def chat(self, prompts, _params, **_kwargs):
+            self.calls.append(list(prompts))
+            if len(self.calls) == 1:
+                return [_Output(ATTEMPT_BROKEN), _Output(ATTEMPT_OK)]
+            return [_Output(REVISION)]
+
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm",
+        SimpleNamespace(LLM=_FakeLLM, SamplingParams=lambda **kwargs: kwargs),
+    )
+    examples = [
+        Example(
+            dataset="spider",
+            split="dev",
+            db_id=DB_PATH_KEY,
+            question=f"q{i}",
+            gold_sql=GOLD,
+        )
+        for i in range(2)
+    ]
+
+    completion_set, transcripts = generate_forced_revision(
+        examples,
+        {DB_PATH_KEY: _schema()},
+        scoring_root,
+        model="fake",
+        decoding=DecodingConfig(max_new_tokens=16),
+        dataset="spider",
+        dataset_revision="rev",
+        split="dev",
+        policy="error_only",
+        commit="abc",
+        dirty=False,
+    )
+
+    fake_llm = _FakeLLM.instances[-1]
+    assert [len(call) for call in fake_llm.calls] == [2, 1]
+    assert [item.samples[0].text for item in completion_set.items] == [REVISION, ATTEMPT_OK]
+    assert completion_set.provenance.backend == "vllm-forced-revision-error-only"
+    assert [episode.revision_requested for episode in transcripts.items] == [True, False]
+    assert [episode.revision_text for episode in transcripts.items] == [REVISION, None]
+
+
+def test_error_only_fresh_generation_skips_empty_revision_batch(
+    monkeypatch: pytest.MonkeyPatch, scoring_root: Path
+) -> None:
+    class _Output:
+        def __init__(self, text: str) -> None:
+            self.outputs = [SimpleNamespace(text=text)]
+
+    class _FakeLLM:
+        instances: ClassVar[list[_FakeLLM]] = []
+
+        def __init__(self, **_kwargs) -> None:
+            self.calls: list[list[object]] = []
+            _FakeLLM.instances.append(self)
+
+        def chat(self, prompts, _params, **_kwargs):
+            self.calls.append(list(prompts))
+            return [_Output(ATTEMPT_OK)]
+
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm",
+        SimpleNamespace(LLM=_FakeLLM, SamplingParams=lambda **kwargs: kwargs),
+    )
+    example = Example(
+        dataset="spider",
+        split="dev",
+        db_id=DB_PATH_KEY,
+        question="q",
+        gold_sql=GOLD,
+    )
+
+    completion_set, transcripts = generate_forced_revision(
+        [example],
+        {DB_PATH_KEY: _schema()},
+        scoring_root,
+        model="fake",
+        decoding=DecodingConfig(max_new_tokens=16),
+        dataset="spider",
+        dataset_revision="rev",
+        split="dev",
+        policy="error_only",
+    )
+
+    assert [len(call) for call in _FakeLLM.instances[-1].calls] == [1]
+    assert completion_set.items[0].samples[0].text == ATTEMPT_OK
+    assert transcripts.items[0].revision_requested is False
+
+
+def test_forced_revision_artifact_stem_separates_policies() -> None:
+    always = forced_revision_artifact_stem(
+        dataset="spider",
+        adapter="grpo-fr/grpo-fr-pilot",
+        limit=200,
+        temperature=0.0,
+        sampling_seed=0,
+        policy="always",
+    )
+    error_only = forced_revision_artifact_stem(
+        dataset="spider",
+        adapter="grpo-fr/grpo-fr-pilot",
+        limit=200,
+        temperature=0.0,
+        sampling_seed=0,
+        policy="error_only",
+    )
+
+    assert always == "spider-dev-fr-grpo-fr-pilot-n200"
+    assert error_only == "spider-dev-fr-error-only-grpo-fr-pilot-n200"
+    assert always != error_only
+
+
 # --- fr-metrics (fix/harm decomposition) ---
 
 
@@ -531,6 +680,82 @@ def test_fr_metrics_decomposes_fix_and_harm(scoring_root: Path, provenance) -> N
     assert report.n_harmed == 1 and report.harm_rate == pytest.approx(0.5)
     assert report.n_revised == 3  # q3 kept its SQL
     assert report.net_delta == pytest.approx(0.25)
+
+
+def test_forced_revision_eval_report_accounts_for_error_only_policy(
+    scoring_root: Path, provenance
+) -> None:
+    from text2sql_rlvr.eval.forced_revision_generate import (
+        ForcedRevisionEpisode,
+        ForcedRevisionTranscriptSet,
+    )
+    from text2sql_rlvr.eval.fr_metrics import compute_forced_revision_eval_report
+
+    wrong_sql = "SELECT a FROM t WHERE a = 999"
+    err_sql = "SELECT nope FROM missing"
+
+    completion_set = CompletionSet(
+        provenance=provenance,
+        items=(
+            ProblemCompletions(
+                example=Example(
+                    dataset="spider",
+                    split="dev",
+                    db_id=DB_PATH_KEY,
+                    question="q0",
+                    gold_sql=GOLD,
+                ),
+                samples=(GenerationSample(text=REVISION, sql=GOLD),),
+            ),
+            ProblemCompletions(
+                example=Example(
+                    dataset="spider",
+                    split="dev",
+                    db_id=DB_PATH_KEY,
+                    question="q1",
+                    gold_sql=GOLD,
+                ),
+                samples=(GenerationSample(text=ATTEMPT_OK, sql=GOLD),),
+            ),
+        ),
+    )
+    transcripts = ForcedRevisionTranscriptSet(
+        provenance=provenance,
+        items=(
+            ForcedRevisionEpisode(
+                db_id=DB_PATH_KEY,
+                question="q0",
+                attempt_text=f"<think>x</think>\n```sql\n{err_sql}\n```",
+                feedback="Execution feedback: error (syntax): no such column",
+                final_text=REVISION,
+                revision_requested=True,
+                revision_text=REVISION,
+            ),
+            ForcedRevisionEpisode(
+                db_id=DB_PATH_KEY,
+                question="q1",
+                attempt_text=f"<think>x</think>\n```sql\n{wrong_sql}\n```",
+                feedback="Execution feedback: query executed, returned 0 rows.",
+                final_text=ATTEMPT_OK,
+                revision_requested=False,
+            ),
+        ),
+    )
+
+    report = compute_forced_revision_eval_report(
+        completion_set, transcripts, scoring_root, policy="error_only"
+    )
+
+    assert report.policy == "error_only"
+    assert report.attempt_ex == pytest.approx(0.0)
+    assert report.final_ex == pytest.approx(1.0)
+    assert report.n_error_feedback == 1
+    assert report.n_second_generation == 1
+    assert report.second_generation_rate == pytest.approx(0.5)
+    assert report.n_kept_attempt == 1
+    assert report.n_fixed == 2
+    assert report.n_harmed == 0
+    assert any(note == "second_generation_count=1" for note in report.cost_notes)
 
 
 def test_fr_metrics_rejects_misaligned_inputs(scoring_root: Path, provenance) -> None:

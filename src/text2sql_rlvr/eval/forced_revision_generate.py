@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Literal
 
 from text2sql_rlvr._base import Frozen
 from text2sql_rlvr.data.models import DatabaseSchema, Example
@@ -35,15 +36,19 @@ from text2sql_rlvr.eval.provenance import (
 )
 from text2sql_rlvr.train.forced_revision import attempt_feedback, revision_user_message
 
+ForcedRevisionPolicy = Literal["always", "error_only"]
+
 
 class ForcedRevisionEpisode(Frozen):
-    """One evaluated episode: attempt, the feedback it produced, and the final (revision)."""
+    """One evaluated episode: attempt, feedback, and the selected final answer."""
 
     db_id: str
     question: str
     attempt_text: str
     feedback: str
     final_text: str
+    revision_requested: bool = True
+    revision_text: str | None = None
 
 
 class ForcedRevisionTranscriptSet(Frozen):
@@ -70,6 +75,35 @@ class ErrorOnlyRevisionReport(Frozen):
 def is_error_feedback(feedback: str) -> bool:
     """Whether a feedback turn should trigger a second generation."""
     return feedback.startswith("Execution feedback: error")
+
+
+def validate_forced_revision_policy(policy: str) -> ForcedRevisionPolicy:
+    if policy not in {"always", "error_only"}:
+        raise ValueError(f"policy must be 'always' or 'error_only', got {policy!r}")
+    return policy  # type: ignore[return-value]
+
+
+def should_request_revision(policy: ForcedRevisionPolicy, feedback: str) -> bool:
+    """Apply the inference policy to one feedback turn."""
+    if policy == "always":
+        return True
+    return is_error_feedback(feedback)
+
+
+def forced_revision_artifact_stem(
+    *,
+    dataset: str,
+    adapter: str | Path | None,
+    limit: int | None,
+    temperature: float,
+    sampling_seed: int,
+    policy: ForcedRevisionPolicy,
+) -> str:
+    """Collision-proof artifact stem for forced-revision eval outputs."""
+    adapter_tag = f"-{Path(adapter).name}" if adapter else ""
+    seed_tag = f"-t{temperature}-seed{sampling_seed}" if temperature > 0 else ""
+    policy_tag = "fr" if policy == "always" else "fr-error-only"
+    return f"{dataset}-dev-{policy_tag}{adapter_tag}{seed_tag}" + (f"-n{limit}" if limit else "")
 
 
 def replay_error_only_revision(
@@ -192,12 +226,14 @@ def generate_forced_revision(
     model_revision: str | None = None,
     db_archive_sha256: str | None = None,
     environment: FeedbackConfig | None = None,
+    policy: ForcedRevisionPolicy = "always",
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> tuple[CompletionSet, ForcedRevisionTranscriptSet]:
     """Run the batched two-pass forced-revision eval on the GPU."""
     from vllm import LLM, SamplingParams  # lazy import: GPU backend only
 
+    policy = validate_forced_revision_policy(policy)
     env_cfg = environment or FeedbackConfig()
     chat_kwargs: dict[str, object] = {}
     if adapter_path is not None:
@@ -222,16 +258,29 @@ def generate_forced_revision(
         attempt_feedback(text, resolve_database(example.db_id, db_root), env_cfg)
         for example, text in zip(examples, attempt_texts, strict=True)
     ]
-    revision_prompts = [
-        build_revision_messages(prompt, attempt, feedback)
-        for prompt, attempt, feedback in zip(prompts, attempt_texts, feedbacks, strict=True)
+    revision_indices = [
+        i for i, feedback in enumerate(feedbacks) if should_request_revision(policy, feedback)
     ]
-    revision_outputs = llm.chat(revision_prompts, params, **chat_kwargs)
-    final_texts = [output.outputs[0].text for output in revision_outputs]
+    revision_prompts = [
+        build_revision_messages(prompts[i], attempt_texts[i], feedbacks[i])
+        for i in revision_indices
+    ]
+    revision_outputs = llm.chat(revision_prompts, params, **chat_kwargs) if revision_prompts else []
+    if len(revision_outputs) != len(revision_indices):
+        raise ValueError(
+            f"{len(revision_indices)} revision prompts but {len(revision_outputs)} outputs"
+        )
+    revision_text_by_index = {
+        i: output.outputs[0].text
+        for i, output in zip(revision_indices, revision_outputs, strict=True)
+    }
+    final_texts = [
+        revision_text_by_index.get(i, attempt) for i, attempt in enumerate(attempt_texts)
+    ]
 
     provenance = build_generation_provenance(
         model=model,
-        backend="vllm-forced-revision",
+        backend="vllm-forced-revision" if policy == "always" else "vllm-forced-revision-error-only",
         dataset=dataset,
         dataset_revision=dataset_revision,
         split=split,
@@ -254,9 +303,11 @@ def generate_forced_revision(
                 attempt_text=attempt,
                 feedback=feedback,
                 final_text=final,
+                revision_requested=i in revision_text_by_index,
+                revision_text=revision_text_by_index.get(i),
             )
-            for example, attempt, feedback, final in zip(
-                examples, attempt_texts, feedbacks, final_texts, strict=True
+            for i, (example, attempt, feedback, final) in enumerate(
+                zip(examples, attempt_texts, feedbacks, final_texts, strict=True)
             )
         ),
     )
