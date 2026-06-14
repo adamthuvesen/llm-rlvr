@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="920" height="500" viewBox="0 0 920 500" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="540" viewBox="0 0 920 540" role="img" aria-labelledby="title desc">
   <title id="title">Training results on Spider-dev and BIRD-dev</title>
   <desc id="desc">Grouped bar chart showing Base, SFT, and RLVR exact-match accuracy on Spider-dev and BIRD-dev.</desc>
   <style>
@@ -14,8 +14,8 @@
     .legend { fill: #374151; font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .note { fill: #6b7280; font: 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   </style>
-  <rect class="bg" width="920" height="500" rx="10"/>
-  <rect class="panel" x="28" y="24" width="864" height="448" rx="8"/>
+  <rect class="bg" width="920" height="540" rx="10"/>
+  <rect class="panel" x="28" y="24" width="864" height="488" rx="8"/>
 
   <text class="title" x="56" y="64">Training progression</text>
   <text class="subtitle" x="56" y="88">Execution accuracy improves after supervised fine-tuning and again after RLVR.</text>
@@ -56,5 +56,5 @@
     <rect x="82" y="-9" width="12" height="12" fill="#00cc96" rx="2"/><text class="legend" x="100" y="2">SFT</text>
     <rect x="148" y="-9" width="12" height="12" fill="#ef553b" rx="2"/><text class="legend" x="166" y="2">RLVR</text>
   </g>
-  <text class="note" x="56" y="446">Metric: exact-match execution accuracy. RLVR values are three-seed means; see ARTIFACTS.md for intervals and score files.</text>
+  <text class="note" x="56" y="500">Metric: exact-match execution accuracy. RLVR values are three-seed means; see ARTIFACTS.md for intervals and score files.</text>
 </svg>
