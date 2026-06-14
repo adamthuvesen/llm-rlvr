@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "rlvr-sql-agent"
 version = "0.1.0"
-description = "Self-correcting text-to-SQL agent: SFT cold-start -> GRPO with execution-verified rewards (RLVR)."
+description = "Text-to-SQL post-training: SFT cold-start -> single-turn GRPO with execution-verified rewards (RLVR)."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
