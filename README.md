@@ -1,95 +1,65 @@
 # rlvr-sql-agent
 
-This is a project for learning, exploring, and testing SFT, RLVR, GRPO, and related post-training
-ideas on a concrete text-to-SQL task.
+A text-to-SQL post-training project with a simple test: can a 3B coding model get better when SQL execution is the reward?
 
-This repo is mainly about a successful SFT -> RLVR training run for text-to-SQL.
+The shipped result is **yes for single-turn RLVR**. Starting from Qwen2.5-Coder-3B, supervised fine-tuning teaches the answer format, then GRPO with execution-verified rewards improves both Spider-dev and BIRD-dev again. The gain is backed by three RL seeds, a reward ablation, a Llama-3.2-3B control, and committed evaluation artifacts.
 
-The core result worked as intended: start with a 3B SQL model, teach it the expected answer
-format with supervised fine-tuning, then improve it with execution feedback on one answer at a
-time. On Qwen2.5-Coder-3B, SFT improved Spider and BIRD, then single-turn RLVR improved both
-again. The RL gain is backed by three seeds, a reward ablation, a Llama control, and committed
-evaluation files.
+The follow-up result is more cautious: **3B self-correction did not train successfully**, but a cheap inference-time rule did help. Running the first SQL and asking for a second answer only when execution errors recovered much of the forced-revision gain with far fewer second generations.
 
-After that, the project tried a follow-up: make the same 3B model check and fix
-its own SQL. That part did not succeed. When the model was offered a `run_sql` tool, it never chose
-to call it. When every answer was executed for it and the model was forced to revise, the early
-probe looked promising, but training drifted toward copying the first answer instead of revising
-it. The pilot stop rule, set before the run, stopped the full training job.
+![Training results](docs/figures/training-results.svg)
 
-To summarize: **SFT + single-turn RLVR produced the shipped result; 3B self-correction was
-the follow-up that did not land.** The committed result files prove both claims.
+## Main Result
 
-This is the build-and-train companion to
-[`grpo-gain-decomposition`](https://github.com/adamthuvesen/grpo-gain-decomposition), which
-measured whether RL gains were real.
+| Benchmark | Base | SFT | RLVR | Gain from SFT | Evidence |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Spider-dev | 0.625 | 0.678 | **0.779** | **+10.2pt** | 3 RL seeds, 95% CI excludes zero |
+| BIRD-dev | 0.313 | 0.344 | **0.406** | **+6.1pt** | 3 RL seeds, 95% CI excludes zero |
 
-## Shipped Result
+What makes the result worth trusting:
 
-The shipped result is the single-turn training run. The same Qwen2.5-Coder-3B model improves at
-each step:
+- **The numbers re-run from committed artifacts.** `make eval` re-scores the saved completion sets; the README tables are not hand-entered experiment notes.
+- **The RL gain is not one lucky seed.** The main Qwen result reports the mean of three GRPO seeds, and the RL-vs-SFT confidence interval excludes zero on both benchmarks.
+- **The reward ablation still helps.** A near-binary reward also beats SFT, though it is weaker on BIRD, so the result is not only reward-shaping ceremony.
+- **The pattern transfers to another 3B model.** Llama-3.2-3B improves under the same SFT -> GRPO recipe in the cross-family control.
 
-| Benchmark | Before SFT | After SFT | After RLVR | Stepwise gains |
-| --- | ---: | ---: | ---: | --- |
-| Spider-dev | 0.625 | 0.678 | **0.779** | SFT +5.3pt, then RLVR +10.2pt |
-| BIRD-dev | 0.313 | 0.344 | **0.406** | SFT +3.1pt, then RLVR +6.1pt |
+See [`ARTIFACTS.md`](ARTIFACTS.md) for exact files, dataset pins, score reports, confidence intervals, and caveats.
 
-The RL-vs-SFT gain is measured across three seeds, and the 95% confidence interval excludes zero
-on both benchmarks. The same recipe also improved a Llama-3.2-3B control, which makes the Qwen
-result less likely to be a one-model accident.
+## What Was Trained
 
-All numbers in this README are backed by committed completion sets and score reports. Reproduce
-the published tables with:
+The main run is intentionally narrow:
+
+1. Generate one SQL answer for each question.
+2. Execute it in a read-only SQLite sandbox.
+3. Reward execution correctness, with guards against empty-result hacks.
+4. Train LoRA adapters with GRPO.
+5. Re-score Spider-dev and BIRD-dev from saved completions.
+
+The model is not allowed to see hidden labels or write to databases. Datasets are pinned and fetched, not committed.
+
+## Follow-Up: Execution-Error Retry
+
+After the single-turn result landed, the repo tested whether the same 3B model could check and fix its own SQL.
+
+![Execution-error retry](docs/figures/execution-error-retry.svg)
+
+| Follow-up | Result | What to take from it |
+| --- | --- | --- |
+| Tool-calling loop | **Did not work.** Across 672 sampled episodes, base/SFT/RL/tool-use checkpoints made 0 `run_sql` calls. | At this size, the model did not learn the tool-use protocol. |
+| Forced-revision training | **Stopped at the pilot gate.** The model drifted toward resubmitting the first answer instead of revising. | The pre-registered stop rule did its job; no full training claim is made. |
+| Execution-error retry | **Worked as a cheap rule.** Ask for a second answer only when first execution errors. Spider: 0.768 -> 0.782 with 40/1034 second generations. BIRD: 0.405 -> 0.435 over locally decomposable items with 297/1534 second generations. Both had 0 harms. | Useful inference-time behavior, not evidence that self-correction training succeeded. |
+
+That distinction is the point of the repo: the shipped research result is single-turn RLVR; the self-correction work is recorded as a boundary and a future direction.
+
+## Reproduce The Tables
 
 ```bash
 make data
 make eval
 ```
 
-See [`ARTIFACTS.md`](ARTIFACTS.md) for the exact files, pins, caveats, and confidence intervals.
+`make eval` is CPU-only and model-free: it loads committed completion sets, runs the verifier, and prints the progression tables plus the retry follow-up numbers.
 
-## Follow-Up: Self-Correction
-
-Once the single-turn result was in hand, the later experiments asked a harder question: can this
-3B model learn to check and fix its own SQL?
-
-| Attempt | What happened | Verdict | Record |
-| --- | --- | --- | --- |
-| Tool-calling loop | The model was prompted and trained to call `run_sql`, but it made **0 tool calls in 672 sampled episodes** across the base, SFT, RL, and two tool-use-SFT checkpoints. | Failed before training a multi-turn model. At this size, the model did not learn the tool-calling protocol. | [`ARTIFACTS.md`](ARTIFACTS.md#stage-3-multi-turn-grpo--closed-without-training-resultsgrpo-mt), [`OpenSpec archive`](openspec/changes/archive/2026-06-12-grpo-multi-turn/tasks.md) |
-| Forced revision | The runner executed every first answer and showed feedback before a required second answer. The untrained probe passed: 14.9% fixes, 6.3% harms. During the 60-step pilot, revision fell from 0.26 to 0.05 and the model drifted toward resubmitting the same answer. | Stopped at the pilot gate before the full run. The n=200 evaluation had a small revision gain, but it was inside noise and sat on degraded single-turn behavior. | [`ARTIFACTS.md`](ARTIFACTS.md#stage-3b-forced-revision-grpo--aborted-at-the-pilot-gate-resultsgrpo-fr), [`OpenSpec archive`](openspec/changes/archive/2026-06-12-grpo-forced-revision/tasks.md) |
-
-Those negative results are kept because they define the boundary of the shipped work. The
-self-correction code and diagnostics remain in the tree for future attempts on a larger base
-model, but the evidence here does not support claiming a working self-correcting 3B SQL agent.
-
-## Evidence Map
-
-| Question | Short answer | Where to check |
-| --- | --- | --- |
-| Did SFT help? | Yes: Spider 0.625 -> 0.678, BIRD 0.313 -> 0.344. | [`ARTIFACTS.md`](ARTIFACTS.md#stage-1-sft-cold-start-resultssft-adapter-sft-r32), [`archive/2026-06-10-sft-coldstart`](openspec/changes/archive/2026-06-10-sft-coldstart/) |
-| Did single-turn RL help beyond SFT? | Yes: Spider 0.678 -> 0.779, BIRD 0.344 -> 0.406, three-seed CI excludes zero. | [`ARTIFACTS.md`](ARTIFACTS.md#stage-2-single-turn-grpo-resultsgrpo--resultsllama), [`archive/2026-06-11-grpo-single-turn`](openspec/changes/archive/2026-06-11-grpo-single-turn/) |
-| Was the gain just reward-shaping? | No: the near-binary reward ablation still beat SFT, though it was weaker on BIRD. | [`ARTIFACTS.md`](ARTIFACTS.md#stage-2-single-turn-grpo-resultsgrpo--resultsllama) |
-| Did another 3B model show the same pattern? | Yes: Llama-3.2-3B improved from base -> SFT -> GRPO on Spider and BIRD. | [`ARTIFACTS.md`](ARTIFACTS.md#stage-2-single-turn-grpo-resultsgrpo--resultsllama) |
-| Did tool use work? | No: 0/672 sampled episodes called `run_sql`. | [`ARTIFACTS.md`](ARTIFACTS.md#stage-3-multi-turn-grpo--closed-without-training-resultsgrpo-mt) |
-| Did forced revision work? | No full run: the probe passed, but the pilot failed its stop gate. | [`ARTIFACTS.md`](ARTIFACTS.md#stage-3b-forced-revision-grpo--aborted-at-the-pilot-gate-resultsgrpo-fr) |
-
-For operating details, use [`RUNBOOK.md`](RUNBOOK.md). For the full decision trail, use
-[`openspec/changes/archive/`](openspec/changes/archive/).
-
-## Repository Layout
-
-```text
-src/text2sql_rlvr/
-  data/         Spider/BIRD loaders, typed examples, schema serialization
-  env/          read-only SQLite sandbox and the run_sql environment
-  eval/         generation, scoring, provenance, revision/tool-use eval runners
-  rewards/      single-turn rewards and multi-turn trajectory scoring
-  train/        trace sampling, LoRA SFT, GRPO, forced-revision rollout, diagnostics
-  report/       progression tables and caveats
-  third_party/  vendored Test-Suite SQL Eval execution verifier
-```
-
-## Usage
+Core local checks:
 
 ```bash
 make install          # CPU environment: data, verifier, eval
@@ -97,12 +67,27 @@ make check            # lint, format check, unit tests
 make test-integration # network/HuggingFace/model tests
 ```
 
-Model generation uses the `text2sql-rlvr` CLI, and GPU work runs through Modal entrypoints. See
-[`RUNBOOK.md`](RUNBOOK.md) before running baselines, training, or paid jobs.
+GPU generation and training run through Modal entrypoints. Read [`RUNBOOK.md`](RUNBOOK.md) before launching paid jobs.
+
+## Repository Layout
+
+```text
+src/text2sql_rlvr/
+  data/         Spider/BIRD loaders, typed examples, schema serialization
+  env/          read-only SQLite sandbox and run_sql environment
+  eval/         generation, scoring, provenance, revision/tool-use runners
+  rewards/      single-turn rewards and multi-turn trajectory scoring
+  train/        trace sampling, LoRA SFT, GRPO, forced-revision rollout, diagnostics
+  report/       progression tables and caveats
+  third_party/  vendored Test-Suite SQL Eval execution verifier
+```
+
+## Related Repo
+
+This is the build-and-train companion to [`grpo-gain-decomposition`](https://github.com/adamthuvesen/grpo-gain-decomposition), which asks how much of RL reasoning gains are real versus measurement artifacts.
 
 ## Data And License
 
-Spider is CC-BY-SA-4.0. BIRD-dev is CC-BY-NC-4.0. The vendored evaluator is Apache 2.0. Datasets
-and databases are pinned and fetched, not committed.
+Spider is CC-BY-SA-4.0. BIRD-dev is CC-BY-NC-4.0. The vendored evaluator is Apache 2.0. Datasets and databases are pinned and fetched, not committed.
 
 This repository's own code is MIT licensed.
