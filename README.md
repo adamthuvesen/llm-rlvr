@@ -1,4 +1,4 @@
-# rlvr-sql-agent
+# rlvr-sql
 
 A text-to-SQL post-training project with a simple test: can a 3B coding model get better when SQL execution is the reward?
 
