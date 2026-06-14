@@ -1,7 +1,10 @@
 # grpo-training Specification
 
 ## Purpose
-TBD - created by archiving change grpo-single-turn. Update Purpose after archive.
+Train a LoRA adapter with single-turn GRPO on a Modal A100, warm-started from the SFT adapter and
+scored by the execution-grounded reward, recording full provenance and leaving the base model and
+SFT adapter untouched. Parametric in the base model for the cross-family control.
+
 ## Requirements
 ### Requirement: Train a LoRA adapter with GRPO on a Modal GPU, warm-started from the SFT adapter
 The system SHALL train a LoRA adapter using TRL `GRPOTrainer` + PEFT (bf16,

@@ -1,7 +1,10 @@
 # bird-dataset Specification
 
 ## Purpose
-TBD - created by archiving change modal-baseline-run. Update Purpose after archive.
+Load BIRD-dev through the shared typed `Example`/schema interface from a pinned, checksummed archive
+— preserving the `evidence` field into prompts — so BIRD reuses the Spider generation/scoring
+pipeline unchanged.
+
 ## Requirements
 ### Requirement: Load BIRD-dev examples through the shared typed interface
 The system SHALL load BIRD-dev NL→SQL examples as the same typed `Example` records used for Spider,

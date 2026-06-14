@@ -1,14 +1,17 @@
 # rl-evaluation Specification
 
 ## Purpose
-TBD - created by archiving change grpo-single-turn. Update Purpose after archive.
+Report the single-turn GRPO gain across ≥3 seeds with seed-level confidence intervals, plus the
+cross-family (Llama) and shaped-vs-near-binary controls as single-seed point estimates — all
+re-derivable on CPU via `make eval` and disclosing the single-DB eval caveat.
+
 ## Requirements
 ### Requirement: Report the RL gain multi-seed with seed-level confidence intervals
 The system SHALL report the single-turn GRPO execution-accuracy gain across **at least 3 seeds**,
 aggregated at the **seed level** (each seed contributes one execution-accuracy number; rollouts are
 not pooled across seeds), with a confidence interval computed seed-level. The reported comparison
-SHALL be the base → SFT → single-turn-RL progression on Spider-dev and BIRD-dev, with **BIRD-dev as
-the headline**.
+SHALL be the base → SFT → single-turn-RL progression on **both Spider-dev and BIRD-dev**, reported
+as co-equal benchmarks.
 
 #### Scenario: Headline gain is aggregated at the seed level with a CI
 - **WHEN** the 3-seed Qwen headline is reported
@@ -18,7 +21,7 @@ the headline**.
 #### Scenario: Base → SFT → RL progression on both benchmarks
 - **WHEN** the headline is reported
 - **THEN** the base, SFT, and RL execution-accuracy numbers are shown for both Spider-dev and
-  BIRD-dev, with BIRD-dev identified as the headline benchmark.
+  BIRD-dev as co-equal benchmarks.
 
 ### Requirement: Evaluate with the multi-DB test-suite metric, matched decoding
 The RL policy SHALL be evaluated with the stricter multi-DB **test-suite** execution-match metric

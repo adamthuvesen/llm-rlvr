@@ -1,7 +1,11 @@
 # execution-match-verifier Specification
 
 ## Purpose
-TBD - created by archiving change eval-foundation. Update Purpose after archive.
+Decide whether a predicted SQL's result set matches gold using the vendored Test-Suite SQL Eval
+semantics — multiset, column-order-insensitive, gold-`ORDER BY`-gated — guarded against trivial
+empty matches and parity-tested against the upstream evaluator. The same verdict is the GRPO
+training reward.
+
 ## Requirements
 ### Requirement: Compare result sets with test-suite execution-match semantics
 The system SHALL decide whether a predicted SQL's result set matches the gold's using the official

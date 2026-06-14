@@ -1,13 +1,16 @@
 # baseline-evaluation Specification
 
 ## Purpose
-TBD - created by archiving change eval-foundation. Update Purpose after archive.
+Measure base-model and LoRA-adapter execution accuracy on full Spider-dev and BIRD-dev with the
+execution-match verifier, separating model-free scoring from generation so every number re-derives
+on CPU from a committed, fully-provenanced `CompletionSet`.
+
 ## Requirements
 ### Requirement: Measure base-model execution accuracy
 The system SHALL produce zero-shot and few-shot execution-accuracy numbers for
-Qwen2.5-Coder-3B-Instruct on **full Spider-dev and BIRD-dev** using the execution-match verifier,
-with BIRD-dev reported as the headline benchmark. The headline `CompletionSet`s SHALL be committed so
-the numbers are re-derivable on CPU.
+Qwen2.5-Coder-3B-Instruct on **full Spider-dev and BIRD-dev** using the execution-match verifier —
+reporting both (Spider-dev as the cleaner training/verify benchmark, BIRD-dev as the harder
+real-world one). The `CompletionSet`s SHALL be committed so the numbers are re-derivable on CPU.
 
 #### Scenario: Zero-shot baseline on full Spider-dev
 - **WHEN** the baseline is run zero-shot on the full Spider-dev split
@@ -19,10 +22,10 @@ the numbers are re-derivable on CPU.
 - **THEN** it reports a distinct execution-accuracy number, with the few-shot exemplar policy
   recorded.
 
-#### Scenario: BIRD-dev reported as the headline
+#### Scenario: BIRD-dev reported alongside Spider-dev
 - **WHEN** the baseline run includes BIRD-dev
 - **THEN** a BIRD-dev execution-accuracy number is reported using the same verifier and committed as
-  the headline reference artifact.
+  a reference artifact alongside Spider-dev.
 
 ### Requirement: Separate model-free scoring from generation
 The system SHALL write model completions to a stored artifact and score them in a separate,

@@ -1,7 +1,10 @@
 # spider-dataset Specification
 
 ## Purpose
-TBD - created by archiving change eval-foundation. Update Purpose after archive.
+Load Spider examples from a pinned `xlangai/spider` parquet revision and resolve each database from a
+separately-pinned, checksummed SQLite archive (the parquet ships no databases), with deterministic
+schema-to-prompt serialization.
+
 ## Requirements
 ### Requirement: Load Spider examples from a pinned revision
 The system SHALL load Spider NL→SQL examples from a pinned `xlangai/spider` HuggingFace parquet

@@ -10,14 +10,20 @@ not produce a working self-correcting 3B agent. It is the build-and-train compan
 The initial stage plan was checked against primary sources (June 2026) before work began.
 
 ## Approach (staged, each stage a checkpoint with a fallback)
-- **Stage 0 — evaluation foundation** *(this is the first change)*: data loaders, a read-only
-  SQLite sandbox, a vendored execution-match verifier, schema serialization, and a baseline
-  "before RL" execution-accuracy number. All CPU-testable except baseline generation.
-- **Stage 1 — SFT cold-start** (LoRA): teach the `<think>…</think>` + ```sql``` output format.
-- **Stage 2 — single-turn GRPO** (RLVR, the core): GRPO with a shaped execution reward;
-  multi-seed CIs; a Llama-3.2-3B cross-family control; a shaped-vs-near-binary reward ablation.
-- **Stage 3 — multi-turn self-correction**: TRL `environment_factory` multi-turn rollout; the
-  "is the gain real?" matched-compute feedback-vs-best-of-N control.
+- **Stage 0 — evaluation foundation** (shipped): data loaders, a read-only SQLite sandbox, a
+  vendored execution-match verifier, schema serialization, and a baseline "before RL"
+  execution-accuracy number. All CPU-testable except baseline generation.
+- **Stage 1 — SFT cold-start** (LoRA, shipped): teach the `<think>…</think>` + ```sql``` output
+  format.
+- **Stage 2 — single-turn GRPO** (RLVR, the core — the shipped headline result): GRPO with a shaped
+  execution reward; multi-seed CIs; a Llama-3.2-3B cross-family control; a shaped-vs-near-binary
+  reward ablation.
+- **Stage 3 — multi-turn self-correction** (closed as a documented negative; no full training run):
+  a TRL tool-loop attempt (Stage 3) and a forced-revision `rollout_func` attempt (Stage 3b). The 3B
+  model never adopted the `run_sql` protocol (0/672 tool calls), and forced-revision aborted at its
+  pre-registered pilot gate; the matched-compute feedback-vs-best-of-N control was built and run, and
+  only a cheap inference-time error-only retry helped. Support code stays in the tree, tested, for a
+  future attempt on a larger base.
 
 ## Key decisions (locked)
 - **Base model:** Qwen2.5-Coder-3B-**Instruct** (anchor; Qwen3-4B-Instruct-2507 noted as a stronger
