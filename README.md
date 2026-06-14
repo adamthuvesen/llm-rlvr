@@ -1,10 +1,21 @@
 # rlvr-sql
 
-A text-to-SQL post-training project with a simple test: can a 3B coding model get better when SQL execution is the reward?
+An LLM post-training project for learning purposes, with a simple test: can a 3B coding model get better when SQL execution is the reward?
 
-The shipped result is **yes for single-turn RLVR**. Starting from Qwen2.5-Coder-3B, supervised fine-tuning teaches the answer format, then GRPO with execution-verified rewards improves both Spider-dev and BIRD-dev again. The gain is backed by three RL seeds, a reward ablation, a Llama-3.2-3B control, and committed evaluation artifacts.
+The shipped result is **yes for single-turn RLVR**. Starting from **Qwen2.5-Coder-3B**, supervised fine-tuning (**SFT**) teaches the model the required answer format. The model is then trained with **GRPO** using execution-verified rewards, where generated SQL is rewarded based on whether it executes correctly.
 
-The follow-up result is more cautious: **3B self-correction did not train successfully**, but a cheap inference-time rule did help. Running the first SQL and asking for a second answer only when execution errors recovered much of the forced-revision gain with far fewer second generations.
+This improves performance on both **Spider-dev** and **BIRD-dev** beyond the supervised fine-tuned baseline. The result is supported by:
+
+- Three independent RL seeds
+- Reward ablation
+- **Llama-3.2-3B** control model
+- Committed evaluation artifacts
+
+The follow-up result is more mixed.
+
+Training a **3B self-correction model** did not succeed. However, a simple inference-time rule worked well: run the first generated SQL query, and only ask the model for a second answer if execution fails.
+
+This conditional retry strategy recovered much of the gain from always forcing a revision, while requiring far fewer second-generation calls.
 
 ![Training results](docs/figures/training-results.svg)
 
