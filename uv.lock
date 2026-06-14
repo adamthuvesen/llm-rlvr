@@ -4412,7 +4412,7 @@ wheels = [
 ]
 
 [[package]]
-name = "rlvr-sql-agent"
+name = "rlvr-sql"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -4456,8 +4456,8 @@ requires-dist = [
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.8" },
     { name = "pydantic", specifier = ">=2.7,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
-    { name = "rlvr-sql-agent", extras = ["generate"], marker = "extra == 'gpu'" },
-    { name = "rlvr-sql-agent", extras = ["gpu"], marker = "extra == 'train'" },
+    { name = "rlvr-sql", extras = ["generate"], marker = "extra == 'gpu'" },
+    { name = "rlvr-sql", extras = ["gpu"], marker = "extra == 'train'" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
     { name = "sqlparse", specifier = ">=0.5" },
     { name = "torch", marker = "extra == 'generate'", specifier = ">=2.4" },

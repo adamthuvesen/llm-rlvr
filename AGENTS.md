@@ -1,4 +1,4 @@
-# rlvr-sql-agent — agent instructions
+# rlvr-sql — agent instructions
 
 Text-to-SQL post-training project: SFT + single-turn GRPO worked; the later self-correction
 follow-up did not. Every claimed gain is backed by committed results, controls, multi-seed CIs,
