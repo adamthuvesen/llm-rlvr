@@ -1,7 +1,10 @@
 # sql-execution-sandbox Specification
 
 ## Purpose
-TBD - created by archiving change eval-foundation. Update Purpose after archive.
+Execute a single SQL statement against a read-only SQLite database with a wall-clock timeout, a row
+cap, and structured (never raw-traceback) errors — the safety boundary every SQL execution in the
+project passes through.
+
 ## Requirements
 ### Requirement: Execute SQL read-only
 The system SHALL execute a query against a database opened read-only, such that no statement can

@@ -1,7 +1,10 @@
 # reward-functions Specification
 
 ## Purpose
-TBD - created by archiving change grpo-single-turn. Update Purpose after archive.
+Provide the execution-grounded GRPO reward over `(completion, gold, database)` — shaped and
+near-binary arms selected by config, with the empty-result guard — as a deterministic,
+side-effect-free function in the TRL reward-function convention.
+
 ## Requirements
 ### Requirement: Execution-grounded reward over a completion
 The system SHALL provide a reward function over `(prompt, completion, gold)` that parses the SQL from

@@ -1,7 +1,10 @@
 # modal-runner Specification
 
 ## Purpose
-TBD - created by archiving change modal-baseline-run. Update Purpose after archive.
+Run the vLLM generation pipeline on a single Modal A100, writing provenance-stamped `CompletionSet`s
+to a persistent Volume and surviving client disconnect — while keeping scoring a separate,
+model-free CPU step.
+
 ## Requirements
 ### Requirement: Run generation on a Modal A100 GPU
 The system SHALL execute the existing generation pipeline on a single Modal A100-80GB GPU via the

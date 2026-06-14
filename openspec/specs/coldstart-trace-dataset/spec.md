@@ -1,7 +1,10 @@
 # coldstart-trace-dataset Specification
 
 ## Purpose
-TBD - created by archiving change sft-coldstart. Update Purpose after archive.
+Build the cold-start SFT dataset by self-distillation: sample the base model on Spider-train, keep
+only execution-correct, well-formed `<think>`+SQL traces (one per question), and stamp the build
+with reproducible provenance.
+
 ## Requirements
 ### Requirement: Build a self-distilled, execution-filtered SFT dataset
 The system SHALL build the cold-start SFT dataset by sampling the base model on Spider-train with the

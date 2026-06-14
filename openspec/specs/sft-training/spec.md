@@ -1,7 +1,9 @@
 # sft-training Specification
 
 ## Purpose
-TBD - created by archiving change sft-coldstart. Update Purpose after archive.
+Fine-tune the base model on the cold-start trace dataset with a LoRA adapter and completion-only
+loss on a Modal A100, persisting the adapter to the Volume with provenance sufficient to retrain it.
+
 ## Requirements
 ### Requirement: Train a LoRA adapter via SFT on a Modal GPU
 The system SHALL fine-tune Qwen2.5-Coder-3B-Instruct on the cold-start trace dataset using a LoRA
