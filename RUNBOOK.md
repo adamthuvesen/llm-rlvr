@@ -145,8 +145,8 @@ uv run text2sql-rlvr score --completions runs/spider-dev-zs-sft-r32.json \
 `score` now reports `well_formed_rate` alongside execution accuracy. **Success bar (D6):**
 format rate near-100% on dev AND no EX regression below the base `<think>` anchor (0.625
 Spider-dev / 0.313 BIRD-dev; target ≥ the direct anchor). If the bar is missed, the fallback
-sequence is documented in `openspec/changes/sft-coldstart/design.md` (more traces → SynSQL pull →
-teacher distillation).
+sequence is documented in `openspec/changes/archive/2026-06-10-sft-coldstart/design.md` (more
+traces → SynSQL pull → teacher distillation).
 
 ## Stage 2: single-turn GRPO (smoke → LR pilot → main run → controls)
 
@@ -277,12 +277,17 @@ table.
 
 ## Reproduce the committed numbers (CPU only, no model)
 
-Every number in this repo — baseline, SFT, the GRPO main result with CIs, both controls — is a
-deterministic re-score of a committed `CompletionSet`:
+Every number in this repo — baseline, SFT, the 3-seed GRPO main result with CIs, both controls, and
+the Stage-3b documentation table — is a deterministic re-score of a committed `CompletionSet`:
 
 ```bash
-make data && make eval     # ~9 min: 20 sets, threaded scoring + the 4 progression tables
+make data && make eval     # CPU only, no model: re-scores every committed set, then renders the
+                           # four base→SFT→RL progression tables + the Stage-3b block
 ```
+
+Scoring is threaded (`workers=8` in `results/baseline/reproduce.py`) and identical at any worker
+count; wall time is dominated by the BIRD execution scan and scales with available cores (order of
+minutes to ~20, depending on the box).
 
 ## Verify the verifier (parity)
 
