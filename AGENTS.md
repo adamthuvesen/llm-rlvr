@@ -8,7 +8,7 @@ and disclosed caveats.
 
 | When you are… | Read |
 |---|---|
-| Touching any code, or new to the repo | `agents/docs/architecture.md` |
+| Touching any code, or new to the repo | `docs/architecture.md` |
 | Running baselines, training, or Modal commands | `RUNBOOK.md` |
 | Citing a number, or pinning/locating an artifact | `ARTIFACTS.md` |
 | Changing behavior or scope | the active change in `openspec/changes/` (work the tasks; don't diverge silently) |

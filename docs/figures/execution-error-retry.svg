@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="420" viewBox="0 0 920 420" role="img" aria-labelledby="title desc">
+  <title id="title">Execution-error retry results</title>
+  <desc id="desc">Grouped bar chart comparing first-attempt accuracy with retry-on-error accuracy for Spider-dev and locally decomposable BIRD-dev items.</desc>
+  <style>
+    .bg { fill: #ffffff; }
+    .panel { fill: #ffffff; stroke: #d9dde7; stroke-width: 1; }
+    .title { fill: #1f2937; font: 700 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .subtitle { fill: #6b7280; font: 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .axis { stroke: #cfd5df; stroke-width: 1; }
+    .grid { stroke: #eef1f6; stroke-width: 1; }
+    .tick { fill: #6b7280; font: 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .label { fill: #374151; font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .value { fill: #1f2937; font: 600 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .legend { fill: #374151; font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .note { fill: #6b7280; font: 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  </style>
+  <rect class="bg" width="920" height="420" rx="10"/>
+  <rect class="panel" x="28" y="24" width="864" height="368" rx="8"/>
+
+  <text class="title" x="56" y="64">Execution-error retry</text>
+  <text class="subtitle" x="56" y="88">Run the first SQL; ask for a second answer only when execution returns an error.</text>
+
+  <g transform="translate(86 120)">
+    <line class="grid" x1="0" y1="220" x2="720" y2="220"/>
+    <line class="grid" x1="0" y1="165" x2="720" y2="165"/>
+    <line class="grid" x1="0" y1="110" x2="720" y2="110"/>
+    <line class="grid" x1="0" y1="55" x2="720" y2="55"/>
+    <line class="grid" x1="0" y1="0" x2="720" y2="0"/>
+    <line class="axis" x1="0" y1="0" x2="0" y2="220"/>
+    <line class="axis" x1="0" y1="220" x2="720" y2="220"/>
+    <text class="tick" x="-38" y="224">0.0</text>
+    <text class="tick" x="-38" y="169">0.2</text>
+    <text class="tick" x="-38" y="114">0.4</text>
+    <text class="tick" x="-38" y="59">0.6</text>
+    <text class="tick" x="-38" y="4">0.8</text>
+
+    <rect x="168" y="8.8" width="54" height="211.2" fill="#636efa" rx="3"/>
+    <rect x="232" y="4.9" width="54" height="215.1" fill="#00cc96" rx="3"/>
+    <text class="value" x="166" y="-1">0.768</text>
+    <text class="value" x="230" y="-5">0.782</text>
+    <text class="label" x="190" y="248">Spider-dev</text>
+    <text class="note" x="162" y="270">40 / 1034 retries</text>
+
+    <rect x="488" y="108.6" width="54" height="111.4" fill="#636efa" rx="3"/>
+    <rect x="552" y="100.4" width="54" height="119.6" fill="#00cc96" rx="3"/>
+    <text class="value" x="486" y="99">0.405</text>
+    <text class="value" x="550" y="91">0.435</text>
+    <text class="label" x="500" y="248">BIRD-dev subset</text>
+    <text class="note" x="486" y="270">297 / 1534 retries</text>
+  </g>
+
+  <g transform="translate(596 58)">
+    <rect x="0" y="-9" width="12" height="12" fill="#636efa" rx="2"/><text class="legend" x="18" y="2">First attempt</text>
+    <rect x="126" y="-9" width="12" height="12" fill="#00cc96" rx="2"/><text class="legend" x="144" y="2">Retry on error</text>
+  </g>
+  <text class="note" x="56" y="368">This is an inference-time rule, not evidence that self-correction training succeeded. Both benchmarks had 0 measured harms.</text>
+</svg>
