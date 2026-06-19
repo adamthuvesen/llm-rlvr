@@ -90,17 +90,12 @@ make eval
 prints the progression tables plus the retry follow-up numbers.
 It may take a few minutes because it executes the saved SQL against Spider and BIRD databases.
 
-Expected `make eval` output starts with this flat table:
+`make eval` starts with a flat table like this:
 
 ```text
 benchmark    setting                     EX  well-formed  correct/n
-Spider-dev   cot zero-shot           0.6248       0.0290  646/1034
-Spider-dev   cot few-shot k=3        0.6770       0.0000  700/1034
-Spider-dev   direct zero-shot        0.6692       0.0000  692/1034
-Spider-dev   cot zs + sft-r32        0.6779       0.9923  701/1034
-BIRD-dev     cot zero-shot           0.3129       0.0359  480/1534
-BIRD-dev     direct zero-shot        0.3514       0.0000  539/1534
-BIRD-dev     cot zs + sft-r32        0.3442       0.9602  528/1534
+Spider-dev   cot zero-shot           ...
+BIRD-dev     cot zero-shot           ...
 ```
 
 It then prints the Spider/BIRD base -> SFT -> RL progression tables, the Llama control, and the
