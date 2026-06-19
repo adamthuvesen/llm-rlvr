@@ -63,12 +63,45 @@ That distinction is the point of the repo: the shipped research result is single
 
 ## Reproduce The Tables
 
+For a quick local smoke test, run the tiny demo:
+
+```bash
+make demo
+```
+
+Expected output:
+
+```text
+execution_accuracy=0.5000 well_formed_rate=0.0000 (1/2; gold_errors=0)
+reasons={'match': 1, 'denotation_mismatch': 1}
+```
+
+The demo creates a temporary SQLite database, scores two fixed SQL completions, and exits. It does
+not download data, load a model, use a GPU, or call Modal.
+
+For the public verification path, re-score the committed artifacts:
+
 ```bash
 make data
 make eval
 ```
 
-`make eval` is CPU-only and model-free: it loads committed completion sets, runs the verifier, and prints the progression tables plus the retry follow-up numbers.
+`make eval` is CPU-only and model-free: it loads committed completion sets, runs the verifier, and
+prints the progression tables plus the retry follow-up numbers.
+It may take a few minutes because it executes the saved SQL against Spider and BIRD databases.
+
+`make eval` starts with a flat table like this:
+
+```text
+benchmark    setting                     EX  well-formed  correct/n
+Spider-dev   cot zero-shot           ...
+BIRD-dev     cot zero-shot           ...
+```
+
+It then prints the Spider/BIRD base -> SFT -> RL progression tables, the Llama control, and the
+forced-revision pilot/error-only replay section. Warnings like `result has 19 columns (> cap 6)`
+come from wide result rows where the verifier uses fixed column order instead of trying every
+permutation.
 
 Core local checks:
 

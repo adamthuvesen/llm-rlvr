@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: install fmt lint test test-integration check eval
+.PHONY: install fmt lint test test-integration check eval demo
 
 install:  ## Sync the CPU dev environment (data, env, verifier, eval — no GPU stack)
 	uv sync --extra dev
@@ -13,10 +13,10 @@ lint:  ## Lint and format-check (no changes)
 	uv run ruff format --check .
 
 test:  ## Run unit tests (network/integration deselected)
-	uv run pytest
+	uv run python -m pytest
 
 test-integration:  ## Run the network/HuggingFace/model integration tests
-	uv run pytest -m integration
+	uv run python -m pytest -m integration
 
 check: lint test  ## The Stage-0 gate: lint + unit tests
 
@@ -25,3 +25,6 @@ data:  ## Fetch + verify + extract the pinned Spider databases (HF mirror; see R
 
 eval:  ## Re-derive the committed baseline numbers from the CompletionSets (needs `make data`)
 	uv run python results/baseline/reproduce.py
+
+demo:  ## Run a tiny no-GPU verifier demo against a temporary SQLite database
+	uv run python examples/no_gpu_demo.py
