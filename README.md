@@ -63,12 +63,50 @@ That distinction is the point of the repo: the shipped research result is single
 
 ## Reproduce The Tables
 
+For a quick local smoke test, run the tiny demo:
+
+```bash
+make demo
+```
+
+Expected output:
+
+```text
+execution_accuracy=0.5000 well_formed_rate=0.0000 (1/2; gold_errors=0)
+reasons={'match': 1, 'denotation_mismatch': 1}
+```
+
+The demo creates a temporary SQLite database, scores two fixed SQL completions, and exits. It does
+not download data, load a model, use a GPU, or call Modal.
+
+For the public verification path, re-score the committed artifacts:
+
 ```bash
 make data
 make eval
 ```
 
-`make eval` is CPU-only and model-free: it loads committed completion sets, runs the verifier, and prints the progression tables plus the retry follow-up numbers.
+`make eval` is CPU-only and model-free: it loads committed completion sets, runs the verifier, and
+prints the progression tables plus the retry follow-up numbers.
+It may take a few minutes because it executes the saved SQL against Spider and BIRD databases.
+
+Expected `make eval` output starts with this flat table:
+
+```text
+benchmark    setting                     EX  well-formed  correct/n
+Spider-dev   cot zero-shot           0.6248       0.0290  646/1034
+Spider-dev   cot few-shot k=3        0.6770       0.0000  700/1034
+Spider-dev   direct zero-shot        0.6692       0.0000  692/1034
+Spider-dev   cot zs + sft-r32        0.6779       0.9923  701/1034
+BIRD-dev     cot zero-shot           0.3129       0.0359  480/1534
+BIRD-dev     direct zero-shot        0.3514       0.0000  539/1534
+BIRD-dev     cot zs + sft-r32        0.3442       0.9602  528/1534
+```
+
+It then prints the Spider/BIRD base -> SFT -> RL progression tables, the Llama control, and the
+forced-revision pilot/error-only replay section. Warnings like `result has 19 columns (> cap 6)`
+come from wide result rows where the verifier uses fixed column order instead of trying every
+permutation.
 
 Core local checks:
 
