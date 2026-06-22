@@ -4,6 +4,9 @@ Text-to-SQL post-training project: SFT + single-turn GRPO worked; the later self
 follow-up did not. Every claimed gain is backed by committed results, controls, multi-seed CIs,
 and disclosed caveats.
 
+Global tone, principles, and git etiquette live in `~/.claude/CLAUDE.md` and
+`~/dotfiles/agents/AGENTS.md`; they are not duplicated here. This file is project-specific facts.
+
 ## Read this first, then route
 
 | When you are… | Read |
@@ -11,7 +14,10 @@ and disclosed caveats.
 | Touching any code, or new to the repo | `docs/architecture.md` |
 | Running baselines, training, or Modal commands | `RUNBOOK.md` |
 | Citing a number, or pinning/locating an artifact | `ARTIFACTS.md` |
+| Checking the current stage / what's done | `docs/status.md` |
 | Changing behavior or scope | the active change in `openspec/changes/` (work the tasks; don't diverge silently) |
+
+If a doc disagrees with code, fix the doc in the same change.
 
 ## Commands
 
@@ -51,31 +57,9 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
   a GPU or network; mark anything that does `@pytest.mark.integration`.
 - Heavy/optional deps (`vllm`, `trl`, `peft`, `torch`) import lazily inside the functions that
   use them — the CPU eval layer must install and run without the GPU stack.
-- Conventional commits (`type(scope): message`), one logical unit each.
 
-## Current state (update when stages move)
+## Current state
 
-**The project is complete at Stage 2; there is no active change.** The main result is the
-Stage-2 single-turn GRPO result (3-seed CI excludes zero on both benchmarks, near-binary
-ablation, Llama cross-family control; archived with stages 0–1). Two self-correction sequels
-both closed honestly without a full training run, all archived in `openspec/changes/archive/`:
-
-- **Stage 3 (`grpo-multi-turn`, tool choice) — CLOSED 2026-06-12 without training.** The 3B
-  model never adopts the `run_sql` protocol: 0 tool calls in 672 episodes across base / SFT /
-  GRPO / two tool-use-SFT checkpoints and every prompting strength; a two-arm probe ruled out
-  RL formatting as the cause. TRL #4543 stayed clear throughout.
-- **Stage 3b (`grpo-forced-revision`) — ABORTED 2026-06-12 at the pilot gate set before the run.**
-  Tool choice removed (runner executes every answer; hand-written TRL `rollout_func` with
-  loss-masked feedback splice — its smoke validated mask + IS-ratio on real spliced rollouts,
-  the validation Stage 3 never reached). The probe passed (fix 14.9%, harm 6.3%), but the
-  60-step pilot failed gates P1/P2: GRPO drifts toward identity-resubmission (frac_revising
-  0.26→0.05, delta bonus below its untrained baseline, `frac_reward_zero_std` ≈ 0.6 — weak
-  learning signal). Pilot-ckpt documentation evals (n=200): FR runner 0.720 vs Stage-2 anchor
-  0.705 vs best-of-2 0.715 — small but inside noise, single-turn −2.5pt; the harm channel
-  trained to 0%. Stage-3b spend ≈ $4.70. Evidence: ARTIFACTS Stage-3b section,
-  `results/grpo-fr/`, the archived change's `tasks.md`.
-
-The README's progression table is the public 30-second narrative — keep it in sync. The
-self-correction support code (env tool loop, forced-revision rollout + eval runner, multi-turn
-rewards + D8 diagnostics, `select-bestofn`, `fr-metrics`) stays in the tree, tested, for any
-future attempt on a larger base.
+The project is complete at Stage 2 (single-turn GRPO); two self-correction sequels closed
+honestly without a full training run. Full stage-by-stage status → `docs/status.md`; keep the
+README progression table in sync with it.
