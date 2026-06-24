@@ -47,7 +47,7 @@
   alpha 64 bf16, `num_generations` 4, `max_completion_length` 1024–1536, LR + KL/beta + seed) and a
   trainer wrapper that warm-starts from the Stage-1 SFT adapter and wires in the reward module.
 - [x] 3.2 `modal_app.py`: a `grpo_train` GPU function (single A100-80GB, vLLM colocate) + a local
-  entrypoint mirroring the `sft` entrypoint; persist the adapter to the `llm-rlvr-sql-runs` Volume under a
+  entrypoint mirroring the `sft` entrypoint; persist the adapter to the `text2sql-runs` Volume under a
   run-scoped path, base + SFT adapter untouched.
 - [x] 3.3 Base-model-parametric: thread a base-model id through `grpo_train` (Qwen default,
   Llama-3.2-3B for the control) so one recipe trains both families.

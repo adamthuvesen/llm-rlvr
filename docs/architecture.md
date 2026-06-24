@@ -37,7 +37,7 @@ functions import `llm_rlvr_sql` lazily so the package installs and tests without
 ```
 HF mirrors (pinned)         GPU (Modal A100-80GB)              CPU (local, model-free)
 HAL-9001/spider-databases → generate/sample/train on Volume → pull JSON → score → aggregate → report
-HAL-9001/bird-dev           llm-rlvr-sql-runs:/runs/{data,sft,grpo}  results/ (committed) → make eval
+HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (committed) → make eval
 ```
 
 - **CompletionSet** (`eval/completions.py`) is the boundary object: `generate` (the *only*
@@ -91,7 +91,7 @@ HAL-9001/bird-dev           llm-rlvr-sql-runs:/runs/{data,sft,grpo}  results/ (c
 
 ## Modal (GPU runner)
 
-- App `llm-rlvr-sql-baseline`; Volumes `llm-rlvr-sql-runs` (`/runs`) + `llm-rlvr-sql-hf-cache`.
+- App `llm-rlvr-sql-baseline`; Volumes `text2sql-runs` (`/runs`) + `text2sql-hf-cache`.
 - Two-layer image: the heavy CUDA/torch/vLLM layer is keyed on `pyproject.toml`+`uv.lock` only, so a
   source edit re-runs just the fast editable relink, not the multi-GB install.
 - Image ignore patterns are **root-anchored** (`data/**`, not `**/data`) — a deep glob would strip

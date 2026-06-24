@@ -25,7 +25,7 @@ checksummed artifact above (design D2/R1). BIRD's `dev.zip` is one self-hosted b
 | --- | --- | --- |
 | Base model | `Qwen/Qwen2.5-Coder-3B-Instruct` at HF `main`; the SFT run pins commit `488639f1ff808d1d3d0ba301aef8c11461451ec5` | Apache 2.0 |
 | Cross-family base | `unsloth/Llama-3.2-3B-Instruct` (ungated mirror, byte-identical weights to gated `meta-llama/Llama-3.2-3B-Instruct`; repo id recorded in every artifact's provenance) | Llama 3.2 Community |
-| Stage-1 LoRA adapter `sft-r32` | Modal Volume `llm-rlvr-sql-runs` → `sft/sft-r32/` (provenance.json: base commit above, rank 32 all-linear, trace-dataset SHA256, trl 1.5.1 / peft 0.19.1) | — |
+| Stage-1 LoRA adapter `sft-r32` | Modal Volume `text2sql-runs` → `sft/sft-r32/` (provenance.json: base commit above, rank 32 all-linear, trace-dataset SHA256, trl 1.5.1 / peft 0.19.1) | — |
 | Stage-1 trace dataset | 2,971 traces; manifest `results/sft/traces.manifest.json`; JSONL SHA256 `b02435e49f183425299f3167503883d0b006faf884f7705fc02abc3ad34613e6` (bulk on the Volume at `sft/traces.jsonl`) | self-generated |
 | Stage-2 GRPO adapters (main result) | Volume → `grpo/grpo-s0`, `grpo/grpo-s1`, `grpo/grpo-s2` — **locked LR 5e-5** (pilot-measured), shaped reward, seeds 0/1/2, warm-start `sft/sft-r32`; full config in each `provenance.json` | — |
 | Stage-2 reward ablation adapter | Volume → `grpo/grpo-nb-s0` — identical config, `near_binary` arm (1.0/0.1/0) | — |

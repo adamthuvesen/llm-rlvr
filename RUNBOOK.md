@@ -68,7 +68,7 @@ modal run --detach modal_app.py::main --dataset bird --spawn     # BIRD-dev
 modal run --detach modal_app.py::main --dataset bird --prompt-style direct --spawn
 
 # pull a result from the Volume and score on CPU
-modal volume get llm-rlvr-sql-runs spider-dev-zs.json ./runs/spider-dev-zs.json
+modal volume get text2sql-runs spider-dev-zs.json ./runs/spider-dev-zs.json
 uv run llm-rlvr-sql score --completions runs/spider-dev-zs.json --db-root data/spider/spider_data/database
 ```
 
@@ -108,7 +108,7 @@ execution-correct + well-formed traces (shortest per question, exact-deduped; th
 guard is ON), and write the JSONL + manifest:
 
 ```bash
-modal volume get llm-rlvr-sql-runs sft/candidates-n8-seed0.json ./runs/sft/candidates-n8-seed0.json
+modal volume get text2sql-runs sft/candidates-n8-seed0.json ./runs/sft/candidates-n8-seed0.json
 uv run llm-rlvr-sql build-traces --candidates runs/sft/candidates-n8-seed0.json \
   --db-root data/spider/spider_data/database \
   --out data/sft/traces.jsonl --manifest results/sft/traces.manifest.json
@@ -121,7 +121,7 @@ the JSONL bulk stays local/Volume (gitignored).
 traces to the Volume, smoke a tiny run first, then the real one with the model commit pinned:
 
 ```bash
-modal volume put llm-rlvr-sql-runs data/sft/traces.jsonl sft/traces.jsonl
+modal volume put text2sql-runs data/sft/traces.jsonl sft/traces.jsonl
 modal run modal_app.py::sft --epochs 1 --run-id sft-smoke     # day-1 smoke: loads + trains + saves
 modal run --detach modal_app.py::sft --run-id sft-r32 --model-revision <pinned-commit> --spawn
 ```
@@ -137,7 +137,7 @@ modal run --detach modal_app.py::main --dataset spider --adapter sft/sft-r32 --s
 modal run --detach modal_app.py::main --dataset spider --adapter sft/sft-r32 --prompt-style direct --spawn
 modal run --detach modal_app.py::main --dataset bird --adapter sft/sft-r32 --spawn
 
-modal volume get llm-rlvr-sql-runs spider-dev-zs-sft-r32.json ./runs/spider-dev-zs-sft-r32.json
+modal volume get text2sql-runs spider-dev-zs-sft-r32.json ./runs/spider-dev-zs-sft-r32.json
 uv run llm-rlvr-sql score --completions runs/spider-dev-zs-sft-r32.json \
   --db-root data/spider/spider_data/database
 ```
@@ -198,11 +198,11 @@ modal run --detach modal_app.py::grpo --run-id grpo-nb-s0 --learning-rate 5e-5 \
 
 LB=unsloth/Llama-3.2-3B-Instruct    # ungated mirror, byte-identical to meta-llama (no token)
 modal run --detach modal_app.py::traces --base-model $LB --spawn
-modal volume get llm-rlvr-sql-runs sft/candidates-llama-3.2-3b-instruct-n8-seed0.json runs/sft/
+modal volume get text2sql-runs sft/candidates-llama-3.2-3b-instruct-n8-seed0.json runs/sft/
 uv run llm-rlvr-sql build-traces --candidates runs/sft/candidates-llama-3.2-3b-instruct-n8-seed0.json \
   --db-root data/spider/spider_data/database \
   --out data/sft/traces-llama.jsonl --manifest results/sft/traces-llama.manifest.json
-modal volume put llm-rlvr-sql-runs data/sft/traces-llama.jsonl sft/traces-llama.jsonl
+modal volume put text2sql-runs data/sft/traces-llama.jsonl sft/traces-llama.jsonl
 modal run --detach modal_app.py::sft --traces sft/traces-llama.jsonl --run-id sft-llama-r32 \
   --base-model $LB --spawn
 modal run --detach modal_app.py::grpo --run-id grpo-llama-s0 --warm-start sft/sft-llama-r32 \
@@ -214,7 +214,7 @@ artifacts get a family tag so they can't collide). Score on CPU with `--workers 
 
 ```bash
 modal run --detach modal_app.py::main --dataset bird --adapter grpo/grpo-s0 --spawn
-modal volume get llm-rlvr-sql-runs bird-dev-zs-grpo-s0.json results/grpo/
+modal volume get text2sql-runs bird-dev-zs-grpo-s0.json results/grpo/
 uv run llm-rlvr-sql score --completions results/grpo/bird-dev-zs-grpo-s0.json \
   --db-root <bird-db-root> --workers 8
 ```

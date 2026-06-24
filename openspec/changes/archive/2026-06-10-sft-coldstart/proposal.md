@@ -17,7 +17,7 @@ that measures the gain also bootstraps the model.
   own correct reasoning, in its own distribution.
 - **LoRA SFT on Modal.** A new TRL `SFTTrainer` + PEFT LoRA training function on a single A100-80GB
   (bf16, `target_modules='all-linear'`, rank 32–64), trained on the trace dataset, saving the
-  **adapter** to the `llm-rlvr-sql-runs` Volume with full provenance (base model, LoRA config, data
+  **adapter** to the `text2sql-runs` Volume with full provenance (base model, LoRA config, data
   hash, git commit).
 - **Adapter evaluation.** The eval/generate path gains the ability to load a LoRA adapter over the
   base, so the SFT checkpoint is scored with the *same* verifier and we report **SFT-vs-base** EX +

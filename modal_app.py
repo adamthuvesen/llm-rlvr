@@ -6,7 +6,7 @@
     modal run --detach modal_app.py::traces --spawn                # Spider-train candidates
     modal run --detach modal_app.py::sft --spawn                   # LoRA SFT on the traces
 
-Generation/sampling write artifacts to a Modal Volume; pull with `modal volume get llm-rlvr-sql-runs
+Generation/sampling write artifacts to a Modal Volume; pull with `modal volume get text2sql-runs
 <name> ./runs/<name>` and filter/score on CPU (`llm-rlvr-sql build-traces` / `score` / `make
 eval`). Run with the `modal` CLI (`uv tool install modal`), not as a project dependency. Public HF
 datasets/model, so no HF token is needed.
@@ -76,8 +76,8 @@ image = (
     .run_commands("uv pip install --system --no-deps -e .")
 )
 
-runs = modal.Volume.from_name("llm-rlvr-sql-runs", create_if_missing=True)
-hf_cache = modal.Volume.from_name("llm-rlvr-sql-hf-cache", create_if_missing=True)
+runs = modal.Volume.from_name("text2sql-runs", create_if_missing=True)
+hf_cache = modal.Volume.from_name("text2sql-hf-cache", create_if_missing=True)
 
 
 @app.function(
