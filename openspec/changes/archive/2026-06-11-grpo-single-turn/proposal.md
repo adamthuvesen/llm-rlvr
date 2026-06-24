@@ -12,7 +12,7 @@ that ask *"is the gain real?"*: a **cross-family replication** on Llama-3.2-3B a
 
 ## What Changes
 
-- **A composable, execution-grounded reward module** (`src/text2sql_rlvr/rewards/`). One TRL-shaped
+- **A composable, execution-grounded reward module** (`src/llm_rlvr_sql/rewards/`). One TRL-shaped
   reward-function signature, composed of four parts — `format` + `executable` + `result_match` +
   `length` (the SQL-R1 shape) — and a deliberately **near-binary Arctic-style arm**
   (`1.0` exact / `0.1` executable / `0` else). The training reward is cheap single-DB
@@ -26,7 +26,7 @@ that ask *"is the gain real?"*: a **cross-family replication** on Llama-3.2-3B a
   is **config-parametric** (Qwen2.5-Coder-3B-Instruct default; Llama-3.2-3B-Instruct for the
   cross-family control). Adapter + full RL provenance (reward config, GRPO hyperparams, seed,
   warm-start adapter id) persist to the Volume.
-- **Multi-seed RL evaluation with controls** (`src/text2sql_rlvr/eval/` + `report/`). Run the
+- **Multi-seed RL evaluation with controls** (`src/llm_rlvr_sql/eval/` + `report/`). Run the
   headline at **3 seeds**, aggregate at the **seed level** with CIs (reuse the eval-audit /
   seed-level-t pattern), and report the **base → SFT → single-turn-RL** progression on Spider-dev and
   BIRD-dev. Report the **cross-family** arm (Llama, 1 seed — replicates or doesn't, both honest) and
@@ -64,8 +64,8 @@ that ask *"is the gain real?"*: a **cross-family replication** on Llama-3.2-3B a
 
 ## Impact
 
-- **New:** `src/text2sql_rlvr/rewards/` (the composable reward + the near-binary arm + the
-  empty-result guard, reusing `env.sandbox` + `eval.verifier`); `src/text2sql_rlvr/train/grpo.py`
+- **New:** `src/llm_rlvr_sql/rewards/` (the composable reward + the near-binary arm + the
+  empty-result guard, reusing `env.sandbox` + `eval.verifier`); `src/llm_rlvr_sql/train/grpo.py`
   (the `GRPOConfig` + trainer wrapper); RL multi-seed aggregation in `eval/` + tables in `report/`.
 - **Modified:** `modal_app.py` (add the GRPO training function + entrypoint; vLLM colocate config);
   `eval/generate.py` (base-model-parametric so the Llama control reuses the adapter-eval path);

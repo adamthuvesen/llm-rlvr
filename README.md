@@ -1,4 +1,4 @@
-# rlvr-sql
+# llm-rlvr-sql
 
 An LLM post-training project for learning purposes, with a simple test: can a 3B coding model get better when SQL execution is the reward?
 
@@ -116,7 +116,7 @@ GPU generation and training run through Modal entrypoints. Read [`RUNBOOK.md`](R
 ## Repository Layout
 
 ```text
-src/text2sql_rlvr/
+src/llm_rlvr_sql/
   data/         Spider/BIRD loaders, typed examples, schema serialization
   env/          read-only SQLite sandbox and run_sql environment
   eval/         generation, scoring, provenance, revision/tool-use runners

@@ -1,4 +1,4 @@
-# Project: text2sql-rlvr
+# Project: llm-rlvr-sql
 
 ## What this is
 A text-to-SQL project for learning and testing SFT, RLVR, GRPO, and related post-training ideas.
@@ -45,7 +45,7 @@ The initial stage plan was checked against primary sources (June 2026) before wo
 ## Tech stack & conventions
 - Python 3.11+ · **uv** · **ruff** (line length 100, the rule set from `grpo-gain-decomposition`)
   · **pytest** · strict Pydantic (`extra="forbid"`, typed models over `dict[str, Any]`).
-- Package layout `src/text2sql_rlvr/` with subpackages: `data/`, `env/`, `rewards/`, `train/`,
+- Package layout `src/llm_rlvr_sql/` with subpackages: `data/`, `env/`, `rewards/`, `train/`,
   `eval/`, `report/`. Mirrors `grpo-gain-decomposition`.
 - CPU/GPU dependency split via optional extras: the eval/verifier/data layer installs and tests on
   a CPU box; the training stack (TRL/vLLM/torch) is a separate `train` extra.

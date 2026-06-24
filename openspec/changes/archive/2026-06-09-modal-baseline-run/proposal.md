@@ -43,7 +43,7 @@ is GPU **inference** only — the proper baseline + the runner that later traini
 ## Impact
 
 - **New code**: `modal_app.py` (Modal CLI app, run via `uv tool install modal`, not a project dep);
-  `src/text2sql_rlvr/data/bird.py` + a `BIRD_DB_ARCHIVE` pin in `data/artifacts.py`.
+  `src/llm_rlvr_sql/data/bird.py` + a `BIRD_DB_ARCHIVE` pin in `data/artifacts.py`.
 - **Reuse (no change)**: `generate()` / `_run_vllm`, `score`, the verifier, prompt builder, and
   provenance from Stage 0 — only the Modal wrapper, the GPU vLLM path, and the BIRD loader are new.
 - **New external artifacts**: the `gpu` extra (`vllm`) exercised for real; a self-hosted, checksummed

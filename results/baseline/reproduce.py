@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from text2sql_rlvr.data import ensure_bird_dev, ensure_spider_databases
-from text2sql_rlvr.eval import read_completion_set, score_completion_set
-from text2sql_rlvr.report import build_rl_row, render_progression
+from llm_rlvr_sql.data import ensure_bird_dev, ensure_spider_databases
+from llm_rlvr_sql.eval import read_completion_set, score_completion_set
+from llm_rlvr_sql.report import build_rl_row, render_progression
 
 HERE = Path(__file__).parent
 SFT = HERE.parent / "sft"
@@ -117,13 +117,13 @@ def _stage3b_forced_revision(spider_db, bird_db) -> None:
     the n=200 pilot-checkpoint documentation table — FR harness vs Stage-2 anchor vs the
     gold-free best-of-2 control — plus the fix/harm decomposition. Point estimates on a
     200-item slice; differences of 1-3 items are inside noise and no claim rests on them."""
-    from text2sql_rlvr.eval import CompletionSet
-    from text2sql_rlvr.eval.bestofn import select_best_of_n
-    from text2sql_rlvr.eval.forced_revision_generate import (
+    from llm_rlvr_sql.eval import CompletionSet
+    from llm_rlvr_sql.eval.bestofn import select_best_of_n
+    from llm_rlvr_sql.eval.forced_revision_generate import (
         ForcedRevisionTranscriptSet,
         replay_error_only_revision,
     )
-    from text2sql_rlvr.eval.fr_metrics import (
+    from llm_rlvr_sql.eval.fr_metrics import (
         compute_forced_revision_eval_report,
         compute_fr_metrics,
     )

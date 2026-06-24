@@ -7,7 +7,7 @@
     modal run --detach modal_app.py::sft --spawn                   # LoRA SFT on the traces
 
 Generation/sampling write artifacts to a Modal Volume; pull with `modal volume get text2sql-runs
-<name> ./runs/<name>` and filter/score on CPU (`text2sql-rlvr build-traces` / `score` / `make
+<name> ./runs/<name>` and filter/score on CPU (`llm-rlvr-sql build-traces` / `score` / `make
 eval`). Run with the `modal` CLI (`uv tool install modal`), not as a project dependency. Public HF
 datasets/model, so no HF token is needed.
 
@@ -22,9 +22,9 @@ from pathlib import Path
 
 import modal
 
-APP_NAME = "text2sql-rlvr-baseline"
+APP_NAME = "llm-rlvr-sql-baseline"
 CUDA_IMAGE = "nvidia/cuda:12.4.1-devel-ubuntu22.04"
-REMOTE_ROOT = "/root/text2sql-rlvr"
+REMOTE_ROOT = "/root/llm-rlvr-sql"
 RUNS_DIR = "/runs"
 MODEL = "Qwen/Qwen2.5-Coder-3B-Instruct"
 
@@ -43,7 +43,7 @@ app = modal.App(APP_NAME)
 # Transient/local-only caches: never part of the image (they also mutate during a build and trip
 # Modal's "modified during build" guard). .git is stripped — the entrypoint passes git state in.
 # NOTE: the cache dirs are root-anchored (`runs/**`, not `**/runs`) — a deep glob like `**/data`
-# would also strip the `src/text2sql_rlvr/data/` *package* from the image.
+# would also strip the `src/llm_rlvr_sql/data/` *package* from the image.
 _IGNORE = [
     "**/.git",
     "**/.venv",
@@ -109,12 +109,12 @@ def baseline(
     """
     from pathlib import Path
 
-    from text2sql_rlvr.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
-    from text2sql_rlvr.data.bird import ensure_bird_dev, load_bird_examples
-    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
-    from text2sql_rlvr.eval.completions import write_completion_set
-    from text2sql_rlvr.eval.generate import generate
-    from text2sql_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr_sql.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
+    from llm_rlvr_sql.data.bird import ensure_bird_dev, load_bird_examples
+    from llm_rlvr_sql.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from llm_rlvr_sql.eval.completions import write_completion_set
+    from llm_rlvr_sql.eval.generate import generate
+    from llm_rlvr_sql.eval.provenance import DecodingConfig
 
     data_root = Path(RUNS_DIR) / "data"
     if dataset == "spider":
@@ -197,10 +197,10 @@ def sample_traces(
     """
     from pathlib import Path
 
-    from text2sql_rlvr.data.artifacts import SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
-    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
-    from text2sql_rlvr.eval.completions import write_json
-    from text2sql_rlvr.train.traces import CandidateSet, TraceSamplingConfig, sample_candidates
+    from llm_rlvr_sql.data.artifacts import SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
+    from llm_rlvr_sql.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from llm_rlvr_sql.eval.completions import write_json
+    from llm_rlvr_sql.train.traces import CandidateSet, TraceSamplingConfig, sample_candidates
 
     dbs = ensure_spider_databases(Path(RUNS_DIR) / "data" / "spider")
     schemas = load_schemas(dbs.tables_json)
@@ -255,7 +255,7 @@ def sft_train(
     """
     from pathlib import Path
 
-    from text2sql_rlvr.train.sft import SftHyperparams, run_sft
+    from llm_rlvr_sql.train.sft import SftHyperparams, run_sft
 
     out = run_sft(
         Path(RUNS_DIR) / traces,
@@ -301,10 +301,10 @@ def grpo_train(
     """
     from pathlib import Path
 
-    from text2sql_rlvr.data.artifacts import SPIDER_HF_REVISION
-    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
-    from text2sql_rlvr.rewards import RewardConfig
-    from text2sql_rlvr.train.grpo import GrpoHyperparams, run_grpo
+    from llm_rlvr_sql.data.artifacts import SPIDER_HF_REVISION
+    from llm_rlvr_sql.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from llm_rlvr_sql.rewards import RewardConfig
+    from llm_rlvr_sql.train.grpo import GrpoHyperparams, run_grpo
 
     dbs = ensure_spider_databases(Path(RUNS_DIR) / "data" / "spider")
     schemas = load_schemas(dbs.tables_json)
@@ -361,9 +361,9 @@ def multiturn_smoke(
     """
     from pathlib import Path
 
-    from text2sql_rlvr.data.artifacts import SPIDER_HF_REVISION
-    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
-    from text2sql_rlvr.train.multiturn import MultiTurnHyperparams, run_multiturn_smoke
+    from llm_rlvr_sql.data.artifacts import SPIDER_HF_REVISION
+    from llm_rlvr_sql.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from llm_rlvr_sql.train.multiturn import MultiTurnHyperparams, run_multiturn_smoke
 
     dbs = ensure_spider_databases(Path(RUNS_DIR) / "data" / "spider")
     schemas = load_schemas(dbs.tables_json)
@@ -411,12 +411,12 @@ def multiturn_eval(
     """
     from pathlib import Path
 
-    from text2sql_rlvr.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
-    from text2sql_rlvr.data.bird import ensure_bird_dev, load_bird_examples
-    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
-    from text2sql_rlvr.eval.completions import write_completion_set, write_json
-    from text2sql_rlvr.eval.multiturn_generate import generate_multiturn
-    from text2sql_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr_sql.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
+    from llm_rlvr_sql.data.bird import ensure_bird_dev, load_bird_examples
+    from llm_rlvr_sql.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from llm_rlvr_sql.eval.completions import write_completion_set, write_json
+    from llm_rlvr_sql.eval.multiturn_generate import generate_multiturn
+    from llm_rlvr_sql.eval.provenance import DecodingConfig
 
     data_root = Path(RUNS_DIR) / "data"
     if dataset == "spider":
@@ -483,10 +483,10 @@ def forced_revision_smoke(
     """
     from pathlib import Path
 
-    from text2sql_rlvr.data.artifacts import SPIDER_HF_REVISION
-    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
-    from text2sql_rlvr.train.forced_revision import run_forced_revision_smoke
-    from text2sql_rlvr.train.grpo import GrpoHyperparams
+    from llm_rlvr_sql.data.artifacts import SPIDER_HF_REVISION
+    from llm_rlvr_sql.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from llm_rlvr_sql.train.forced_revision import run_forced_revision_smoke
+    from llm_rlvr_sql.train.grpo import GrpoHyperparams
 
     dbs = ensure_spider_databases(Path(RUNS_DIR) / "data" / "spider")
     schemas = load_schemas(dbs.tables_json)
@@ -538,10 +538,10 @@ def forced_revision_train(
     """
     from pathlib import Path
 
-    from text2sql_rlvr.data.artifacts import SPIDER_HF_REVISION
-    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
-    from text2sql_rlvr.train.forced_revision import run_forced_revision_train
-    from text2sql_rlvr.train.grpo import GrpoHyperparams
+    from llm_rlvr_sql.data.artifacts import SPIDER_HF_REVISION
+    from llm_rlvr_sql.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from llm_rlvr_sql.train.forced_revision import run_forced_revision_train
+    from llm_rlvr_sql.train.grpo import GrpoHyperparams
 
     dbs = ensure_spider_databases(Path(RUNS_DIR) / "data" / "spider")
     schemas = load_schemas(dbs.tables_json)
@@ -595,17 +595,17 @@ def forced_revision_eval(
     Writes a normal CompletionSet plus the full transcripts under `grpo-fr/eval/`."""
     from pathlib import Path
 
-    from text2sql_rlvr.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
-    from text2sql_rlvr.data.bird import ensure_bird_dev, load_bird_examples
-    from text2sql_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
-    from text2sql_rlvr.eval.completions import write_completion_set, write_json
-    from text2sql_rlvr.eval.forced_revision_generate import (
+    from llm_rlvr_sql.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
+    from llm_rlvr_sql.data.bird import ensure_bird_dev, load_bird_examples
+    from llm_rlvr_sql.data.spider import ensure_spider_databases, load_examples, load_schemas
+    from llm_rlvr_sql.eval.completions import write_completion_set, write_json
+    from llm_rlvr_sql.eval.forced_revision_generate import (
         forced_revision_artifact_stem,
         generate_forced_revision,
         validate_forced_revision_policy,
     )
-    from text2sql_rlvr.eval.fr_metrics import compute_forced_revision_eval_report
-    from text2sql_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr_sql.eval.fr_metrics import compute_forced_revision_eval_report
+    from llm_rlvr_sql.eval.provenance import DecodingConfig
 
     policy = validate_forced_revision_policy(policy)
     data_root = Path(RUNS_DIR) / "data"
@@ -685,8 +685,8 @@ def raw_generate(
     import json
     from pathlib import Path
 
-    from text2sql_rlvr.eval.generate import _run_vllm
-    from text2sql_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr_sql.eval.generate import _run_vllm
+    from llm_rlvr_sql.eval.provenance import DecodingConfig
 
     rows = [
         json.loads(line)

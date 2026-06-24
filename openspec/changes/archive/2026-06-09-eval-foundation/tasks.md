@@ -1,7 +1,7 @@
 ## 1. Repo scaffolding
 
-- [x] 1.1 Create `pyproject.toml` (uv, project `text2sql-rlvr`, Python 3.11) with ruff (line length 100, the rule set mirroring `grpo-gain-decomposition`) and pytest config (network/integration deselected by default).
-- [x] 1.2 Create the `src/text2sql_rlvr/` package layout (`data/`, `env/`, `eval/`, `py.typed`) and `tests/`.
+- [x] 1.1 Create `pyproject.toml` (uv, project `llm-rlvr-sql`, Python 3.11) with ruff (line length 100, the rule set mirroring `grpo-gain-decomposition`) and pytest config (network/integration deselected by default).
+- [x] 1.2 Create the `src/llm_rlvr_sql/` package layout (`data/`, `env/`, `eval/`, `py.typed`) and `tests/`.
 - [x] 1.3 Define optional extras: a CPU base layer (`datasets`, `pydantic`) that installs and tests without the GPU stack; a `generate` extra (`transformers`, `torch`); `vllm` behind a GPU extra. Verify `uv sync` installs the CPU layer alone.
 - [x] 1.4 Add a `Makefile` (`install`, `fmt`, `lint`, `test`, `check`) and pre-commit mirroring the reference repo; `make check` = ruff + unit tests.
 

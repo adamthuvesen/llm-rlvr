@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from text2sql_rlvr.data import ensure_spider_databases, load_schemas, resolve_database
+from llm_rlvr_sql.data import ensure_spider_databases, load_schemas, resolve_database
 
 
 @pytest.mark.integration

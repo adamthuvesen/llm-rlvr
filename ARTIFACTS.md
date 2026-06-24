@@ -1,7 +1,7 @@
 # Reproducibility manifest
 
 Every external artifact this project depends on, pinned. Code pins live in
-[`src/text2sql_rlvr/data/artifacts.py`](src/text2sql_rlvr/data/artifacts.py); this file is the
+[`src/llm_rlvr_sql/data/artifacts.py`](src/llm_rlvr_sql/data/artifacts.py); this file is the
 human-readable mirror. The main result is reproducible from a committed `CompletionSet` with
 `make data && make eval` (CPU only, no model).
 
@@ -35,7 +35,7 @@ checksummed artifact above (design D2/R1). BIRD's `dev.zip` is one self-hosted b
 
 The verifier is parity-tested against upstream (`tests/test_verifier_parity.py`); the only
 modifications to vendored code are documented in
-`src/text2sql_rlvr/third_party/test_suite_sql_eval/ATTRIBUTION.md`.
+`src/llm_rlvr_sql/third_party/test_suite_sql_eval/ATTRIBUTION.md`.
 
 ## Committed evaluation artifacts
 

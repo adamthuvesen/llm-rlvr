@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from text2sql_rlvr.eval.provenance import (
+from llm_rlvr_sql.eval.provenance import (
     GenerationProvenance,
     build_generation_provenance,
     library_versions,
 )
-from text2sql_rlvr.eval.score import ScoreReport
-from text2sql_rlvr.eval.verifier import VerifierConfig
+from llm_rlvr_sql.eval.score import ScoreReport
+from llm_rlvr_sql.eval.verifier import VerifierConfig
 
 
 def test_provenance_round_trips(provenance: GenerationProvenance) -> None:
@@ -17,7 +17,7 @@ def test_provenance_round_trips(provenance: GenerationProvenance) -> None:
 
 
 def test_adapter_identity_recorded_when_present() -> None:
-    from text2sql_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr_sql.eval.provenance import DecodingConfig
 
     prov = build_generation_provenance(
         model="m",
@@ -41,11 +41,11 @@ def test_no_adapter_provenance_defaults_to_none(provenance: GenerationProvenance
 
 def test_library_versions_includes_this_package() -> None:
     versions = library_versions()
-    assert versions["rlvr-sql"] != "not-installed"
+    assert versions["llm-rlvr-sql"] != "not-installed"
 
 
 def test_build_provenance_captures_git_and_libs() -> None:
-    from text2sql_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr_sql.eval.provenance import DecodingConfig
 
     prov = build_generation_provenance(
         model="m",
@@ -57,11 +57,11 @@ def test_build_provenance_captures_git_and_libs() -> None:
         decoding=DecodingConfig(),
     )
     assert isinstance(prov.git_commit, str) and prov.git_commit
-    assert "rlvr-sql" in prov.library_versions
+    assert "llm-rlvr-sql" in prov.library_versions
 
 
 def test_provenance_records_resolved_exemplars() -> None:
-    from text2sql_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr_sql.eval.provenance import DecodingConfig
 
     prov = build_generation_provenance(
         model="m",

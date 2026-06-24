@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from text2sql_rlvr.eval.verifier import execution_match
-from text2sql_rlvr.third_party.test_suite_sql_eval.exec_eval import eval_exec_match
+from llm_rlvr_sql.eval.verifier import execution_match
+from llm_rlvr_sql.third_party.test_suite_sql_eval.exec_eval import eval_exec_match
 
 # (prediction, gold) pairs spanning match / column-order / order-by / empty / mismatch.
 PAIRS = [

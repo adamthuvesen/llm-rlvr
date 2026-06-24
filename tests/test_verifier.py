@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from text2sql_rlvr.eval.verifier import (
+from llm_rlvr_sql.eval.verifier import (
     GoldExecutionError,
     VerifierConfig,
     execution_match,

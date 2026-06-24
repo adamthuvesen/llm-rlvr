@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from text2sql_rlvr.data import ForeignKey, resolve_database, serialize_schema, verify_sha256
-from text2sql_rlvr.data.spider import load_schemas, parse_schema
+from llm_rlvr_sql.data import ForeignKey, resolve_database, serialize_schema, verify_sha256
+from llm_rlvr_sql.data.spider import load_schemas, parse_schema
 
 TABLES_ENTRY = {
     "db_id": "concert",
