@@ -1,6 +1,6 @@
 ## Context
 
-This is the first change in the `text2sql-rlvr` project (greenfield repo). It builds the Stage-0
+This is the first change in the `llm-rlvr-sql` project (greenfield repo). It builds the Stage-0
 evaluation foundation that every later RL stage depends on: the same verifier that scores the
 baseline becomes the result-match component of the training reward. The project deliberately mirrors
 `grpo-gain-decomposition` conventions (package layout, Pydantic provenance, CPU/GPU extra split,

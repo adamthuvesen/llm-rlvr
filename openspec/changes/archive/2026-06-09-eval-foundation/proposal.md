@@ -10,7 +10,7 @@ getting it correct now prevents a silently-wrong reward from corrupting all down
 ## What Changes
 
 - Scaffold the repo: `uv`/`pyproject.toml`, `ruff` (line 100), `pytest`, and the
-  `src/text2sql_rlvr/` package layout, with a CPU/GPU dependency split (eval/data layer installs
+  `src/llm_rlvr_sql/` package layout, with a CPU/GPU dependency split (eval/data layer installs
   and tests without the training stack).
 - **Spider data layer**: load Spider NL→SQL pairs from a **pinned** `xlangai/spider` HF parquet
   revision, plus the **separately-downloaded, checksummed** Spider SQLite databases (which
@@ -49,7 +49,7 @@ trustworthy baseline."
 
 ## Impact
 
-- **New code**: `src/text2sql_rlvr/{data,env,eval}/`, vendored `taoyds/test-suite-sql-eval` under a
+- **New code**: `src/llm_rlvr_sql/{data,env,eval}/`, vendored `taoyds/test-suite-sql-eval` under a
   clearly-attributed third-party path, `pyproject.toml`, `Makefile`, tests under `tests/`.
 - **New dependencies**: `datasets`, `pydantic`, and a generation backend (`transformers`/`torch`,
   with `vllm` behind a GPU extra). License note: Spider is CC-BY-SA-4.0 (attribute + share-alike);

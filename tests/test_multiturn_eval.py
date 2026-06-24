@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from text2sql_rlvr.env.text2sql_env import TurnRecord
-from text2sql_rlvr.eval.multiturn_generate import (
+from llm_rlvr_sql.env.text2sql_env import TurnRecord
+from llm_rlvr_sql.eval.multiturn_generate import (
     MultiTurnEpisode,
     MultiTurnTranscriptSet,
     parse_tool_call,
 )
-from text2sql_rlvr.eval.provenance import DecodingConfig, GenerationProvenance
+from llm_rlvr_sql.eval.provenance import DecodingConfig, GenerationProvenance
 
 
 def test_parse_tool_call_qwen_wire_format() -> None:

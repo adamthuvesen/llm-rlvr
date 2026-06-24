@@ -1853,6 +1853,63 @@ wheels = [
 ]
 
 [[package]]
+name = "llm-rlvr-sql"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "datasets" },
+    { name = "huggingface-hub" },
+    { name = "pydantic" },
+    { name = "sqlparse" },
+    { name = "tqdm" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+generate = [
+    { name = "torch" },
+    { name = "transformers" },
+]
+gpu = [
+    { name = "torch" },
+    { name = "transformers" },
+    { name = "vllm" },
+]
+train = [
+    { name = "accelerate" },
+    { name = "peft" },
+    { name = "torch" },
+    { name = "transformers" },
+    { name = "trl" },
+    { name = "vllm" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "accelerate", marker = "extra == 'train'", specifier = ">=1.0" },
+    { name = "datasets", specifier = ">=3.0" },
+    { name = "huggingface-hub", specifier = ">=0.25" },
+    { name = "llm-rlvr-sql", extras = ["generate"], marker = "extra == 'gpu'" },
+    { name = "llm-rlvr-sql", extras = ["gpu"], marker = "extra == 'train'" },
+    { name = "peft", marker = "extra == 'train'", specifier = ">=0.14" },
+    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.8" },
+    { name = "pydantic", specifier = ">=2.7,<3" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
+    { name = "sqlparse", specifier = ">=0.5" },
+    { name = "torch", marker = "extra == 'generate'", specifier = ">=2.4" },
+    { name = "tqdm", specifier = ">=4.66" },
+    { name = "transformers", marker = "extra == 'generate'", specifier = ">=4.48" },
+    { name = "trl", marker = "extra == 'train'", specifier = ">=1.3" },
+    { name = "vllm", marker = "extra == 'gpu'" },
+]
+provides-extras = ["generate", "gpu", "train", "dev"]
+
+[[package]]
 name = "llvmlite"
 version = "0.47.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4410,63 +4467,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/6b/5b/bb4f9420802bf73678033a4a55ab1bede36ce2e9b41fec5f966d83d932b3/rignore-0.7.6-pp311-pypy311_pp73-musllinux_1_2_i686.whl", hash = "sha256:57e8327aacc27f921968cb2a174f9e47b084ce9a7dd0122c8132d22358f6bd79", size = 1120308, upload-time = "2025-11-05T21:40:59.402Z" },
     { url = "https://files.pythonhosted.org/packages/ce/8b/a1299085b28a2f6135e30370b126e3c5055b61908622f2488ade67641479/rignore-0.7.6-pp311-pypy311_pp73-musllinux_1_2_x86_64.whl", hash = "sha256:d8955b57e42f2a5434670d5aa7b75eaf6e74602ccd8955dddf7045379cd762fb", size = 1129444, upload-time = "2025-11-05T21:41:17.906Z" },
 ]
-
-[[package]]
-name = "rlvr-sql"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "datasets" },
-    { name = "huggingface-hub" },
-    { name = "pydantic" },
-    { name = "sqlparse" },
-    { name = "tqdm" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-generate = [
-    { name = "torch" },
-    { name = "transformers" },
-]
-gpu = [
-    { name = "torch" },
-    { name = "transformers" },
-    { name = "vllm" },
-]
-train = [
-    { name = "accelerate" },
-    { name = "peft" },
-    { name = "torch" },
-    { name = "transformers" },
-    { name = "trl" },
-    { name = "vllm" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "accelerate", marker = "extra == 'train'", specifier = ">=1.0" },
-    { name = "datasets", specifier = ">=3.0" },
-    { name = "huggingface-hub", specifier = ">=0.25" },
-    { name = "peft", marker = "extra == 'train'", specifier = ">=0.14" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.8" },
-    { name = "pydantic", specifier = ">=2.7,<3" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
-    { name = "rlvr-sql", extras = ["generate"], marker = "extra == 'gpu'" },
-    { name = "rlvr-sql", extras = ["gpu"], marker = "extra == 'train'" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
-    { name = "sqlparse", specifier = ">=0.5" },
-    { name = "torch", marker = "extra == 'generate'", specifier = ">=2.4" },
-    { name = "tqdm", specifier = ">=4.66" },
-    { name = "transformers", marker = "extra == 'generate'", specifier = ">=4.48" },
-    { name = "trl", marker = "extra == 'train'", specifier = ">=1.3" },
-    { name = "vllm", marker = "extra == 'gpu'" },
-]
-provides-extras = ["generate", "gpu", "train", "dev"]
 
 [[package]]
 name = "rpds-py"

@@ -114,7 +114,7 @@
     manifest `results/grpo-mt/tooluse.manifest.json`, 188 steps, LR 2e-5, 1 epoch, ~14 min
     A100 ≈ $0.60; warm-start `grpo/grpo-s0`; final loss ≈ 0.47, token-acc ≈ 0.89).
   - **GATE RESULTS (2026-06-12, all four CompletionSets committed under `results/grpo-mt/`,
-    transcripts included; re-derive with `text2sql-rlvr score`):**
+    transcripts included; re-derive with `llm-rlvr-sql score`):**
     - *Gate (a) — forgetting (single-turn greedy, `cot`, vs the Stage-2 seed-0 anchor):*
       Spider-dev **0.6983 vs 0.7795 (−8.1pt)**; BIRD-dev **0.3748 vs 0.4081 (−3.3pt)**.
       Both remain above the Stage-1 SFT level (0.678 / 0.344), but a large share of the

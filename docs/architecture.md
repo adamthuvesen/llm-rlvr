@@ -30,14 +30,14 @@ third_party/   vendored Test-Suite SQL Eval (execution-match path only; Apache 2
 ```
 
 `modal_app.py` (repo root) is the only GPU surface; `src/` never imports Modal, and the GPU
-functions import `text2sql_rlvr` lazily so the package installs and tests without the training stack.
+functions import `llm_rlvr_sql` lazily so the package installs and tests without the training stack.
 
 ## Data and result flow
 
 ```
 HF mirrors (pinned)         GPU (Modal A100-80GB)              CPU (local, model-free)
 HAL-9001/spider-databases → generate/sample/train on Volume → pull JSON → score → aggregate → report
-HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (committed) → make eval
+HAL-9001/bird-dev           llm-rlvr-sql-runs:/runs/{data,sft,grpo}  results/ (committed) → make eval
 ```
 
 - **CompletionSet** (`eval/completions.py`) is the boundary object: `generate` (the *only*
@@ -91,11 +91,11 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (commi
 
 ## Modal (GPU runner)
 
-- App `text2sql-rlvr-baseline`; Volumes `text2sql-runs` (`/runs`) + `text2sql-hf-cache`.
+- App `llm-rlvr-sql-baseline`; Volumes `llm-rlvr-sql-runs` (`/runs`) + `llm-rlvr-sql-hf-cache`.
 - Two-layer image: the heavy CUDA/torch/vLLM layer is keyed on `pyproject.toml`+`uv.lock` only, so a
   source edit re-runs just the fast editable relink, not the multi-GB install.
 - Image ignore patterns are **root-anchored** (`data/**`, not `**/data`) — a deep glob would strip
-  the `src/text2sql_rlvr/data/` package out of the image (this bit once).
+  the `src/llm_rlvr_sql/data/` package out of the image (this bit once).
 - Entrypoints are thin `@app.local_entrypoint`s, each mirroring a GPU `@app.function` and taking
   `--spawn`. Stages 0–2: `main` (baseline/adapter generate), `traces` (STaR sampling), `sft`,
   `grpo` — all base-model-parametric (Qwen default, Llama control). The self-correction surfaces add

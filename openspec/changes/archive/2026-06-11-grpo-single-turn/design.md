@@ -50,7 +50,7 @@ Stage-0 verifier for its reward.
   mode on a 2nd GPU (the fallback if colocate OOMs, not the default).
 
 ### D2 — Composable reward: shaped 4-part + a near-binary arm, single-DB train / test-suite eval
-`src/text2sql_rlvr/rewards/` exposes one TRL reward-function signature over `(prompts, completions,
+`src/llm_rlvr_sql/rewards/` exposes one TRL reward-function signature over `(prompts, completions,
 gold)`. The **shaped** arm (SQL-R1) sums `format` + `executable` + `result_match` + `length`; the
 **near-binary** arm (Arctic) returns `1.0` exact / `0.1` executable / `0` else. The arm and its
 weights are config, not hard-coded. The **training** reward uses cheap **single-DB** execution-match

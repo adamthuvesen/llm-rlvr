@@ -17,12 +17,12 @@ that measures the gain also bootstraps the model.
   own correct reasoning, in its own distribution.
 - **LoRA SFT on Modal.** A new TRL `SFTTrainer` + PEFT LoRA training function on a single A100-80GB
   (bf16, `target_modules='all-linear'`, rank 32–64), trained on the trace dataset, saving the
-  **adapter** to the `text2sql-runs` Volume with full provenance (base model, LoRA config, data
+  **adapter** to the `llm-rlvr-sql-runs` Volume with full provenance (base model, LoRA config, data
   hash, git commit).
 - **Adapter evaluation.** The eval/generate path gains the ability to load a LoRA adapter over the
   base, so the SFT checkpoint is scored with the *same* verifier and we report **SFT-vs-base** EX +
   a well-formed-format rate on Spider-dev and BIRD-dev.
-- **A `train` dependency extra** (`trl>=1.3`, `peft`, `accelerate`) and a `src/text2sql_rlvr/train/`
+- **A `train` dependency extra** (`trl>=1.3`, `peft`, `accelerate`) and a `src/llm_rlvr_sql/train/`
   module. RUNBOOK + ARTIFACTS updated with the SFT procedure and the checkpoint as a pinned artifact.
 - Documented fallbacks if the checkpoint is weak (low format rate or EX regression): a small SynSQL
   pull, or teacher-distilled traces. Out of scope here.
@@ -43,7 +43,7 @@ that measures the gain also bootstraps the model.
 
 ## Impact
 
-- **New:** `src/text2sql_rlvr/train/` (LoRA SFT config + trainer wrapper, the trace-dataset builder
+- **New:** `src/llm_rlvr_sql/train/` (LoRA SFT config + trainer wrapper, the trace-dataset builder
   reusing `eval.generate` + `eval.score`, typed SFT records); a `train` optional-dependency extra.
 - **Modified:** `modal_app.py` (add the SFT training function + entrypoint; add an adapter arg to the
   generation function); `eval/generate.py` (load a LoRA adapter over the base in both the vLLM and

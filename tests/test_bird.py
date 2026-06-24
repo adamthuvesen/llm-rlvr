@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from text2sql_rlvr.data.bird import _bird_dev_at, load_bird_examples
+from llm_rlvr_sql.data.bird import _bird_dev_at, load_bird_examples
 
 BIRD_ROWS = [
     {

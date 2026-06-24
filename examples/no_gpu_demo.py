@@ -10,14 +10,14 @@ import sqlite3
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from text2sql_rlvr.data.models import Example
-from text2sql_rlvr.eval.completions import (
+from llm_rlvr_sql.data.models import Example
+from llm_rlvr_sql.eval.completions import (
     CompletionSet,
     GenerationSample,
     ProblemCompletions,
 )
-from text2sql_rlvr.eval.provenance import DecodingConfig, GenerationProvenance
-from text2sql_rlvr.eval.score import score_completion_set
+from llm_rlvr_sql.eval.provenance import DecodingConfig, GenerationProvenance
+from llm_rlvr_sql.eval.score import score_completion_set
 
 
 def _build_demo_db(db_root: Path) -> None:
@@ -75,7 +75,7 @@ def _completion_set() -> CompletionSet:
 
 
 def main() -> int:
-    with TemporaryDirectory(prefix="rlvr-sql-demo-") as tmp:
+    with TemporaryDirectory(prefix="llm-rlvr-sql-demo-") as tmp:
         db_root = Path(tmp) / "database"
         _build_demo_db(db_root)
         report = score_completion_set(_completion_set(), db_root)

@@ -1,7 +1,7 @@
 ## 1. Dependencies + module scaffold
 
 - [x] 1.1 Add a `train` optional-dependency extra (`trl>=1.3` — prefer 1.5.1 — `peft`, `accelerate`) keyed off the existing `gpu` extra; resolve `uv.lock`; verify TRL ↔ transformers 5.x ↔ vLLM compatibility against the current pins (vllm 0.22.1 / torch 2.11.0 / transformers 5.10.2) and record the working triple.
-- [x] 1.2 Scaffold `src/text2sql_rlvr/train/` (package `__init__`, frozen Pydantic record types for an SFT example + dataset/checkpoint provenance).
+- [x] 1.2 Scaffold `src/llm_rlvr_sql/train/` (package `__init__`, frozen Pydantic record types for an SFT example + dataset/checkpoint provenance).
 
 ## 2. Cold-start trace dataset (coldstart-trace-dataset)
 

@@ -1,7 +1,7 @@
 # Reproducibility manifest
 
 Every external artifact this project depends on, pinned. Code pins live in
-[`src/text2sql_rlvr/data/artifacts.py`](src/text2sql_rlvr/data/artifacts.py); this file is the
+[`src/llm_rlvr_sql/data/artifacts.py`](src/llm_rlvr_sql/data/artifacts.py); this file is the
 human-readable mirror. The main result is reproducible from a committed `CompletionSet` with
 `make data && make eval` (CPU only, no model).
 
@@ -25,7 +25,7 @@ checksummed artifact above (design D2/R1). BIRD's `dev.zip` is one self-hosted b
 | --- | --- | --- |
 | Base model | `Qwen/Qwen2.5-Coder-3B-Instruct` at HF `main`; the SFT run pins commit `488639f1ff808d1d3d0ba301aef8c11461451ec5` | Apache 2.0 |
 | Cross-family base | `unsloth/Llama-3.2-3B-Instruct` (ungated mirror, byte-identical weights to gated `meta-llama/Llama-3.2-3B-Instruct`; repo id recorded in every artifact's provenance) | Llama 3.2 Community |
-| Stage-1 LoRA adapter `sft-r32` | Modal Volume `text2sql-runs` → `sft/sft-r32/` (provenance.json: base commit above, rank 32 all-linear, trace-dataset SHA256, trl 1.5.1 / peft 0.19.1) | — |
+| Stage-1 LoRA adapter `sft-r32` | Modal Volume `llm-rlvr-sql-runs` → `sft/sft-r32/` (provenance.json: base commit above, rank 32 all-linear, trace-dataset SHA256, trl 1.5.1 / peft 0.19.1) | — |
 | Stage-1 trace dataset | 2,971 traces; manifest `results/sft/traces.manifest.json`; JSONL SHA256 `b02435e49f183425299f3167503883d0b006faf884f7705fc02abc3ad34613e6` (bulk on the Volume at `sft/traces.jsonl`) | self-generated |
 | Stage-2 GRPO adapters (main result) | Volume → `grpo/grpo-s0`, `grpo/grpo-s1`, `grpo/grpo-s2` — **locked LR 5e-5** (pilot-measured), shaped reward, seeds 0/1/2, warm-start `sft/sft-r32`; full config in each `provenance.json` | — |
 | Stage-2 reward ablation adapter | Volume → `grpo/grpo-nb-s0` — identical config, `near_binary` arm (1.0/0.1/0) | — |
@@ -35,7 +35,7 @@ checksummed artifact above (design D2/R1). BIRD's `dev.zip` is one self-hosted b
 
 The verifier is parity-tested against upstream (`tests/test_verifier_parity.py`); the only
 modifications to vendored code are documented in
-`src/text2sql_rlvr/third_party/test_suite_sql_eval/ATTRIBUTION.md`.
+`src/llm_rlvr_sql/third_party/test_suite_sql_eval/ATTRIBUTION.md`.
 
 ## Committed evaluation artifacts
 

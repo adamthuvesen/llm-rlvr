@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from text2sql_rlvr.report import SINGLE_DB_CAVEAT, build_rl_row, render_progression
+from llm_rlvr_sql.report import SINGLE_DB_CAVEAT, build_rl_row, render_progression
 
 
 def test_headline_row_carries_seed_level_ci_and_gain_bar() -> None:

@@ -6,7 +6,7 @@ import statistics
 
 import pytest
 
-from text2sql_rlvr.eval.aggregate import rl_vs_sft_gain, seed_level_ci
+from llm_rlvr_sql.eval.aggregate import rl_vs_sft_gain, seed_level_ci
 
 
 def test_single_seed_reports_a_point_not_an_interval() -> None:

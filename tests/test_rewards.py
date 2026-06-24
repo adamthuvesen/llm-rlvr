@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from text2sql_rlvr.rewards import RewardConfig, make_reward_fn, score_completion
+from llm_rlvr_sql.rewards import RewardConfig, make_reward_fn, score_completion
 
 # A completion led by <think> then one sql fence (the clean, cheap target format).
 GOLD = "SELECT a FROM t"

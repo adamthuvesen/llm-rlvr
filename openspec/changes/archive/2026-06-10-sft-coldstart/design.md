@@ -80,7 +80,7 @@ candidate-per-question structure of its own.
 
 ### D5 — Adapter checkpoint persisted to the Volume; eval loads LoRA over the base
 SFT saves the **adapter** (`adapter_model.safetensors` + `adapter_config.json`) to the
-`text2sql-runs` Volume under `sft/<run-id>/`, with a training-provenance record (base model + commit,
+`llm-rlvr-sql-runs` Volume under `sft/<run-id>/`, with a training-provenance record (base model + commit,
 LoRA config, trace-dataset hash, TRL/peft versions, git commit). Evaluation extends `generate()` to
 load a LoRA adapter over the base — vLLM via `enable_lora` + `LoRARequest`, transformers via
 `PeftModel.from_pretrained` — and records base+adapter in the completion provenance, so the SFT

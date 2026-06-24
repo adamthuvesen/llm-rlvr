@@ -31,7 +31,7 @@
 
 ## 2. Reward module (`reward-functions`)
 
-- [x] 2.1 `src/text2sql_rlvr/rewards/`: a TRL reward-function over `(prompts, completions, gold)` that
+- [x] 2.1 `src/llm_rlvr_sql/rewards/`: a TRL reward-function over `(prompts, completions, gold)` that
   parses SQL, executes via the Stage-0 read-only sandbox, and scores result-match with the verifier —
   reusing `env.sandbox` + `eval.verifier`, never raising on unparseable/erroring SQL.
 - [x] 2.2 Shaped arm (`format` + `executable` + `result_match` + `length`) with config-driven
@@ -43,11 +43,11 @@
 
 ## 3. GRPO training (`grpo-training`)
 
-- [x] 3.1 `src/text2sql_rlvr/train/grpo.py`: a typed `GRPOConfig` wrapper (LoRA all-linear rank 32/
+- [x] 3.1 `src/llm_rlvr_sql/train/grpo.py`: a typed `GRPOConfig` wrapper (LoRA all-linear rank 32/
   alpha 64 bf16, `num_generations` 4, `max_completion_length` 1024–1536, LR + KL/beta + seed) and a
   trainer wrapper that warm-starts from the Stage-1 SFT adapter and wires in the reward module.
 - [x] 3.2 `modal_app.py`: a `grpo_train` GPU function (single A100-80GB, vLLM colocate) + a local
-  entrypoint mirroring the `sft` entrypoint; persist the adapter to the `text2sql-runs` Volume under a
+  entrypoint mirroring the `sft` entrypoint; persist the adapter to the `llm-rlvr-sql-runs` Volume under a
   run-scoped path, base + SFT adapter untouched.
 - [x] 3.3 Base-model-parametric: thread a base-model id through `grpo_train` (Qwen default,
   Llama-3.2-3B for the control) so one recipe trains both families.
@@ -75,7 +75,7 @@
 - [x] 5.1 Seed-level aggregation in `eval/aggregate.py`: `seed_level_ci` (mean + 95% Student-t CI over
   per-seed EX, point-only for n=1) and `rl_vs_sft_gain` (per-seed RL EX minus the greedy SFT anchor,
   with `excludes_zero` as the headline bar). Never pools rollouts across seeds; t-crit lookup table,
-  no scipy. Exported from `text2sql_rlvr.eval`.
+  no scipy. Exported from `llm_rlvr_sql.eval`.
 - [x] 5.2 DONE (2026-06-11): `make eval` renders base → SFT → RL on both benchmarks with
   seed-level CIs, the shaped-vs-near-binary ablation rows, AND the Llama cross-family staircase
   (two extra tables, 1-seed point-labeled).

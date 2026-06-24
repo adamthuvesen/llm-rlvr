@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from text2sql_rlvr.data.models import Example
-from text2sql_rlvr.eval.completions import (
+from llm_rlvr_sql.data.models import Example
+from llm_rlvr_sql.eval.completions import (
     assemble_completion_set,
     read_completion_set,
     write_completion_set,
 )
-from text2sql_rlvr.eval.provenance import GenerationProvenance
+from llm_rlvr_sql.eval.provenance import GenerationProvenance
 
 EXAMPLE = Example(db_id="concert", question="how many?", gold_sql="SELECT a FROM t", split="dev")
 

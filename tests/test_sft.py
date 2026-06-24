@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from text2sql_rlvr.train.sft import (
+from llm_rlvr_sql.train.sft import (
     SftHyperparams,
     build_adapter_provenance,
     lora_kwargs,
@@ -42,7 +42,7 @@ def test_real_configs_build_when_train_extra_installed() -> None:
     peft = pytest.importorskip("peft")
     trl = pytest.importorskip("trl")
 
-    from text2sql_rlvr.train.sft import build_lora_config, build_sft_config
+    from llm_rlvr_sql.train.sft import build_lora_config, build_sft_config
 
     lora = build_lora_config(SftHyperparams())
     assert isinstance(lora, peft.LoraConfig)
@@ -77,7 +77,7 @@ def test_adapter_provenance_hashes_dataset_and_records_versions(tmp_path: Path) 
 
 
 def test_adapter_provenance_round_trips(tmp_path: Path) -> None:
-    from text2sql_rlvr.train.sft import AdapterProvenance
+    from llm_rlvr_sql.train.sft import AdapterProvenance
 
     traces = tmp_path / "traces.jsonl"
     traces.write_text("{}\n", encoding="utf-8")
