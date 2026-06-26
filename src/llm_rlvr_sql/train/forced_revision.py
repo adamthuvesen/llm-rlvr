@@ -20,7 +20,7 @@ verified against the tagged source:
   - All other extra fields are forwarded per-row to the reward functions, which is how the
     attempt/revision texts reach the trajectory reward without re-parsing spliced text.
 
-The feedback segment's token ids are produced by chat-template differencing over a dummy
+The feedback segment's token ids are produced by chat-template differencing over a probe
 conversation — the same technique TRL's native tool loop uses (`_get_tool_suffix_ids`), with
 the same disclosed artifact: the spliced sequence omits the single newline the template would
 put between the assistant's EOS and the next user header. The smoke's mask + IS assertions
@@ -116,10 +116,10 @@ def attempt_feedback(
     return format_feedback(sandbox.execute(sql), config or FeedbackConfig())
 
 
-# The dummy conversation for suffix differencing: rendering it with and without the appended
+# The probe conversation for suffix differencing: rendering it with and without the appended
 # feedback turn isolates the token ids of "<assistant turn ends> user: <feedback> <generation
 # prompt>". Any default system prompt the template injects cancels out in the difference.
-_SUFFIX_DUMMY = (
+_SUFFIX_PROBE_CONVERSATION = (
     {"role": "user", "content": "d"},
     {"role": "assistant", "content": "d"},
 )
@@ -132,14 +132,14 @@ def build_suffix_ids(apply_chat_template: Callable[..., list[int]], user_content
     no-feedback render is not a strict prefix of the with-feedback render — a template where
     differencing is unsound must fail loudly, not corrupt the mask.
     """
-    dummy = [dict(m) for m in _SUFFIX_DUMMY]
+    probe_conversation = [dict(m) for m in _SUFFIX_PROBE_CONVERSATION]
     # return_dict=False: transformers v5 defaults apply_chat_template to a dict return; we
     # need the bare id list (TRL's own suffix builder passes the same flag).
     prefix = apply_chat_template(
-        dummy, add_generation_prompt=False, tokenize=True, return_dict=False
+        probe_conversation, add_generation_prompt=False, tokenize=True, return_dict=False
     )
     full = apply_chat_template(
-        [*dummy, {"role": "user", "content": user_content}],
+        [*probe_conversation, {"role": "user", "content": user_content}],
         add_generation_prompt=True,
         tokenize=True,
         return_dict=False,
