@@ -17,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from llm_rlvr_sql._base import Frozen
-from llm_rlvr_sql.data.spider import resolve_database
+from llm_rlvr_sql.data.paths import resolve_database
 from llm_rlvr_sql.eval.completions import CompletionSet
 from llm_rlvr_sql.eval.forced_revision_generate import (
     ForcedRevisionPolicy,
@@ -25,6 +25,7 @@ from llm_rlvr_sql.eval.forced_revision_generate import (
 )
 from llm_rlvr_sql.eval.parsing import extract_sql
 from llm_rlvr_sql.eval.verifier import VerifierConfig, execution_match
+from llm_rlvr_sql.revision.feedback import is_error_feedback
 
 
 class FrMetricsReport(Frozen):
@@ -68,8 +69,39 @@ class ForcedRevisionEvalReport(Frozen):
     n_second_generation: int
     second_generation_rate: float
     n_kept_attempt: int
-    runtime_notes: tuple[str, ...]
-    cost_notes: tuple[str, ...]
+    runtime_notes: tuple[str, ...] = ()
+    cost_notes: tuple[str, ...] = ()
+
+
+def _eval_report_from_metrics(
+    metrics: FrMetricsReport,
+    *,
+    policy: ForcedRevisionPolicy,
+    n_error_feedback: int,
+    n_second_generation: int,
+    n_items: int,
+) -> ForcedRevisionEvalReport:
+    return ForcedRevisionEvalReport(
+        policy=policy,
+        n=metrics.n,
+        n_skipped_gold_error=metrics.n_skipped_gold_error,
+        attempt_ex=metrics.attempt_ex,
+        final_ex=metrics.final_ex,
+        n_attempt_wrong=metrics.n_attempt_wrong,
+        n_fixed=metrics.n_fixed,
+        n_fixed_from_error_feedback=metrics.n_fixed_from_error_feedback,
+        n_fixed_from_result_feedback=metrics.n_fixed_from_result_feedback,
+        fix_rate=metrics.fix_rate,
+        n_attempt_right=metrics.n_attempt_right,
+        n_harmed=metrics.n_harmed,
+        harm_rate=metrics.harm_rate,
+        n_sql_changed=metrics.n_revised,
+        net_delta=metrics.net_delta,
+        n_error_feedback=n_error_feedback,
+        n_second_generation=n_second_generation,
+        second_generation_rate=n_second_generation / n_items if n_items else 0.0,
+        n_kept_attempt=n_items - n_second_generation,
+    )
 
 
 def compute_fr_metrics(
@@ -114,7 +146,7 @@ def compute_fr_metrics(
         n += 1
         attempt_correct += attempt_ok
         final_correct += final_ok
-        is_error_feedback = episode.feedback.startswith("Execution feedback: error")
+        has_error_feedback = is_error_feedback(episode.feedback)
         if attempt_sql is not None and final_sql is not None:
             n_revised += attempt_sql.strip() != final_sql.strip()
         elif attempt_sql != final_sql:
@@ -123,7 +155,7 @@ def compute_fr_metrics(
             n_wrong += 1
             if final_ok:
                 n_fixed += 1
-                if is_error_feedback:
+                if has_error_feedback:
                     n_fixed_err += 1
                 else:
                     n_fixed_res += 1
@@ -162,44 +194,16 @@ def compute_forced_revision_eval_report(
     metrics = compute_fr_metrics(completion_set, transcripts, db_root, verifier=verifier)
     n_items = len(transcripts.items)
     n_second_generation = sum(episode.revision_requested for episode in transcripts.items)
-    n_error_feedback = sum(
-        episode.feedback.startswith("Execution feedback: error") for episode in transcripts.items
-    )
+    n_error_feedback = sum(is_error_feedback(episode.feedback) for episode in transcripts.items)
     if policy == "error_only" and n_second_generation != n_error_feedback:
         raise ValueError(
             "error_only report accounting mismatch: "
             f"{n_second_generation} second generations for {n_error_feedback} error feedbacks"
         )
-    runtime_notes = (
-        "first pass generated for every example",
-        "second pass generated only for selected feedback under the policy",
-        "report computed locally from transcripts and read-only database execution",
-    )
-    cost_notes = (
-        f"second_generation_count={n_second_generation}",
-        f"second_generation_rate={n_second_generation / n_items:.4f}" if n_items else "n/a",
-        "no GPU/model cost is incurred by this CPU report",
-    )
-    return ForcedRevisionEvalReport(
+    return _eval_report_from_metrics(
+        metrics,
         policy=policy,
-        n=metrics.n,
-        n_skipped_gold_error=metrics.n_skipped_gold_error,
-        attempt_ex=metrics.attempt_ex,
-        final_ex=metrics.final_ex,
-        n_attempt_wrong=metrics.n_attempt_wrong,
-        n_fixed=metrics.n_fixed,
-        n_fixed_from_error_feedback=metrics.n_fixed_from_error_feedback,
-        n_fixed_from_result_feedback=metrics.n_fixed_from_result_feedback,
-        fix_rate=metrics.fix_rate,
-        n_attempt_right=metrics.n_attempt_right,
-        n_harmed=metrics.n_harmed,
-        harm_rate=metrics.harm_rate,
-        n_sql_changed=metrics.n_revised,
-        net_delta=metrics.net_delta,
         n_error_feedback=n_error_feedback,
         n_second_generation=n_second_generation,
-        second_generation_rate=n_second_generation / n_items if n_items else 0.0,
-        n_kept_attempt=n_items - n_second_generation,
-        runtime_notes=runtime_notes,
-        cost_notes=cost_notes,
+        n_items=n_items,
     )

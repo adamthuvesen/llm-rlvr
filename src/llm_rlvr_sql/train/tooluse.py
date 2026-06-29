@@ -18,15 +18,16 @@ wire format the trainer's parser expects. Everything is train-split only (R2 no-
 
 from __future__ import annotations
 
-import json
 import random
 import re
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from pathlib import Path
 
 from llm_rlvr_sql._base import Frozen
+from llm_rlvr_sql.data.jsonl import write_jsonl
 from llm_rlvr_sql.data.models import DatabaseSchema, Example
-from llm_rlvr_sql.data.spider import resolve_database, sha256_of
+from llm_rlvr_sql.data.paths import resolve_database, sha256_of
+from llm_rlvr_sql.data.splits import assert_train_split
 from llm_rlvr_sql.env.sandbox import ExecutionError, SqliteSandbox
 from llm_rlvr_sql.env.text2sql_env import (
     AGENT_ROW_CAP,
@@ -34,7 +35,8 @@ from llm_rlvr_sql.env.text2sql_env import (
     FeedbackConfig,
     format_feedback,
 )
-from llm_rlvr_sql.eval.prompt import MULTITURN_INSTRUCTION, _tool_call_message, _user_content
+from llm_rlvr_sql.eval.messages import tool_call_message, user_content
+from llm_rlvr_sql.eval.prompt import MULTITURN_INSTRUCTION
 from llm_rlvr_sql.eval.provenance import git_commit, git_is_dirty
 from llm_rlvr_sql.train.traces import SftTrace
 
@@ -172,7 +174,7 @@ def _transcript_rows(
     """Split one demonstration transcript into per-assistant-turn prompt-completion rows."""
     base: list[Message] = [
         {"role": "system", "content": MULTITURN_INSTRUCTION},
-        {"role": "user", "content": _user_content(schema_text, example.question)},
+        {"role": "user", "content": user_content(schema_text, example.question)},
     ]
     rows: list[ToolUseRow] = []
     prefix = list(base)
@@ -216,9 +218,7 @@ def build_tooluse_rows(
 
     mixed = mix or ToolUseMix()
     fb_config = feedback or FeedbackConfig()
-    leaked = sorted({example.split for example in examples if example.split != "train"})
-    if leaked:
-        raise ValueError(f"tool-use dataset must be train-split only; got splits {leaked}")
+    assert_train_split(examples, context="tool-use dataset")
 
     rng = random.Random(mixed.seed)
     order = list(examples)
@@ -242,7 +242,7 @@ def build_tooluse_rows(
         schema_text = serialize_schema(schemas[example.db_id])
         gold_feedback = format_feedback(gold_outcome, fb_config)
         success_turn = (
-            _tool_call_message(example.gold_sql),
+            tool_call_message(example.gold_sql),
             {"role": "tool", "content": gold_feedback},
         )
 
@@ -265,7 +265,7 @@ def build_tooluse_rows(
                     example,
                     schema_text,
                     [
-                        (_tool_call_message(bad_sql), {"role": "tool", "content": bad_feedback}),
+                        (tool_call_message(bad_sql), {"role": "tool", "content": bad_feedback}),
                         success_turn,
                     ],
                     _final_answer(think, example.gold_sql),
@@ -363,23 +363,17 @@ def render_text_row(
 
 def write_tooluse_dataset(rows: Sequence[ToolUseRow], path: str | Path) -> Path:
     """Write TRL conversational prompt-completion JSONL (one row per line), shuffled-as-given."""
-    out = Path(path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    lines = [
-        json.dumps(
-            {
-                "prompt": list(row.prompt),
-                "completion": list(row.completion),
-                "db_id": row.db_id,
-                "question": row.question,
-                "shape": row.shape,
-            },
-            ensure_ascii=False,
-        )
+    records = [
+        {
+            "prompt": list(row.prompt),
+            "completion": list(row.completion),
+            "db_id": row.db_id,
+            "question": row.question,
+            "shape": row.shape,
+        }
         for row in rows
     ]
-    out.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
-    return out
+    return write_jsonl(records, path)
 
 
 def build_tooluse_manifest(

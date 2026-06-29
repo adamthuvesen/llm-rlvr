@@ -22,7 +22,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from llm_rlvr_sql._base import Frozen
-from llm_rlvr_sql.data.spider import resolve_database
+from llm_rlvr_sql.data.paths import resolve_database
 from llm_rlvr_sql.env.sandbox import ExecutionError, ExecutionOutcome, SqliteSandbox
 
 # Agent-facing execution is deliberately tighter than verification: the model only needs a

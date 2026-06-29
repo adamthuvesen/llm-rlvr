@@ -92,7 +92,7 @@ def test_gold_error_drops_question_and_is_counted(scoring_root: Path) -> None:
 
 def test_train_only_guard_raises_on_dev_pool() -> None:
     dev = Example(db_id="concert", question="q", gold_sql="SELECT a FROM t", split="dev")
-    with pytest.raises(ValueError, match="train split only"):
+    with pytest.raises(ValueError, match="train-split examples only"):
         sample_candidates([dev], {}, model="m", sampling=TraceSamplingConfig())
 
 

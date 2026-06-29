@@ -15,9 +15,10 @@ from pathlib import Path
 from pydantic import Field
 
 from llm_rlvr_sql._base import Frozen
-from llm_rlvr_sql.data.spider import sha256_of
+from llm_rlvr_sql.data.paths import sha256_of
 from llm_rlvr_sql.eval.completions import write_json
 from llm_rlvr_sql.eval.provenance import git_commit, git_is_dirty, library_versions
+from llm_rlvr_sql.train.lora import lora_kwargs as shared_lora_kwargs
 
 _TRAIN_LIBRARIES = ("llm-rlvr-sql", "trl", "peft", "transformers", "torch", "accelerate")
 
@@ -42,14 +43,11 @@ class SftHyperparams(Frozen):
 
 def lora_kwargs(hyperparams: SftHyperparams) -> dict[str, object]:
     """PEFT `LoraConfig` kwargs: all-linear targets, the decided rank/alpha/dropout."""
-    return {
-        "task_type": "CAUSAL_LM",
-        "target_modules": "all-linear",
-        "r": hyperparams.lora_rank,
-        "lora_alpha": hyperparams.lora_alpha,
-        "lora_dropout": hyperparams.lora_dropout,
-        "bias": "none",
-    }
+    return shared_lora_kwargs(
+        rank=hyperparams.lora_rank,
+        alpha=hyperparams.lora_alpha,
+        dropout=hyperparams.lora_dropout,
+    )
 
 
 def sft_config_kwargs(hyperparams: SftHyperparams, output_dir: str | Path) -> dict[str, object]:

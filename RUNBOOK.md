@@ -9,7 +9,7 @@ reproducing the main numbers. Everything here is CPU/MPS-runnable except the GPU
 
 ```bash
 make install            # CPU env (data, sandbox, verifier, eval) — no GPU stack
-make check              # ruff + unit tests (the Stage-0 gate)
+make check              # ruff + unit tests (project gate)
 make data               # fetch + verify (SHA256) + extract the pinned Spider databases
 ```
 
@@ -74,15 +74,16 @@ uv run llm-rlvr-sql score --completions runs/spider-dev-zs.json --db-root data/s
 
 **Recorded base-model baseline** (Qwen2.5-Coder-3B-Instruct, greedy, full dev):
 
-| Benchmark | `<think>` zero-shot | direct zero-shot | few-shot k=3 (`<think>`) |
-| --- | --- | --- | --- |
-| Spider-dev (1034) | 0.625 | **0.669** | 0.677 |
-| BIRD-dev (1534) | 0.313 | **0.351** | — |
+| Benchmark         | `<think>` zero-shot | direct zero-shot | few-shot k=3 (`<think>`) |
+| ----------------- | ------------------- | ---------------- | ------------------------ |
+| Spider-dev (1034) | 0.625               | **0.669**        | 0.677                    |
+| BIRD-dev (1534)   | 0.313               | **0.351**        | —                        |
 
-**Methodology — two prompt styles, on purpose.** The un-trained base reasons *counterproductively*:
+**Methodology — two prompt styles, on purpose.** The un-trained base reasons _counterproductively_:
 the `<think>` chain-of-thought prompt depresses it (long rambling answers, ~1200 chars), while the
 **direct** "output only SQL" prompt and the few-shot demonstrations both suppress the reasoning
 (~130-char answers) and score higher. So we report two base numbers:
+
 - **direct** (0.669 / 0.351) — the fair, literature-comparable standalone base capability;
 - **`<think>` matched** (0.625 / 0.313) — the before-RL anchor, since the RL model will use `<think>`.
 
@@ -92,7 +93,7 @@ BIRD few-shot is deferred (it needs BIRD-train exemplars — a small follow-up).
 
 ## Stage 1: SFT cold-start (trace-gen → filter → SFT → adapter eval)
 
-The cold-start instills the `<think>…</think>` + ```sql``` format by self-distillation: sample the
+The cold-start instills the `<think>…</think>` + `sql` format by self-distillation: sample the
 base on Spider-train, keep only traces whose SQL execution-matches gold (the Stage-0 verifier is
 the data filter), LoRA-SFT on those, and evaluate the adapter with the identical pipeline.
 
@@ -234,7 +235,7 @@ are saturating (expected under near-binary; a shaped-arm rise means the dev slic
 Stage 3 (tool choice) closed without training — the 3B model never calls an offered tool
 (0/672; see ARTIFACTS). Stage 3b has no tool choice: every attempt is executed unconditionally,
 the gold-free feedback is spliced in loss-masked, and the model revises (hand-written TRL
-`rollout_func`; see `train/forced_revision.py`). The sequence and its verdicts:
+`rollout_func`; see `revision/rollout.py`). The sequence and its verdicts:
 
 ```bash
 modal run modal_app.py::fr_smoke                  # mask + IS-ratio + no-NaN assertions — PASSED
@@ -276,6 +277,10 @@ aborted pilot checkpoint, not new training evidence. `make eval` re-derives the 
 table.
 
 ## Reproduce the committed numbers (CPU only, no model)
+
+**When:** after changing `results/`, the verifier/scorer, or before claiming a pinned number —
+not on every commit. `make check` and CI do not run this; the n50 artifact regression test in
+pytest covers the re-derivation invariant on a small slice when Spider DBs are present.
 
 Every number in this repo — baseline, SFT, the 3-seed GRPO main result with CIs, both controls, and
 the Stage-3b documentation table — is a deterministic re-score of a committed `CompletionSet`:

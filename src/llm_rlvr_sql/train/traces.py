@@ -18,8 +18,10 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from llm_rlvr_sql._base import Frozen
+from llm_rlvr_sql.data.jsonl import write_jsonl
 from llm_rlvr_sql.data.models import DatabaseSchema, Example
-from llm_rlvr_sql.data.spider import resolve_database
+from llm_rlvr_sql.data.paths import resolve_database
+from llm_rlvr_sql.data.splits import assert_train_split
 from llm_rlvr_sql.eval.generate import build_prompts
 from llm_rlvr_sql.eval.parsing import extract_sql, well_formed
 from llm_rlvr_sql.eval.provenance import DecodingConfig, git_commit, git_is_dirty
@@ -105,11 +107,7 @@ def sample_candidates(
     Raises loudly if any example is not from the train split — the cold-start data must never
     be built from dev/test (the R2 no-leakage invariant, applied to training data).
     """
-    leaked = sorted({example.split for example in examples if example.split != "train"})
-    if leaked:
-        raise ValueError(
-            f"trace dataset must be built from the train split only; got splits {leaked}"
-        )
+    assert_train_split(examples, context="trace dataset")
     prompts = build_prompts(examples, schemas, style="cot")
     sampled = _sample_vllm(prompts, model=model, sampling=sampling)
     return tuple(
@@ -225,22 +223,16 @@ def build_trace_manifest(
 
 def write_trace_dataset(traces: Sequence[SftTrace], path: str | Path) -> Path:
     """Write TRL conversational prompt-completion JSONL (one record per line)."""
-    out = Path(path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    lines = [
-        json.dumps(
-            {
-                "prompt": list(trace.prompt),
-                "completion": [{"role": "assistant", "content": trace.completion}],
-                "db_id": trace.db_id,
-                "question": trace.question,
-            },
-            ensure_ascii=False,
-        )
+    records = [
+        {
+            "prompt": list(trace.prompt),
+            "completion": [{"role": "assistant", "content": trace.completion}],
+            "db_id": trace.db_id,
+            "question": trace.question,
+        }
         for trace in traces
     ]
-    out.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
-    return out
+    return write_jsonl(records, path)
 
 
 def read_trace_dataset(path: str | Path) -> tuple[SftTrace, ...]:

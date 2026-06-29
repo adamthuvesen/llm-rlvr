@@ -89,6 +89,7 @@ make eval
 `make eval` is CPU-only and model-free: it loads committed completion sets, runs the verifier, and
 prints the progression tables plus the retry follow-up numbers.
 It may take a few minutes because it executes the saved SQL against Spider and BIRD databases.
+Run it when artifacts or scoring change — not as part of the routine dev gate (`make check`).
 
 `make eval` starts with a flat table like this:
 

@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Literal
 
 from llm_rlvr_sql._base import Frozen
-from llm_rlvr_sql.data.spider import resolve_database
+from llm_rlvr_sql.data.paths import resolve_database
 from llm_rlvr_sql.eval.parsing import extract_sql, well_formed
 from llm_rlvr_sql.eval.verifier import (
     GoldExecutionError,

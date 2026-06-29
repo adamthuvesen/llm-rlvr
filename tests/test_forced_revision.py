@@ -26,24 +26,25 @@ from llm_rlvr_sql.eval.forced_revision_generate import (
     generate_forced_revision,
 )
 from llm_rlvr_sql.eval.provenance import DecodingConfig
-from llm_rlvr_sql.rewards.multiturn import MultiTurnRewardConfig, score_trajectory
-from llm_rlvr_sql.train.forced_revision import (
+from llm_rlvr_sql.revision import (
     REVISE_INSTRUCTION,
     UNPARSEABLE_FEEDBACK,
-    ForcedRevisionProvenance,
     attempt_feedback,
     build_db_id_lookup,
-    build_forced_revision_provenance,
     build_suffix_ids,
-    count_nan_log_values,
-    fr_smoke_failures,
     make_forced_revision_reward_fn,
     make_forced_revision_rollout,
     revision_user_message,
     splice_episode,
 )
+from llm_rlvr_sql.revision.smoke import count_nan_log_values, fr_smoke_failures
+from llm_rlvr_sql.revision.train import (
+    ForcedRevisionProvenance,
+    build_forced_revision_provenance,
+)
+from llm_rlvr_sql.rewards.multiturn import MultiTurnRewardConfig, score_trajectory
 from llm_rlvr_sql.train.grpo import GrpoHyperparams
-from llm_rlvr_sql.train.multiturn import (
+from llm_rlvr_sql.train.grpo_smoke import (
     FEEDBACK_MARKER,
     IS_RATIO_HEALTHY_BAND,
     IsRatioCheck,
@@ -430,11 +431,18 @@ def _completion_set(provenance, texts_and_sqls: list[tuple[str, str | None]]) ->
                 question=f"q{i}",
                 gold_sql=GOLD,
             ),
-            samples=(GenerationSample(text=text, sql=sql),),
+            samples=(
+                GenerationSample(
+                    text=text if sql is None else f"{text}\n```sql\n{sql}\n```",
+                    sql=sql,
+                ),
+            ),
         )
         for i, (text, sql) in enumerate(texts_and_sqls)
     )
-    return CompletionSet(provenance=provenance, items=items)
+    return CompletionSet(
+        provenance=provenance.model_copy(update={"n_examples": len(items)}), items=items
+    )
 
 
 def test_best_of_n_prefers_nonempty_then_executes_then_first(
@@ -460,7 +468,11 @@ def test_best_of_n_prefers_nonempty_then_executes_then_first(
     )
     selection, report = select_best_of_n([set_a, set_b], scoring_root)
 
-    assert [item.samples[0].text for item in selection.items] == ["b0", "a1", "a2"]
+    assert [item.samples[0].sql for item in selection.items] == [
+        GOLD,
+        "SELECT a FROM t WHERE a = 999",
+        None,
+    ]
     assert report.n_selected_nonempty == 1
     assert report.n_selected_executes == 1
     assert report.n_fallback_first == 1
@@ -651,11 +663,11 @@ def test_fr_metrics_decomposes_fix_and_harm(scoring_root: Path, provenance) -> N
         )
 
     completion_set = CompletionSet(
-        provenance=provenance,
+        provenance=provenance.model_copy(update={"n_examples": 4}),
         items=(
             _item("q0", REVISION, GOLD),  # error attempt -> fixed (error feedback)
             _item("q1", REVISION, GOLD),  # wrong-rows attempt -> fixed (result feedback)
-            _item("q2", "broken", wrong_sql),  # right attempt -> harmed
+            _item("q2", f"```sql\n{wrong_sql}\n```", wrong_sql),  # right attempt -> harmed
             _item("q3", REVISION, GOLD),  # right attempt -> kept (identical SQL)
         ),
     )
@@ -695,7 +707,7 @@ def test_forced_revision_eval_report_accounts_for_error_only_policy(
     err_sql = "SELECT nope FROM missing"
 
     completion_set = CompletionSet(
-        provenance=provenance,
+        provenance=provenance.model_copy(update={"n_examples": 2}),
         items=(
             ProblemCompletions(
                 example=Example(
@@ -755,14 +767,16 @@ def test_forced_revision_eval_report_accounts_for_error_only_policy(
     assert report.n_kept_attempt == 1
     assert report.n_fixed == 2
     assert report.n_harmed == 0
-    assert any(note == "second_generation_count=1" for note in report.cost_notes)
+    assert report.cost_notes == ()
 
 
 def test_fr_metrics_rejects_misaligned_inputs(scoring_root: Path, provenance) -> None:
     from llm_rlvr_sql.eval.forced_revision_generate import ForcedRevisionTranscriptSet
     from llm_rlvr_sql.eval.fr_metrics import compute_fr_metrics
 
-    completion_set = CompletionSet(provenance=provenance, items=())
+    completion_set = CompletionSet(
+        provenance=provenance.model_copy(update={"n_examples": 0}), items=()
+    )
     transcripts = ForcedRevisionTranscriptSet(provenance=provenance, items=())
     assert compute_fr_metrics(completion_set, transcripts, scoring_root).n == 0
 
@@ -781,7 +795,7 @@ def test_error_only_replay_revises_only_on_error_feedback(scoring_root: Path, pr
     non_error_attempt = REVISION
     harmful_revision = "<think>x</think>\n```sql\nSELECT a FROM t WHERE a = 999\n```"
     completion_set = CompletionSet(
-        provenance=provenance,
+        provenance=provenance.model_copy(update={"n_examples": 2}),
         items=(
             ProblemCompletions(
                 example=Example(
@@ -851,7 +865,7 @@ def test_error_only_replay_keeps_parse_error_attempts_on_error_feedback(
     )
 
     completion_set = CompletionSet(
-        provenance=provenance,
+        provenance=provenance.model_copy(update={"n_examples": 1}),
         items=(
             ProblemCompletions(
                 example=Example(

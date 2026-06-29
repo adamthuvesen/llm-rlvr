@@ -10,19 +10,19 @@ suffice to reconstruct the exact environment, reward, warm-start, and versions o
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
-from llm_rlvr_sql._base import Frozen
 from llm_rlvr_sql.env.text2sql_env import FeedbackConfig
 from llm_rlvr_sql.rewards.multiturn import MultiTurnRewardConfig
 from llm_rlvr_sql.train.grpo import GrpoHyperparams, GrpoProvenance, build_grpo_provenance
+from llm_rlvr_sql.train.stage3_provenance import Stage3GrpoProvenance
 
 
-class MultiTurnProvenance(Frozen):
+class MultiTurnProvenance(Stage3GrpoProvenance):
     """Everything needed to reproduce a multi-turn GRPO checkpoint."""
 
-    grpo: GrpoProvenance  # base, warm-start (= the Stage-2 adapter), hyperparams, versions, git
-    environment: FeedbackConfig
-    multiturn_reward: MultiTurnRewardConfig
+    grpo: GrpoProvenance
+    rollout: Literal["multiturn"] = "multiturn"
     # Stage 3 departs from the frozen Stage-2 `cot` prompt: the instruction must offer the
     # run_sql protocol or the policy never calls it (attempt-1 smoke: 0/96 episodes).
     prompt_style: str = "cot"

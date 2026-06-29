@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from llm_rlvr_sql._base import Frozen
-from llm_rlvr_sql.data.spider import resolve_database
+from llm_rlvr_sql.data.paths import resolve_database
 from llm_rlvr_sql.env.sandbox import ExecutionResult, SqliteSandbox
 from llm_rlvr_sql.env.text2sql_env import AGENT_ROW_CAP, AGENT_TIMEOUT_S
 from llm_rlvr_sql.eval.completions import CompletionSet, ProblemCompletions

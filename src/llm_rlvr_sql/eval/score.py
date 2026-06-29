@@ -17,13 +17,21 @@ from __future__ import annotations
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Literal
 
 from llm_rlvr_sql._base import Frozen
-from llm_rlvr_sql.data.spider import resolve_database
+from llm_rlvr_sql.data.paths import resolve_database
 from llm_rlvr_sql.eval.completions import CompletionSet, ProblemCompletions
 from llm_rlvr_sql.eval.parsing import well_formed
 from llm_rlvr_sql.eval.provenance import GenerationProvenance
-from llm_rlvr_sql.eval.verifier import GoldExecutionError, VerifierConfig, execution_match
+from llm_rlvr_sql.eval.verifier import (
+    GoldExecutionError,
+    MatchReason,
+    VerifierConfig,
+    execution_match,
+)
+
+ScoreReason = MatchReason | Literal["no_sql", "gold_error"]
 
 
 class ScoreReport(Frozen):
@@ -32,14 +40,14 @@ class ScoreReport(Frozen):
     n: int
     n_correct: int
     n_gold_errors: int
-    reasons: dict[str, int]
+    reasons: dict[ScoreReason, int]
     verifier: VerifierConfig
     provenance: GenerationProvenance
 
 
 def _score_item(
     item: ProblemCompletions, db_root: str | Path, cfg: VerifierConfig
-) -> tuple[bool, str, bool]:
+) -> tuple[bool, ScoreReason, bool]:
     """One item's verdict: (well_formed, reason, matched). Runs on any thread — the sandbox
     opens a fresh read-only connection per execution, so items are independent."""
     formed = bool(item.samples) and well_formed(item.samples[0].text)
@@ -79,7 +87,7 @@ def score_completion_set(
                 pool.map(lambda item: _score_item(item, db_root, cfg), completion_set.items)
             )
 
-    reasons: Counter[str] = Counter()
+    reasons: Counter[ScoreReason] = Counter()
     correct = 0
     gold_errors = 0
     n_well_formed = 0

@@ -16,7 +16,7 @@ from pathlib import Path
 from llm_rlvr_sql._base import Frozen
 from llm_rlvr_sql.data.artifacts import BIRD_ARCHIVE
 from llm_rlvr_sql.data.models import Example
-from llm_rlvr_sql.data.spider import verify_sha256  # reused checksum gate
+from llm_rlvr_sql.data.paths import verify_sha256
 
 # Points at an already-extracted BIRD dev bundle root (the dir holding dev.json) — offline hatch.
 _BIRD_ROOT_ENV = "TEXT2SQL_BIRD_ROOT"

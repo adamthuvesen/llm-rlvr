@@ -73,7 +73,8 @@ known-first-party = ["llm_rlvr_sql"]
 testpaths = ["tests"]
 addopts = "-q -m 'not integration'"
 markers = [
-    "integration: hits the network / HuggingFace / a real model; deselected by default",
+    "integration: hits the network or HuggingFace (deselected by default)",
+    "slow: large dataset download (compose with integration)",
 ]
 
 [tool.hatch.build.targets.wheel]

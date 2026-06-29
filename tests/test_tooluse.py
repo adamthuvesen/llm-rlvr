@@ -149,7 +149,7 @@ def test_gold_error_questions_are_skipped(db_root: Path) -> None:
 
 def test_non_train_split_raises(db_root: Path) -> None:
     dev = Example(db_id="shop", question="q", gold_sql="SELECT 1", split="dev")
-    with pytest.raises(ValueError, match="train-split only"):
+    with pytest.raises(ValueError, match="train-split examples only"):
         build_tooluse_rows([dev], {"shop": SCHEMA}, db_root, ())
 
 

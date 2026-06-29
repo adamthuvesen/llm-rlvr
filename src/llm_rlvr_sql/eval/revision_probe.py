@@ -1,13 +1,4 @@
-"""The pre-registered revision probe (grpo-forced-revision, task 1.x).
-
-Measures the *untrained* Stage-2 policy's prompted-revision behavior: take its committed
-greedy completions, execute each SQL in the real sandbox, show the policy its own query plus
-the deterministic gold-free execution feedback, and ask for one greedy revision. Two
-pre-registered gates (committed to the change's tasks.md BEFORE this ran): G1 fix rate ≥ 10%
-of wrong answers, G2 harm rate ≤ 10% of a 300-item right-answer sample.
-
-CPU-pure builders + scorer; the single GPU step is a generic prompts-in/completions-out pass.
-"""
+"""Pre-registered revision probe: untrained Stage-2 policy fix/harm rates (Stage 3b)."""
 
 from __future__ import annotations
 
@@ -17,8 +8,8 @@ from pathlib import Path
 
 from llm_rlvr_sql._base import Frozen
 from llm_rlvr_sql.data.models import DatabaseSchema
+from llm_rlvr_sql.data.paths import resolve_database, sha256_of
 from llm_rlvr_sql.data.schema import serialize_schema
-from llm_rlvr_sql.data.spider import resolve_database, sha256_of
 from llm_rlvr_sql.env.sandbox import SqliteSandbox
 from llm_rlvr_sql.env.text2sql_env import (
     AGENT_ROW_CAP,
@@ -29,6 +20,7 @@ from llm_rlvr_sql.env.text2sql_env import (
 from llm_rlvr_sql.eval.completions import CompletionSet
 from llm_rlvr_sql.eval.parsing import extract_sql
 from llm_rlvr_sql.eval.verifier import VerifierConfig, execution_match
+from llm_rlvr_sql.revision.feedback import is_error_feedback
 
 REVISE_INSTRUCTION = (
     "You are an expert data analyst. Given a SQLite database schema, a question, your previous "
@@ -196,8 +188,8 @@ def score_revision_probe(
     n_fixed = n_fixed_err = n_fixed_res = n_harmed = n_wrong_err = 0
     for row, text in zip(rows, completions, strict=True):
         new_sql = extract_sql(text)
-        is_error_feedback = row.feedback.startswith("Execution feedback: error")
-        if not row.was_correct and is_error_feedback:
+        has_error_feedback = is_error_feedback(row.feedback)
+        if not row.was_correct and has_error_feedback:
             n_wrong_err += 1
         try:
             matched = (
@@ -214,7 +206,7 @@ def score_revision_probe(
             matched = False
         if not row.was_correct and matched:
             n_fixed += 1
-            if is_error_feedback:
+            if has_error_feedback:
                 n_fixed_err += 1
             else:
                 n_fixed_res += 1

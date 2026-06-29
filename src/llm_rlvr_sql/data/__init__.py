@@ -2,6 +2,7 @@
 
 from llm_rlvr_sql.data.bird import BirdDev, ensure_bird_dev, load_bird_examples
 from llm_rlvr_sql.data.models import Column, DatabaseSchema, Example, ForeignKey, Table
+from llm_rlvr_sql.data.paths import resolve_database, sha256_of, verify_sha256
 from llm_rlvr_sql.data.schema import serialize_schema
 from llm_rlvr_sql.data.spider import (
     SpiderDatabases,
@@ -9,8 +10,6 @@ from llm_rlvr_sql.data.spider import (
     load_examples,
     load_schemas,
     parse_schema,
-    resolve_database,
-    verify_sha256,
 )
 
 __all__ = [
@@ -29,5 +28,6 @@ __all__ = [
     "parse_schema",
     "resolve_database",
     "serialize_schema",
+    "sha256_of",
     "verify_sha256",
 ]

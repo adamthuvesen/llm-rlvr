@@ -24,7 +24,9 @@ def _completion_set(provenance: GenerationProvenance, *sqls: str | None) -> Comp
         )
         for sql in sqls
     )
-    return CompletionSet(provenance=provenance, items=items)
+    return CompletionSet(
+        provenance=provenance.model_copy(update={"n_examples": len(items)}), items=items
+    )
 
 
 def test_accuracy_and_reasons(provenance: GenerationProvenance, scoring_root: Path) -> None:

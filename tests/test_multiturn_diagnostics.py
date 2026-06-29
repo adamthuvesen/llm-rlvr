@@ -11,12 +11,14 @@ from llm_rlvr_sql.env import FeedbackConfig, SqliteText2SqlEnv, format_feedback
 from llm_rlvr_sql.env.sandbox import ExecutionResult
 from llm_rlvr_sql.env.text2sql_env import BUDGET_EXHAUSTED_FEEDBACK
 from llm_rlvr_sql.rewards import MultiTurnRewardConfig, score_trajectory
-from llm_rlvr_sql.train.multiturn import (
+from llm_rlvr_sql.train.grpo_smoke import (
     FEEDBACK_MARKER,
     IS_RATIO_HEALTHY_BAND,
-    MultiTurnHyperparams,
     check_is_ratio,
     check_tool_masking,
+)
+from llm_rlvr_sql.train.multiturn import (
+    MultiTurnHyperparams,
     make_multiturn_reward_fn,
     multiturn_grpo_config_kwargs,
     smoke_failures,

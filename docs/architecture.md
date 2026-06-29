@@ -12,10 +12,11 @@ stays in the tree, tested, but is not on the main path. See *Stages* at the bott
 
 ```
 report/        progression.py — base→SFT→RL table; seed-level CIs; single-DB caveat
+revision/      feedback.py · rollout.py (Stage-3b forced-revision rollout_func + splice) ·
+               smoke.py · train.py (forced-revision GRPO driver + provenance)
 train/         traces.py (STaR sampling + execution filter) · sft.py (LoRA SFT) · grpo.py (GRPO) ·
-               multiturn.py (Stage-3 tool-loop smoke) · forced_revision.py (Stage-3b rollout_func) ·
-               diagnostics.py (D8 collapse alarms) · tooluse.py (tool-use SFT dataset) ·
-               multiturn_provenance.py (Stage-3 provenance contract)
+               multiturn.py (Stage-3 tool-loop smoke) · diagnostics.py (D8 collapse alarms) ·
+               tooluse.py (tool-use SFT dataset) · multiturn_provenance.py (Stage-3 provenance contract)
 rewards/       reward.py — shaped + near-binary arms over the verifier (TRL reward fn) ·
                multiturn.py — trajectory credit + improvement-delta bonus
 eval/          completions.py (the CompletionSet artifact) · generate · score · verifier · parsing ·
@@ -120,7 +121,7 @@ The two self-correction sequels both closed honestly **without a full training r
   tool-use-SFT checkpoints and every prompting strength); a two-arm probe ruled out RL formatting as
   the cause.
 - **Stage 3b** (`grpo-forced-revision`) — forced revision with no tool choice, via a hand-written TRL
-  `rollout_func` (`train/forced_revision.py`: unconditional execution, loss-masked feedback splice,
+  `rollout_func` (`revision/rollout.py`: unconditional execution, loss-masked feedback splice,
   revision). Its smoke validates the masking + IS-ratio assertions on real spliced rollouts, and the
   sequence **aborted at the pre-registered pilot gate** (identity-resubmission drift; see
   `results/grpo-fr/` and the README progression table). Only a cheap inference-time error-only retry

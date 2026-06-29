@@ -116,7 +116,11 @@ def _stage3b_forced_revision(spider_db, bird_db) -> None:
     print("Stage 3b — forced revision (pilot checkpoint, n=200 Spider-dev; ABORTED at gate)")
 
     s2 = read_completion_set(GRPO / "spider-dev-zs-grpo-s0.json")
-    s2_slice = CompletionSet(provenance=s2.provenance, items=s2.items[:200])
+    s2_items = s2.items[:200]
+    s2_slice = CompletionSet(
+        provenance=s2.provenance.model_copy(update={"n_examples": len(s2_items)}),
+        items=s2_items,
+    )
     rows = [
         ("Stage-2 grpo-s0 single-turn", s2_slice),
         (

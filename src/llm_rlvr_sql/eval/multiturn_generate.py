@@ -25,13 +25,11 @@ from llm_rlvr_sql._base import Frozen
 from llm_rlvr_sql.data.models import DatabaseSchema, Example
 from llm_rlvr_sql.data.schema import serialize_schema
 from llm_rlvr_sql.env.text2sql_env import FeedbackConfig, SqliteText2SqlEnv, TurnRecord
-from llm_rlvr_sql.eval.completions import CompletionSet, assemble_completion_set
-from llm_rlvr_sql.eval.prompt import MULTITURN_INSTRUCTION, _tool_call_message, _user_content
-from llm_rlvr_sql.eval.provenance import (
-    DecodingConfig,
-    GenerationProvenance,
-    build_generation_provenance,
-)
+from llm_rlvr_sql.eval.completions import CompletionSet
+from llm_rlvr_sql.eval.messages import tool_call_message, user_content
+from llm_rlvr_sql.eval.prompt import MULTITURN_INSTRUCTION
+from llm_rlvr_sql.eval.provenance import DecodingConfig, GenerationProvenance
+from llm_rlvr_sql.eval.runner import finish_eval_run
 
 _TOOL_CALL_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
 
@@ -81,7 +79,7 @@ class _EpisodeState:
             {"role": "system", "content": MULTITURN_INSTRUCTION},
             {
                 "role": "user",
-                "content": _user_content(schema_text, example.question, example.evidence),
+                "content": user_content(schema_text, example.question, example.evidence),
             },
         ]
         self.n_generations = 0
@@ -109,26 +107,14 @@ def generate_multiturn(
     """Run the batched multi-turn greedy loop on the GPU; return (CompletionSet, transcripts)."""
     from transformers import AutoTokenizer
     from transformers.utils import get_json_schema
-    from vllm import LLM, SamplingParams
+
+    from llm_rlvr_sql.eval.vllm_backend import make_vllm_engine, vllm_sampling_params
 
     env_cfg = environment or FeedbackConfig()
     tokenizer = AutoTokenizer.from_pretrained(model)
     tools = [get_json_schema(SqliteText2SqlEnv(db_root, config=env_cfg).run_sql)]
-
-    chat_kwargs: dict[str, object] = {}
-    if adapter_path is not None:
-        from vllm.lora.request import LoRARequest
-
-        llm = LLM(model=model, enable_lora=True, max_lora_rank=64)
-        chat_kwargs["lora_request"] = LoRARequest("adapter", 1, str(adapter_path))
-    else:
-        llm = LLM(model=model)
-    params = SamplingParams(
-        temperature=decoding.temperature,
-        top_p=decoding.top_p,
-        max_tokens=decoding.max_new_tokens,
-        seed=decoding.seed,
-    )
+    llm, chat_kwargs = make_vllm_engine(model, adapter_path=adapter_path)
+    params = vllm_sampling_params(decoding)
 
     states: list[_EpisodeState] = []
     for example in examples:
@@ -160,7 +146,7 @@ def generate_multiturn(
                 continue
             already_exhausted = len(state.env.turns) >= env_cfg.max_turns
             feedback = state.env.run_sql(query)
-            state.messages.append(_tool_call_message(query))
+            state.messages.append(tool_call_message(query))
             state.messages.append({"role": "tool", "content": feedback})
             if already_exhausted:
                 # The model tool-called even after the budget message; one more generation
@@ -168,24 +154,24 @@ def generate_multiturn(
                 state.ended_by = "budget"
 
     final_texts = [s.final_text if s.final_text is not None else "" for s in states]
-    provenance = build_generation_provenance(
+    completion_set = finish_eval_run(
+        examples,
+        final_texts,
         model=model,
         backend="vllm-multiturn",
         dataset=dataset,
         dataset_revision=dataset_revision,
         split=split,
-        n_examples=len(examples),
         decoding=decoding,
         model_revision=model_revision,
         db_archive_sha256=db_archive_sha256,
-        adapter=str(adapter_path) if adapter_path is not None else None,
+        adapter_path=adapter_path,
         prompt_style="mt",
         commit=commit,
         dirty=dirty,
     )
-    completion_set = assemble_completion_set(examples, final_texts, provenance)
     transcripts = MultiTurnTranscriptSet(
-        provenance=provenance,
+        provenance=completion_set.provenance,
         items=tuple(
             MultiTurnEpisode(
                 db_id=s.example.db_id,

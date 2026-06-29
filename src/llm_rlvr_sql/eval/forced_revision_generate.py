@@ -20,42 +20,24 @@ from typing import Literal
 
 from llm_rlvr_sql._base import Frozen
 from llm_rlvr_sql.data.models import DatabaseSchema, Example
-from llm_rlvr_sql.data.spider import resolve_database
+from llm_rlvr_sql.data.paths import resolve_database
 from llm_rlvr_sql.env.text2sql_env import FeedbackConfig
 from llm_rlvr_sql.eval.completions import (
     CompletionSet,
     GenerationSample,
     ProblemCompletions,
-    assemble_completion_set,
 )
 from llm_rlvr_sql.eval.generate import build_prompts
-from llm_rlvr_sql.eval.provenance import (
-    DecodingConfig,
-    GenerationProvenance,
-    build_generation_provenance,
+from llm_rlvr_sql.eval.provenance import DecodingConfig
+from llm_rlvr_sql.eval.runner import finish_eval_run
+from llm_rlvr_sql.revision.episode import ForcedRevisionEpisode, ForcedRevisionTranscriptSet
+from llm_rlvr_sql.revision.feedback import (
+    attempt_feedback,
+    is_error_feedback,
+    revision_user_message,
 )
-from llm_rlvr_sql.train.forced_revision import attempt_feedback, revision_user_message
 
 ForcedRevisionPolicy = Literal["always", "error_only"]
-
-
-class ForcedRevisionEpisode(Frozen):
-    """One evaluated episode: attempt, feedback, and the selected final answer."""
-
-    db_id: str
-    question: str
-    attempt_text: str
-    feedback: str
-    final_text: str
-    revision_requested: bool = True
-    revision_text: str | None = None
-
-
-class ForcedRevisionTranscriptSet(Frozen):
-    """All episodes of one forced-revision eval, sharing its CompletionSet's provenance."""
-
-    provenance: GenerationProvenance
-    items: tuple[ForcedRevisionEpisode, ...]
 
 
 class ErrorOnlyRevisionReport(Frozen):
@@ -70,11 +52,6 @@ class ErrorOnlyRevisionReport(Frozen):
     revised_rate: float
     n_fixed: int
     n_harmed: int
-
-
-def is_error_feedback(feedback: str) -> bool:
-    """Whether a feedback turn should trigger a second generation."""
-    return feedback.startswith("Execution feedback: error")
 
 
 def validate_forced_revision_policy(policy: str) -> ForcedRevisionPolicy:
@@ -231,24 +208,12 @@ def generate_forced_revision(
     dirty: bool | None = None,
 ) -> tuple[CompletionSet, ForcedRevisionTranscriptSet]:
     """Run the batched two-pass forced-revision eval on the GPU."""
-    from vllm import LLM, SamplingParams  # lazy import: GPU backend only
+    from llm_rlvr_sql.eval.vllm_backend import make_vllm_engine, vllm_sampling_params
 
     policy = validate_forced_revision_policy(policy)
     env_cfg = environment or FeedbackConfig()
-    chat_kwargs: dict[str, object] = {}
-    if adapter_path is not None:
-        from vllm.lora.request import LoRARequest
-
-        llm = LLM(model=model, enable_lora=True, max_lora_rank=64)
-        chat_kwargs["lora_request"] = LoRARequest("adapter", 1, str(adapter_path))
-    else:
-        llm = LLM(model=model)
-    params = SamplingParams(
-        temperature=decoding.temperature,
-        top_p=decoding.top_p,
-        max_tokens=decoding.max_new_tokens,
-        seed=decoding.seed,
-    )
+    llm, chat_kwargs = make_vllm_engine(model, adapter_path=adapter_path)
+    params = vllm_sampling_params(decoding)
 
     prompts = build_prompts(examples, schemas, style="cot")
     attempt_outputs = llm.chat([list(p) for p in prompts], params, **chat_kwargs)
@@ -278,24 +243,24 @@ def generate_forced_revision(
         revision_text_by_index.get(i, attempt) for i, attempt in enumerate(attempt_texts)
     ]
 
-    provenance = build_generation_provenance(
+    completion_set = finish_eval_run(
+        examples,
+        final_texts,
         model=model,
         backend="vllm-forced-revision" if policy == "always" else "vllm-forced-revision-error-only",
         dataset=dataset,
         dataset_revision=dataset_revision,
         split=split,
-        n_examples=len(examples),
         decoding=decoding,
         model_revision=model_revision,
         db_archive_sha256=db_archive_sha256,
-        adapter=str(adapter_path) if adapter_path is not None else None,
+        adapter_path=adapter_path,
         prompt_style="cot",
         commit=commit,
         dirty=dirty,
     )
-    completion_set = assemble_completion_set(examples, final_texts, provenance)
     transcripts = ForcedRevisionTranscriptSet(
-        provenance=provenance,
+        provenance=completion_set.provenance,
         items=tuple(
             ForcedRevisionEpisode(
                 db_id=example.db_id,

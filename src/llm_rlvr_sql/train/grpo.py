@@ -25,6 +25,7 @@ from llm_rlvr_sql.eval.completions import write_json
 from llm_rlvr_sql.eval.generate import build_prompts
 from llm_rlvr_sql.eval.provenance import git_commit, git_is_dirty, library_versions
 from llm_rlvr_sql.rewards import RewardConfig, make_reward_fn
+from llm_rlvr_sql.train.lora import lora_kwargs as shared_lora_kwargs
 
 _TRAIN_LIBRARIES = ("llm-rlvr-sql", "trl", "peft", "transformers", "torch", "accelerate", "vllm")
 
@@ -57,14 +58,11 @@ class GrpoHyperparams(Frozen):
 
 def lora_kwargs(hyperparams: GrpoHyperparams) -> dict[str, object]:
     """PEFT `LoraConfig` kwargs: all-linear targets (incl. MLP), the decided rank/alpha/dropout."""
-    return {
-        "task_type": "CAUSAL_LM",
-        "target_modules": "all-linear",
-        "r": hyperparams.lora_rank,
-        "lora_alpha": hyperparams.lora_alpha,
-        "lora_dropout": hyperparams.lora_dropout,
-        "bias": "none",
-    }
+    return shared_lora_kwargs(
+        rank=hyperparams.lora_rank,
+        alpha=hyperparams.lora_alpha,
+        dropout=hyperparams.lora_dropout,
+    )
 
 
 def grpo_config_kwargs(hyperparams: GrpoHyperparams, output_dir: str | Path) -> dict[str, object]:
@@ -204,6 +202,31 @@ def build_grpo_provenance(
     )
 
 
+def load_trainable_policy(
+    base_model: str,
+    base_model_revision: str | None,
+    warm_start_adapter: str | Path | None,
+    *,
+    hyperparams: GrpoHyperparams | None = None,
+):
+    from peft import PeftModel
+    from transformers import AutoModelForCausalLM
+
+    base = AutoModelForCausalLM.from_pretrained(
+        base_model,
+        dtype="bfloat16",
+        **({"revision": base_model_revision} if base_model_revision else {}),
+    )
+    if warm_start_adapter is not None:
+        return PeftModel.from_pretrained(base, str(warm_start_adapter), is_trainable=True)
+
+    if hyperparams is None:
+        raise ValueError("fresh trainable policy requires hyperparams for LoRA config")
+    from peft import get_peft_model
+
+    return get_peft_model(base, build_lora_config(hyperparams))
+
+
 def run_grpo(
     examples: Sequence[Example],
     schemas: Mapping[str, DatabaseSchema],
@@ -228,8 +251,6 @@ def run_grpo(
     dev-EX checkpoint selection; periodic checkpoints land under `output_dir`.
     """
     from datasets import Dataset  # lazy: heavy training stack, train extra only
-    from peft import PeftModel
-    from transformers import AutoModelForCausalLM
     from trl import GRPOTrainer
 
     hp = hyperparams or GrpoHyperparams()
@@ -241,13 +262,9 @@ def run_grpo(
     rows = build_grpo_rows(train_examples, schemas)
     train_dataset = Dataset.from_list(rows)
 
-    base = AutoModelForCausalLM.from_pretrained(
-        base_model,
-        dtype="bfloat16",
-        **({"revision": base_model_revision} if base_model_revision else {}),
+    policy = load_trainable_policy(
+        base_model, base_model_revision, warm_start_adapter, hyperparams=hp
     )
-    # Warm-start: continue training the SFT adapter (trainable), not a fresh adapter over the base.
-    policy = PeftModel.from_pretrained(base, str(warm_start_adapter), is_trainable=True)
 
     trainer = GRPOTrainer(
         model=policy,

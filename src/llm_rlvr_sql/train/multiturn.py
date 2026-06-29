@@ -1,28 +1,4 @@
-"""Multi-turn GRPO wiring + the de-risk smoke (Stage 3, design D1/D5, tasks 2.1/2.2).
-
-TRL v1.5.1 runs the tool loop natively: `GRPOTrainer(environment_factory=...)` exposes
-`SqliteText2SqlEnv.run_sql` as a model-callable tool, owns the regenerate-after-feedback loop
-(bounded by `GRPOConfig.max_tool_calling_iterations`), masks tool-output tokens via `tool_mask`,
-and hands the env instances to reward functions through the `environments=` kwarg.
-
-Two things here, per the repo's builder/driver split:
-
-  - Pure, CPU-testable pieces: the config kwargs, the TRL-facing trajectory reward fn, and the
-    smoke's two checks — `check_tool_masking` (no execution-feedback token may carry gradient)
-    and `check_is_ratio` (the TRL #4543 guard: the vLLM importance-sampling ratio must sit in
-    the band the Stage-2 smoke measured, mean 1.02).
-  - `run_multiturn_smoke`: the GPU driver Modal calls. It trains a few real steps, captures the
-    trainer's masked batches, and writes a `MultiTurnSmokeReport` JSON — then fails loudly if
-    any assertion failed, AFTER persisting the evidence (a failed smoke blocks paid runs and
-    invokes the design-D5 fallback ladder; the report is the record either way).
-
-KL-anchor API truth (design Open Question, resolved by reading the tagged v1.5.1 source): when
-the policy is a PeftModel with a pretrained adapter and `beta != 0`, the trainer snapshots that
-adapter as a frozen `"ref"` adapter and computes the KL against it — i.e. our stock `beta=0.04`
-KL anchors the *whole completion* to the Stage-2 warm-start policy. A turn-1-span-only anchor
-would need a custom loss; we start with the stock whole-completion anchor and only build the
-span-restricted variant if pilot diagnostics show turn-1 sandbagging despite it.
-"""
+"""Multi-turn GRPO wiring and smoke driver (Stage 3). See docs/status.md for outcome."""
 
 from __future__ import annotations
 
@@ -32,7 +8,7 @@ from pathlib import Path
 
 from llm_rlvr_sql._base import Frozen
 from llm_rlvr_sql.data.models import DatabaseSchema, Example
-from llm_rlvr_sql.data.spider import resolve_database
+from llm_rlvr_sql.data.paths import resolve_database
 from llm_rlvr_sql.env.text2sql_env import FeedbackConfig, make_environment_factory
 from llm_rlvr_sql.eval.completions import write_json
 from llm_rlvr_sql.eval.parsing import extract_sql
@@ -47,9 +23,17 @@ from llm_rlvr_sql.train.grpo import (
     GrpoHyperparams,
     build_grpo_config_from_kwargs,
     build_grpo_rows,
-    build_lora_config,
     grpo_config_kwargs,
+    load_trainable_policy,
     split_train_dev,
+)
+from llm_rlvr_sql.train.grpo_smoke import (
+    IsRatioCheck,
+    MaskCheck,
+    capturing_grpo_trainer,
+    check_is_ratio,
+    check_tool_masking,
+    logged_mean,
 )
 from llm_rlvr_sql.train.multiturn_provenance import (
     MultiTurnProvenance,
@@ -57,16 +41,6 @@ from llm_rlvr_sql.train.multiturn_provenance import (
 )
 
 SMOKE_REPORT_FILENAME = "smoke-report.json"
-
-# Every env observation starts with this marker (`format_feedback` / the budget message), so the
-# mask check can decide which side of the loss mask the feedback text landed on. A unit test
-# pins the marker to the env's actual output — if the wording drifts, the test screams.
-FEEDBACK_MARKER = "Execution feedback"
-
-# The Stage-2 colocate smoke measured `sampling/importance_sampling_ratio` mean 1.02
-# (min 0.43 / max 2.25) — the healthy band for the TRL #4543 check. A multi-turn mean outside
-# this band means the trainer/vLLM logprobs disagree on the spliced transcripts: stop, fall back.
-IS_RATIO_HEALTHY_BAND = (0.8, 1.25)
 
 
 class MultiTurnHyperparams(GrpoHyperparams):
@@ -123,98 +97,6 @@ def make_multiturn_reward_fn(
     return reward
 
 
-class MaskCheck(Frozen):
-    """Did the loss mask exclude every execution-feedback token? (multiturn-training spec.)"""
-
-    n_rows: int
-    rows_with_masked_tokens: int
-    masked_tokens_total: int
-    feedback_in_masked_text: bool  # the env feedback must show up on the masked side…
-    feedback_in_unmasked_text: bool  # …and never on the gradient-carrying side
-
-
-def check_tool_masking(
-    completion_ids: Sequence[Sequence[int]],
-    completion_mask: Sequence[Sequence[int]],
-    tool_mask: Sequence[Sequence[int]],
-    decode: Callable[[Sequence[int]], str],
-) -> MaskCheck:
-    """Pure check over captured rollout batches: tool-output tokens (tool_mask=0) vs the rest.
-
-    Padding is gated out via `completion_mask`; `decode` is the tokenizer's id→text (the GPU
-    driver passes the real one, tests pass a fake).
-    """
-    rows_with_masked = 0
-    masked_total = 0
-    masked_texts: list[str] = []
-    unmasked_texts: list[str] = []
-    for ids, cmask, tmask in zip(completion_ids, completion_mask, tool_mask, strict=True):
-        masked = [i for i, c, t in zip(ids, cmask, tmask, strict=True) if c == 1 and t == 0]
-        unmasked = [i for i, c, t in zip(ids, cmask, tmask, strict=True) if c == 1 and t == 1]
-        if masked:
-            rows_with_masked += 1
-            masked_total += len(masked)
-            masked_texts.append(decode(masked))
-        unmasked_texts.append(decode(unmasked))
-    return MaskCheck(
-        n_rows=len(completion_ids),
-        rows_with_masked_tokens=rows_with_masked,
-        masked_tokens_total=masked_total,
-        feedback_in_masked_text=any(FEEDBACK_MARKER in text for text in masked_texts),
-        feedback_in_unmasked_text=any(FEEDBACK_MARKER in text for text in unmasked_texts),
-    )
-
-
-class IsRatioCheck(Frozen):
-    """The TRL #4543 guard: logged vLLM importance-sampling ratios vs the Stage-2 healthy band."""
-
-    n_logged: int
-    mean_of_means: float | None
-    overall_min: float | None
-    overall_max: float | None
-    logp_diff_mean: float | None
-    band: tuple[float, float]
-    in_band: bool  # every logged step mean inside the band; False when nothing was logged
-
-
-def check_is_ratio(
-    log_history: Sequence[Mapping[str, object]],
-    *,
-    band: tuple[float, float] = IS_RATIO_HEALTHY_BAND,
-) -> IsRatioCheck:
-    """Collect `sampling/importance_sampling_ratio/*` from the trainer log history and judge it."""
-    means = [
-        float(entry["sampling/importance_sampling_ratio/mean"])
-        for entry in log_history
-        if "sampling/importance_sampling_ratio/mean" in entry
-    ]
-    mins = [
-        float(entry["sampling/importance_sampling_ratio/min"])
-        for entry in log_history
-        if "sampling/importance_sampling_ratio/min" in entry
-    ]
-    maxes = [
-        float(entry["sampling/importance_sampling_ratio/max"])
-        for entry in log_history
-        if "sampling/importance_sampling_ratio/max" in entry
-    ]
-    logp_diffs = [
-        float(entry["sampling/sampling_logp_difference/mean"])
-        for entry in log_history
-        if "sampling/sampling_logp_difference/mean" in entry
-    ]
-    low, high = band
-    return IsRatioCheck(
-        n_logged=len(means),
-        mean_of_means=(sum(means) / len(means)) if means else None,
-        overall_min=min(mins) if mins else None,
-        overall_max=max(maxes) if maxes else None,
-        logp_diff_mean=(sum(logp_diffs) / len(logp_diffs)) if logp_diffs else None,
-        band=band,
-        in_band=bool(means) and all(low <= m <= high for m in means),
-    )
-
-
 class MultiTurnSmokeReport(Frozen):
     """The smoke's full evidence: assertions, tool-use census, envelope, and provenance."""
 
@@ -237,11 +119,6 @@ class MultiTurnSmokeReport(Frozen):
     device_memory_used_gib: float | None  # torch + vLLM colocate, from the device
     completions_mean_length: float | None
     provenance: MultiTurnProvenance
-
-
-def _logged_mean(log_history: Sequence[Mapping[str, object]], key: str) -> float | None:
-    values = [float(entry[key]) for entry in log_history if key in entry]
-    return (sum(values) / len(values)) if values else None
 
 
 def smoke_failures(
@@ -298,8 +175,6 @@ def run_multiturn_smoke(
     """
     import torch
     from datasets import Dataset  # lazy: heavy training stack, train extra only
-    from peft import PeftModel
-    from transformers import AutoModelForCausalLM
     from trl import GRPOTrainer
 
     hp = hyperparams or MultiTurnHyperparams()
@@ -327,47 +202,25 @@ def run_multiturn_smoke(
 
     captured: list[dict[str, list[list[int]]]] = []
 
-    class _CapturingTrainer(GRPOTrainer):
-        """Stock trainer + a tap on the scored rollout batches (the mask evidence)."""
-
-        def _generate_and_score_completions(self, inputs):
-            output = super()._generate_and_score_completions(inputs)
-            if "tool_mask" in output:
-                captured.append(
-                    {
-                        key: output[key].detach().cpu().tolist()
-                        for key in ("completion_ids", "completion_mask", "tool_mask")
-                    }
-                )
-            return output
-
     desired = multiturn_grpo_config_kwargs(hp, output_dir)
     if max_steps is not None:
         desired["max_steps"] = max_steps
 
-    base = AutoModelForCausalLM.from_pretrained(
-        base_model,
-        dtype="bfloat16",
-        **({"revision": base_model_revision} if base_model_revision else {}),
+    # With a warm-start and beta != 0, TRL snapshots the adapter as the frozen ref policy.
+    # Without one, this is the fresh identity-LoRA entrenchment-probe arm.
+    policy = load_trainable_policy(
+        base_model, base_model_revision, warm_start_adapter, hyperparams=hp
     )
-    if warm_start_adapter is not None:
-        # Warm-start from the Stage-2 adapter; with beta != 0 TRL snapshots it as the frozen
-        # "ref" adapter, so the KL anchors to the Stage-2 policy (the D4 anchor).
-        policy = PeftModel.from_pretrained(base, str(warm_start_adapter), is_trainable=True)
-    else:
-        # Fresh LoRA: zero-init B matrices make this an identity at step 0, so the first
-        # rollouts sample the BASE policy exactly — the entrenchment-probe arm.
-        from peft import get_peft_model
-
-        policy = get_peft_model(base, build_lora_config(hp))
 
     torch.cuda.reset_peak_memory_stats()
-    trainer = _CapturingTrainer(
+    capturing_trainer_cls = capturing_grpo_trainer(GRPOTrainer)
+    trainer = capturing_trainer_cls(
         model=policy,
         reward_funcs=[reward_fn],
         args=build_grpo_config_from_kwargs(desired),
         train_dataset=train_dataset,
         environment_factory=make_environment_factory(db_root, config=env_cfg),
+        captured=captured,
     )
     started = time.perf_counter()
     trainer.train()
@@ -404,19 +257,19 @@ def run_multiturn_smoke(
         n_train=len(train_examples),
         n_steps=int(trainer.state.global_step),
         wall_time_s=wall_time_s,
-        mean_step_time_s=_logged_mean(log_history, "step_time"),
+        mean_step_time_s=logged_mean(log_history, "step_time"),
         n_episodes=len(episodes),
         episodes_with_tool_calls=with_tools,
         episodes_with_2plus_tool_turns=with_two_plus,
         max_tool_turns=max(tool_turn_counts, default=0),
-        tool_call_frequency=_logged_mean(log_history, "tools/call_frequency"),
-        tool_failure_frequency=_logged_mean(log_history, "tools/failure_frequency"),
+        tool_call_frequency=logged_mean(log_history, "tools/call_frequency"),
+        tool_failure_frequency=logged_mean(log_history, "tools/failure_frequency"),
         mask=mask,
         is_ratio=is_ratio,
         diagnostics=compute_diagnostics(episodes) if episodes else None,
         peak_torch_memory_gib=torch.cuda.max_memory_allocated() / 2**30,
         device_memory_used_gib=(total_bytes - free_bytes) / 2**30,
-        completions_mean_length=_logged_mean(log_history, "completions/mean_length"),
+        completions_mean_length=logged_mean(log_history, "completions/mean_length"),
         provenance=build_multiturn_provenance(
             base_model=base_model,
             warm_start_adapter=(

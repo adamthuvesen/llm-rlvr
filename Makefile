@@ -18,12 +18,12 @@ test:  ## Run unit tests (network/integration deselected)
 test-integration:  ## Run the network/HuggingFace/model integration tests
 	uv run python -m pytest -m integration
 
-check: lint test  ## The Stage-0 gate: lint + unit tests
+check: lint test  ## Project gate: lint + unit tests
 
 data:  ## Fetch + verify + extract the pinned Spider databases (HF mirror; see RUNBOOK)
 	uv run python -c "from llm_rlvr_sql.data import ensure_spider_databases as e; print('Spider DBs at', e().database_root)"
 
-eval:  ## Re-derive the committed baseline numbers from the CompletionSets (needs `make data`)
+eval:  ## Re-derive committed numbers (minutes; not in make check — run when results/ or scoring change)
 	uv run python results/baseline/reproduce.py
 
 demo:  ## Run a tiny no-GPU verifier demo against a temporary SQLite database

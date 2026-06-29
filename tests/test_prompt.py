@@ -65,7 +65,7 @@ def test_select_exemplars_rejects_non_train_pool() -> None:
     import pytest
 
     dev_pool = (Example(db_id="db0", question="q", gold_sql="SELECT 0", split="dev"),)
-    with pytest.raises(ValueError, match="train-only"):
+    with pytest.raises(ValueError, match="train-split examples only"):
         select_exemplars(dev_pool, SCHEMAS, k=1, seed=0)
 
 

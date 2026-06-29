@@ -18,7 +18,8 @@ artifacts re-derivable on CPU.
 ## Goals / Non-Goals
 
 **Goals**
-- A trained multi-turn policy whose *learned* self-correction beats the Stage-2 single-turn
+
+- A trained multi-turn policy whose _learned_ self-correction beats the Stage-2 single-turn
   policy on Spider-dev and BIRD-dev at greedy decoding.
 - The matched-compute control: multi-turn-with-feedback vs best-of-N-without-feedback, so the
   claim "the model uses execution feedback" is evidenced, not asserted.
@@ -28,6 +29,7 @@ artifacts re-derivable on CPU.
   delta-reward distribution) so failure is caught early, not post-hoc.
 
 **Non-Goals**
+
 - Multi-seed headline for Stage 3 (1 seed + control fits the budget; seed expansion only if the
   gate on this stage demands it).
 - verl migration, multi-GPU, full fine-tuning, QLoRA.
@@ -45,11 +47,11 @@ of that for no headline value. Alternative (verl) is a scale-up option, not a co
 `run_sql(query)`. Feedback observation is deterministic and compact: error message (truncated,
 stable formatting) on failure; row-count + first K rows preview on success. Turn budget 3.
 The env never exposes gold SQL or gold rows — feedback is what a real analyst would see.
-*Verified v1.5.1 contract (from the tagged source):* `environment_factory` is a zero-arg-callable
+_Verified v1.5.1 contract (from the tagged source):_ `environment_factory` is a zero-arg-callable
 parameter on `GRPOTrainer.__init__`; the env is duck-typed — `reset(**dataset_row) -> str | None`
 plus public methods auto-exposed as tools (schema from type hints + Google-style docstring).
 The trainer owns the loop: the model ends an episode by answering instead of calling the tool,
-bounded by `GRPOConfig.max_tool_calling_iterations` (set =3) *and* the env's own unit-tested
+bounded by `GRPOConfig.max_tool_calling_iterations` (set =3) _and_ the env's own unit-tested
 budget. Tool-output loss masking is automatic (`tool_mask`); reward functions receive the env
 instances via an `environments=` kwarg — that is how per-turn state reaches the reward. Env
 instances are pooled and reused across episodes, so `reset` must fully restore state. Episode
@@ -63,12 +65,13 @@ ablation arm, not the default). At N=3 with dense per-turn signal the gap may be
 don't assume.
 
 **D4 — Collapse guards (SCoRe-derived), all three, on by default:**
-- *Warm-start from the Stage-2 adapter* (continuation, same as Stage 2 warm-started from SFT).
-- *First-turn KL anchor*: the turn-1 policy is anchored to the Stage-2 policy so the model cannot
+
+- _Warm-start from the Stage-2 adapter_ (continuation, same as Stage 2 warm-started from SFT).
+- _First-turn KL anchor_: the turn-1 policy is anchored to the Stage-2 policy so the model cannot
   learn to sandbag attempt 1 to farm easy corrections.
-- *Improvement-delta bonus*: reward the attempt1→attempt2 delta, not just per-turn absolutes —
+- _Improvement-delta bonus_: reward the attempt1→attempt2 delta, not just per-turn absolutes —
   re-submitting an identical query earns nothing.
-Diagnostics (D8) make a collapse signature visible regardless.
+  Diagnostics (D8) make a collapse signature visible regardless.
 
 **D5 — De-risk TRL #4543 before any paid run.** The pre-gate smoke runs a real 2-turn SQL
 rollout and asserts (a) `completion_mask` excludes tool-output tokens, (b) the IS ratio over
@@ -77,7 +80,7 @@ fails: fallback ladder = hand-written `rollout_func` → ship Stage 2 alone (bot
 
 **D6 — The matched-compute control: best-of-N without feedback.** Same checkpoint, same
 question set, N samples (N = mean turns used by the agent), verifier picks by execution success
-*without seeing gold* (executes-without-error + non-empty heuristic, disclosed), final answer
+_without seeing gold_ (executes-without-error + non-empty heuristic, disclosed), final answer
 scored normally. If multi-turn ≤ best-of-N, the "feedback" story dies at matched compute — and
 we report that.
 
@@ -92,9 +95,10 @@ trajectories that revise at all. These are the collapse alarms (SCoRe's failure 
 aggregate reward until late).
 
 **D9 — Evaluation reuses the Stage-2 discipline.** Greedy, full Spider-dev + BIRD-dev, same
-single-DB EX + disclosed caveat, CompletionSets committed under `results/grpo-mt/`, `make eval`
-re-derives. Multi-turn transcripts (all turns + feedback) are persisted in the CompletionSet so
-the self-correction analysis is itself re-derivable.
+single-DB EX + disclosed caveat. Stage-3 multi-turn smoke reports live under `results/grpo-mt/`
+and are documented in `ARTIFACTS.md` (not re-derived by `make eval`, which covers Stages 0–2
+and Stage-3b forced-revision). Multi-turn transcripts are persisted where applicable so
+self-correction analysis is re-derivable from committed artifacts.
 
 ## Risks / Trade-offs
 
@@ -106,7 +110,7 @@ the self-correction analysis is itself re-derivable.
 - **[KV/memory blowup: 3-turn transcripts ≫ single-turn]** → completion budget per turn capped;
   smoke measures the real envelope before the pilot; colocate `gpu_memory_utilization` retuned.
 - **[Reward hacking via the feedback channel]** (e.g. learning to provoke informative errors
-  rather than answer) → bounded turns, delta-bonus only on *improvement*, empty-result guard
+  rather than answer) → bounded turns, delta-bonus only on _improvement_, empty-result guard
   unchanged, transcript audit on the pilot.
 - **[Cost overrun: rollouts are ~3× longer]** → pilot re-measures step time before the full run;
   the Stage-2 pattern (smoke → pilot → one full run) is mandatory, and num_generations stays 4.
@@ -123,7 +127,7 @@ Rollback = don't merge the change; Stage 2 stands alone.
 - ~~**First-turn KL anchor mechanics in TRL**~~ RESOLVED (v1.5.1 source, during smoke prep):
   when the policy is a PeftModel with a pretrained adapter and `beta != 0`, the trainer
   snapshots it as a frozen `"ref"` adapter and computes the KL against it — so the stock
-  `beta=0.04` already anchors the *whole completion* to the Stage-2 warm-start policy (this was
+  `beta=0.04` already anchors the _whole completion_ to the Stage-2 warm-start policy (this was
   equally true in Stage 2 vs the SFT policy). A turn-1-span-only anchor needs a custom loss;
   start with the stock whole-completion anchor and build the span-restricted variant only if
   pilot diagnostics show turn-1 sandbagging despite it.

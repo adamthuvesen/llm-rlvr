@@ -40,11 +40,11 @@ def test_timeout_interrupts_long_query(tiny_db: Path) -> None:
         "SELECT COUNT(*) FROM c"
     )
     started = time.monotonic()
-    out = SqliteSandbox(tiny_db, timeout_s=0.5).execute(slow)
+    out = SqliteSandbox(tiny_db, timeout_s=0.05).execute(slow)
     elapsed = time.monotonic() - started
     assert isinstance(out, ExecutionError)
     assert out.error_type == "timeout"
-    assert elapsed < 5.0  # bounded, not a hang
+    assert elapsed < 1.0  # bounded, not a hang
 
 
 def test_invalid_sql_is_structured_error(tiny_db: Path) -> None:

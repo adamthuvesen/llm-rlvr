@@ -12,9 +12,11 @@ from pathlib import Path
 
 from llm_rlvr_sql.data.models import DatabaseSchema, Example
 from llm_rlvr_sql.data.schema import serialize_schema
-from llm_rlvr_sql.eval.completions import CompletionSet, assemble_completion_set
+from llm_rlvr_sql.eval.completions import CompletionSet
 from llm_rlvr_sql.eval.prompt import FewShotExemplar, build_messages, select_exemplars
-from llm_rlvr_sql.eval.provenance import DecodingConfig, build_generation_provenance
+from llm_rlvr_sql.eval.provenance import DecodingConfig
+from llm_rlvr_sql.eval.runner import finish_eval_run
+from llm_rlvr_sql.eval.vllm_backend import make_vllm_engine, sample_vllm_completions
 
 # Values are `object`, not `str`: the `mt_demo` style carries structured `tool_calls` entries.
 Messages = list[dict[str, object]]
@@ -69,13 +71,14 @@ def generate(
     raw_texts = _run_backend(
         prompts, model=model, backend=backend, decoding=decoding, adapter_path=adapter_path
     )
-    provenance = build_generation_provenance(
+    return finish_eval_run(
+        examples,
+        raw_texts,
         model=model,
         backend=backend,
         dataset=dataset,
         dataset_revision=dataset_revision,
         split=split,
-        n_examples=len(examples),
         decoding=decoding,
         model_revision=model_revision,
         db_archive_sha256=db_archive_sha256,
@@ -83,11 +86,10 @@ def generate(
         few_shot_seed=few_shot_seed if few_shot_k else None,
         few_shot_exemplars=tuple((e.db_id, e.question) for e in exemplars),
         prompt_style=prompt_style,
-        adapter=str(adapter_path) if adapter_path is not None else None,
+        adapter_path=adapter_path,
         commit=commit,
         dirty=dirty,
     )
-    return assemble_completion_set(examples, raw_texts, provenance)
 
 
 def _run_backend(
@@ -161,22 +163,5 @@ def _run_vllm(
     decoding: DecodingConfig,
     adapter_path: str | Path | None = None,
 ) -> list[str]:
-    from vllm import LLM, SamplingParams  # lazy import: GPU backend only
-
-    chat_kwargs: dict[str, object] = {}
-    if adapter_path is not None:
-        from vllm.lora.request import LoRARequest
-
-        # max_lora_rank must cover the decided rank range (D3: 32-64).
-        llm = LLM(model=model, enable_lora=True, max_lora_rank=64)
-        chat_kwargs["lora_request"] = LoRARequest("adapter", 1, str(adapter_path))
-    else:
-        llm = LLM(model=model)
-    params = SamplingParams(
-        temperature=decoding.temperature,
-        top_p=decoding.top_p,
-        max_tokens=decoding.max_new_tokens,
-        seed=decoding.seed,
-    )
-    results = llm.chat(list(prompts), params, **chat_kwargs)
-    return [result.outputs[0].text for result in results]
+    llm, chat_kwargs = make_vllm_engine(model, adapter_path=adapter_path)
+    return sample_vllm_completions(llm, prompts, decoding, chat_kwargs=chat_kwargs)

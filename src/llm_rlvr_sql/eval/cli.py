@@ -22,7 +22,15 @@ from llm_rlvr_sql.eval.verifier import VerifierConfig
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="llm-rlvr-sql")
+    parser = argparse.ArgumentParser(
+        prog="llm-rlvr-sql",
+        description="Text-to-SQL eval and Stage-3 support utilities.",
+        epilog=(
+            "Core commands (Stages 0-2): generate, score, build-traces\n"
+            "Stage-3 support: build-tooluse, select-bestofn, fr-metrics, fr-error-only-replay"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     gen = sub.add_parser("generate", help="sample the model and write a CompletionSet")
@@ -69,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
 
     tooluse = sub.add_parser(
         "build-tooluse",
-        help="build the Stage-3 tool-use SFT dataset (CPU; executes queries in the real sandbox)",
+        help="[stage-3] build the tool-use SFT dataset (CPU; executes in the sandbox)",
     )
     tooluse.add_argument("--tables-json", required=True, help="Spider tables.json for schemas")
     tooluse.add_argument("--db-root", required=True, help="extracted Spider database/ directory")
@@ -84,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
 
     bestofn = sub.add_parser(
         "select-bestofn",
-        help="gold-free best-of-N selection over sampled CompletionSets (the D6 control; CPU)",
+        help="[stage-3] gold-free best-of-N selection over sampled CompletionSets (CPU)",
     )
     bestofn.add_argument(
         "--completions", required=True, nargs="+", help="N aligned sampled CompletionSet paths"
@@ -96,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
 
     fr_metrics = sub.add_parser(
         "fr-metrics",
-        help="fix/harm decomposition of a forced-revision eval (CPU, from committed artifacts)",
+        help="[stage-3] fix/harm decomposition of a forced-revision eval (CPU)",
     )
     fr_metrics.add_argument("--completions", required=True, help="FR CompletionSet json path")
     fr_metrics.add_argument("--transcripts", required=True, help="FR transcripts json path")
@@ -106,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
 
     fr_error_only = sub.add_parser(
         "fr-error-only-replay",
-        help="replay a forced-revision eval with second generation only on error feedback",
+        help="[stage-3] replay forced-revision eval with second generation on errors only",
     )
     fr_error_only.add_argument("--completions", required=True, help="FR CompletionSet json path")
     fr_error_only.add_argument("--transcripts", required=True, help="FR transcripts json path")

@@ -8,7 +8,6 @@ verified `.sqlite` file.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import zipfile
@@ -22,6 +21,7 @@ from llm_rlvr_sql.data.artifacts import (
     SPIDER_HF_REVISION,
 )
 from llm_rlvr_sql.data.models import Column, DatabaseSchema, Example, ForeignKey, Table
+from llm_rlvr_sql.data.paths import verify_sha256
 
 # Spider's parquet "dev" split is named `validation`.
 _SPLIT_ALIASES = {"dev": "validation", "validation": "validation", "train": "train"}
@@ -105,39 +105,6 @@ def load_examples(split: str, *, revision: str = SPIDER_HF_REVISION) -> tuple[Ex
         )
         for row in rows
     )
-
-
-def sha256_of(path: str | Path, *, chunk_size: int = 1 << 20) -> str:
-    """Streaming SHA256 of a file (archives are large)."""
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as handle:
-        for block in iter(lambda: handle.read(chunk_size), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def verify_sha256(path: str | Path, expected: str) -> None:
-    """Raise loudly if a file's checksum does not match the pinned value (the trust anchor)."""
-    actual = sha256_of(path)
-    if actual != expected:
-        raise ValueError(
-            f"checksum mismatch for {path}: expected {expected}, got {actual}. "
-            "Refusing to use an unverified Spider database archive."
-        )
-
-
-def resolve_database(db_id: str, db_root: str | Path) -> Path:
-    """Return the `.sqlite` path for `db_id`, failing loudly if it is missing.
-
-    `db_root` is the extracted Spider `database/` directory (`<db_root>/<db_id>/<db_id>.sqlite`).
-    """
-    path = Path(db_root) / db_id / f"{db_id}.sqlite"
-    if not path.exists():
-        raise FileNotFoundError(
-            f"database for db_id={db_id!r} not found at {path}. The Spider SQLite databases are a "
-            "separate checksummed artifact — see RUNBOOK.md / design R1."
-        )
-    return path
 
 
 class SpiderDatabases(Frozen):
