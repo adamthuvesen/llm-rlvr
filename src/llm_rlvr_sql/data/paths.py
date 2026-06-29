@@ -31,6 +31,6 @@ def resolve_database(db_id: str, db_root: str | Path) -> Path:
     if not path.exists():
         raise FileNotFoundError(
             f"database for db_id={db_id!r} not found at {path}. SQLite databases are separate "
-            "checksummed artifacts — see RUNBOOK.md."
+            "checksummed artifacts — see docs/RUNBOOK.md."
         )
     return path

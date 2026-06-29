@@ -56,5 +56,5 @@
     <rect x="82" y="-9" width="12" height="12" fill="#00cc96" rx="2"/><text class="legend" x="100" y="2">SFT</text>
     <rect x="148" y="-9" width="12" height="12" fill="#ef553b" rx="2"/><text class="legend" x="166" y="2">RLVR</text>
   </g>
-  <text class="note" x="56" y="500">Metric: exact-match execution accuracy. RLVR values are three-seed means; see ARTIFACTS.md for intervals and score files.</text>
+  <text class="note" x="56" y="500">Metric: exact-match execution accuracy. RLVR values are three-seed means; see docs/ARTIFACTS.md for intervals and score files.</text>
 </svg>

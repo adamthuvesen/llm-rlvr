@@ -1,7 +1,7 @@
 # Reproducibility manifest
 
 Every external artifact this project depends on, pinned. Code pins live in
-[`src/llm_rlvr_sql/data/artifacts.py`](src/llm_rlvr_sql/data/artifacts.py); this file is the
+[`src/llm_rlvr_sql/data/artifacts.py`](../src/llm_rlvr_sql/data/artifacts.py); this file is the
 human-readable mirror. The main result is reproducible from a committed `CompletionSet` with
 `make data && make eval` (CPU only, no model).
 
@@ -54,8 +54,9 @@ The base-model baselines (Coder-3B-Instruct, greedy, **full dev**), each a commi
 Each `CompletionSet` carries its own provenance (model, greedy decoding, dataset revision,
 DB-archive SHA256, **`prompt_style`**, few-shot recipe, adapter, git commit), so every number is
 traceable to exactly the inputs that produced it. The two prompt styles (`<think>` matched vs
-direct) are reported deliberately — see RUNBOOK § *Methodology*. The 50-example `*-n50` slices
-remain as the local wiring proof. `*.score.json` files are the committed `ScoreReport`s.
+direct) are reported deliberately — see [RUNBOOK](RUNBOOK.md) § *Methodology*. The 50-example
+`*-n50` slices remain as the local wiring proof. `*.score.json` files are the committed
+`ScoreReport`s.
 
 ## Stage 1: SFT cold-start (`results/sft/`, adapter `sft-r32`)
 
@@ -123,8 +124,8 @@ both model families, using the same training questions — the learning signal, 
 
 ## Stage 3: multi-turn GRPO — CLOSED without training (`results/grpo-mt/`)
 
-**Decision (2026-06-12): ship Stage 2 standalone.** The change (archived under
-`openspec/changes/archive/`) stopped after ≈ $8 of smoke/gate evidence; no multi-turn model was
+**Decision (2026-06-12): ship Stage 2 standalone.** The multi-turn work stopped after
+≈ $8 of smoke/gate evidence; no multi-turn model was
 trained, so the Stage-2 progression above remains the main result. The finding: **the 3B model
 never adopts the `run_sql` tool protocol** — 0 tool calls in 672 sampled episodes across every
 checkpoint and prompting strength. A two-arm probe ruled out RL formatting as the cause: the raw

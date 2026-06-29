@@ -13,9 +13,10 @@ make check              # ruff + unit tests (project gate)
 make data               # fetch + verify (SHA256) + extract the pinned Spider databases
 ```
 
-`make data` downloads `spider_data.zip` from the pinned HF dataset commit (see `ARTIFACTS.md`),
-checks its SHA256, and extracts to `data/spider/spider_data/` (gitignored). To run against an
-already-extracted tree instead (offline), point at it:
+`make data` downloads `spider_data.zip` from the pinned HF dataset commit (see
+[`ARTIFACTS.md`](ARTIFACTS.md)), checks its SHA256, and extracts to
+`data/spider/spider_data/` (gitignored). To run against an already-extracted tree instead
+(offline), point at it:
 
 ```bash
 export TEXT2SQL_SPIDER_ROOT=/path/to/spider_data   # skips the download
@@ -89,7 +90,7 @@ the `<think>` chain-of-thought prompt depresses it (long rambling answers, ~1200
 
 Reporting both prevents an artificially-low baseline from inflating the later RL gain. (Both sit
 below SQL-R1's ~77% base, which adds schema-linking + a tuned runner we deliberately keep minimal.)
-BIRD few-shot is deferred (it needs BIRD-train exemplars — a small follow-up).
+BIRD few-shot is parked until BIRD-train exemplars are added.
 
 ## Stage 1: SFT cold-start (trace-gen → filter → SFT → adapter eval)
 
@@ -145,9 +146,8 @@ uv run llm-rlvr-sql score --completions runs/spider-dev-zs-sft-r32.json \
 
 `score` reports `well_formed_rate` alongside execution accuracy. **Success bar (D6):**
 format rate near-100% on dev AND no EX regression below the base `<think>` anchor (0.625
-Spider-dev / 0.313 BIRD-dev; target ≥ the direct anchor). If the bar is missed, the fallback
-sequence is documented in `openspec/changes/archive/2026-06-10-sft-coldstart/design.md` (more
-traces → SynSQL pull → teacher distillation).
+Spider-dev / 0.313 BIRD-dev; target ≥ the direct anchor). If the bar is missed, stop and
+write a new run card before adding traces, pulling SynSQL, or using teacher distillation.
 
 ## Stage 2: single-turn GRPO (smoke → LR pilot → main run → controls)
 
@@ -233,9 +233,9 @@ are saturating (expected under near-binary; a shaped-arm rise means the dev slic
 ## Stage 3b: forced-revision GRPO (smoke → pilot → ABORTED at the pilot gate)
 
 Stage 3 (tool choice) closed without training — the 3B model never calls an offered tool
-(0/672; see ARTIFACTS). Stage 3b has no tool choice: every attempt is executed unconditionally,
-the gold-free feedback is spliced in loss-masked, and the model revises (hand-written TRL
-`rollout_func`; see `revision/rollout.py`). The sequence and its verdicts:
+(0/672; see [`ARTIFACTS.md`](ARTIFACTS.md)). Stage 3b has no tool choice: every attempt is
+executed unconditionally, the gold-free feedback is spliced in loss-masked, and the model revises
+(hand-written TRL `rollout_func`; see `revision/rollout.py`). The sequence and its verdicts:
 
 ```bash
 modal run modal_app.py::fr_smoke                  # mask + IS-ratio + no-NaN assertions — PASSED

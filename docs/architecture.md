@@ -103,11 +103,9 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (commi
   `mt_smoke`/`mt_eval` (Stage 3 tool loop), `fr_smoke`/`fr_train`/`fr_eval` (Stage 3b forced
   revision), and `generate_raw` (the probe's prompts-in/completions-out pass).
 
-## Stages (what exists, where it's specified)
+## Stages
 
-Every stage is archived under `openspec/changes/archive/`; each archived `design.md` and `tasks.md`
-journal records the decisions and verdicts. Stages 0–2 shipped, with capabilities synced to
-`openspec/specs/`:
+Stages 0–2 shipped and remain the current supported path:
 
 - **Stage 0** — eval foundation (data loaders, sandbox, vendored verifier, baseline).
 - **Stage 1** — SFT cold-start (LoRA; instills the `<think>` + ```sql``` format).

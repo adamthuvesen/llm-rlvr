@@ -20,7 +20,7 @@ test-integration:  ## Run the network/HuggingFace/model integration tests
 
 check: lint test  ## Project gate: lint + unit tests
 
-data:  ## Fetch + verify + extract the pinned Spider databases (HF mirror; see RUNBOOK)
+data:  ## Fetch + verify + extract the pinned Spider databases (HF mirror; see docs/RUNBOOK.md)
 	uv run python -c "from llm_rlvr_sql.data import ensure_spider_databases as e; print('Spider DBs at', e().database_root)"
 
 eval:  ## Re-derive committed numbers (minutes; not in make check — run when results/ or scoring change)

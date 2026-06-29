@@ -12,10 +12,9 @@ duplicated here. This file is project-specific facts.
 | When you are… | Read |
 |---|---|
 | Touching any code, or new to the repo | `docs/architecture.md` |
-| Running baselines, training, or Modal commands | `RUNBOOK.md` |
-| Citing a number, or pinning/locating an artifact | `ARTIFACTS.md` |
+| Running baselines, training, or Modal commands | `docs/RUNBOOK.md` |
+| Citing a number, or pinning/locating an artifact | `docs/ARTIFACTS.md` |
 | Checking the current stage / what's done | `docs/status.md` |
-| Changing behavior or scope | the active change in `openspec/changes/` (work the tasks; don't diverge silently) |
 
 If a doc disagrees with code, fix the doc in the same change.
 

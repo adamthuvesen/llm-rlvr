@@ -1,7 +1,7 @@
 """Registry of CompletionSets re-derived by ``make eval``.
 
 Stage-3 multi-turn smoke artifacts under ``results/grpo-mt/`` are documented in
-``ARTIFACTS.md`` only — they are smoke JSON, not CompletionSets scored here.
+``docs/ARTIFACTS.md`` only — they are smoke JSON, not CompletionSets scored here.
 """
 
 from __future__ import annotations

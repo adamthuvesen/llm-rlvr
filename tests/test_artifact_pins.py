@@ -1,4 +1,4 @@
-"""ARTIFACTS.md pin strings must match ``data/artifacts.py`` constants."""
+"""docs/ARTIFACTS.md pin strings must match ``data/artifacts.py`` constants."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 from llm_rlvr_sql.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
 
 REPO = Path(__file__).resolve().parents[1]
-ARTIFACTS_MD = REPO / "ARTIFACTS.md"
+ARTIFACTS_MD = REPO / "docs/ARTIFACTS.md"
 
 
 def _extract_backtick_tokens(text: str) -> set[str]:
