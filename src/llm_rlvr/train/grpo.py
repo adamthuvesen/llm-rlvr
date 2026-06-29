@@ -23,7 +23,8 @@ from llm_rlvr._base import Frozen
 from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.eval.completions import write_json
 from llm_rlvr.eval.provenance import git_commit, git_is_dirty, library_versions
-from llm_rlvr.tasks.sql import RewardConfig, make_reward_fn, sql_task
+from llm_rlvr.harness import Task
+from llm_rlvr.tasks.sql import RewardConfig, sql_task
 from llm_rlvr.train.lora import lora_kwargs as shared_lora_kwargs
 
 _TRAIN_LIBRARIES = ("llm-rlvr", "trl", "peft", "transformers", "torch", "accelerate", "vllm")
@@ -223,11 +224,12 @@ def load_trainable_policy(
 
 
 def run_grpo(
-    examples: Sequence[Example],
-    schemas: Mapping[str, DatabaseSchema],
-    db_root: str | Path,
+    examples: Sequence[object],
+    resources: Mapping[str, object],
+    context_root: str | Path,
     output_dir: str | Path,
     *,
+    task: Task | None = None,
     base_model: str,
     warm_start_adapter: str | Path,
     dataset: str,
@@ -240,21 +242,27 @@ def run_grpo(
 ) -> Path:
     """Train a GRPO LoRA adapter warm-started from the SFT adapter; persist it + provenance (GPU).
 
+    Task-agnostic: the rows and the reward come from `task` (default: the text-to-SQL task) via
+    `task.build_grpo_rows` + `task.make_reward_fn`, so a registered non-SQL `Task` trains through
+    this same driver. `resources` is whatever the task's row builder needs (SQL: the schemas);
+    `context_root` is where its verifier resolves context (SQL: the database root).
+
     Warm-starts by loading `warm_start_adapter` over `base_model` as a *trainable* PEFT model, so
-    the saved adapter is the SFT→GRPO continuation (one adapter over the base at eval). Rollouts are
-    scored by the execution reward against `db_root`. A disjoint dev slice is held out for post-hoc
-    dev-EX checkpoint selection; periodic checkpoints land under `output_dir`.
+    the saved adapter is the SFT→GRPO continuation (one adapter over the base at eval). A disjoint
+    dev slice is held out for post-hoc dev-EX checkpoint selection; periodic checkpoints land under
+    `output_dir`.
     """
     from datasets import Dataset  # lazy: heavy training stack, train extra only
     from trl import GRPOTrainer
 
+    tk = task or sql_task()
     hp = hyperparams or GrpoHyperparams()
     rw = reward or RewardConfig()
 
     train_examples, dev_examples = split_train_dev(
         examples, dev_size=hp.eval_slice_size, seed=hp.seed
     )
-    rows = build_grpo_rows(train_examples, schemas)
+    rows = tk.build_grpo_rows(train_examples, resources)
     train_dataset = Dataset.from_list(rows)
 
     policy = load_trainable_policy(
@@ -263,7 +271,7 @@ def run_grpo(
 
     trainer = GRPOTrainer(
         model=policy,
-        reward_funcs=[make_reward_fn(db_root, config=rw)],
+        reward_funcs=[tk.make_reward_fn(context_root, config=rw)],
         args=build_grpo_config(hp, output_dir),
         train_dataset=train_dataset,
     )

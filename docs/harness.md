@@ -1,9 +1,10 @@
 # The RLVR harness — adding your own task
 
 This repo is two things: a **task-agnostic RLVR harness** and one **reference task** (text-to-SQL)
-trained on it. The harness is the reusable part — SFT cold-start, GRPO with a *verifiable* reward,
-and the disciplined eval/provenance layer — and it is independent of SQL. To train your own model on
-your own problem, you implement a small task and reuse everything else.
+trained on it. The harness is the reusable part — the verifier/reward core, the GRPO + SFT trainers,
+and the seed-level CI discipline — and it is independent of SQL. To train your own model on your own
+problem, you implement a small task and reuse the machinery. (One boundary is honest about itself:
+the committed-artifact *scoring* path is still SQL-shaped — see "What stays SQL-only".)
 
 > A reward is **verifiable** when a deterministic program decides correctness — execute the answer,
 > compare denotations, run a test suite, check a number — rather than a learned judge. The same
@@ -86,9 +87,17 @@ copy it as your starting point.
 3. Bring your data as typed records and a prompt builder (the SQL task uses `data/models.py`
    `Example` + `data/schema.py`; yours can differ — `build_grpo_rows` just needs to emit a `prompt`
    plus whatever columns your reward reads).
-4. Reuse the rest unchanged: LoRA SFT (`train/sft.py`), GRPO (`train/grpo.py` — the config builders
-   and dev-split are task-agnostic), the `CompletionSet` artifact + `score`/`aggregate` eval, and
-   the seed-level CI discipline.
+4. Reuse the shared machinery:
+   - **GRPO** — `run_grpo(..., task=your_task)` trains through your task: it builds rows via
+     `task.build_grpo_rows` and scores rollouts via `task.make_reward_fn`. The config builders and
+     the disjoint dev split are task-agnostic.
+   - **SFT** — the LoRA trainer (`train/sft.py`) is task-agnostic; the STaR trace *dataset* is
+     filtered by the verifier (`train/traces.py`), so you supply your own filtered traces.
+   - **Seed-level CIs** — `eval/aggregate.py` works on per-seed numbers, so it is reusable as-is.
+   - **Offline scoring** — the `CompletionSet` artifact + `score_completion_set` are SQL-shaped
+     (they embed `data.models.Example` with `gold_sql`/`db_id` and call the SQL verifier). A new
+     task scores with `score_answer` directly, or grows its own artifact; the committed-number
+     re-derivation path stays SQL. See below.
 
 ## Plugging in your own model
 
@@ -99,7 +108,12 @@ Qwen default, so a third base model is a config change. Your model needs to be a
 
 ## What stays SQL-only
 
-`eval/verifier.py` + `env/sandbox.py` + `third_party/` (execution-match against SQLite), the Spider/
-BIRD loaders in `data/`, and `tasks/sql.py` are the SQL specifics. Everything in `harness/`, the
-SFT/GRPO config builders, and the `CompletionSet`/score/aggregate/provenance layer are not — that is
-the line the refactor draws.
+SQL-specific: `eval/verifier.py` + `env/sandbox.py` + `third_party/` (execution-match against
+SQLite), the Spider/BIRD loaders in `data/`, `tasks/sql.py`, **and the `CompletionSet` artifact +
+`score_completion_set`** (`eval/completions.py`, `eval/score.py`) — they embed `Example` and call
+the SQL verifier, and committed result JSON serializes that shape, so they can't generalize without
+breaking re-derivation.
+
+Task-agnostic: everything in `harness/`, the SFT/GRPO config builders + `run_grpo` (parametrized by
+`task`), and the seed-level CI aggregation (`eval/aggregate.py`). That is the line the refactor
+draws — and where it stops, the docs say so rather than overclaiming.

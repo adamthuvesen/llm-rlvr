@@ -127,6 +127,62 @@ def test_near_binary_arm_tiers_are_task_agnostic() -> None:
     assert _score(_wrap("nope"), 42, config=cfg).total == 0.0
 
 
+# --- a non-SQL task flows through the GRPO construction seam (rows + reward) ---------------------
+
+
+class IntegerTask:
+    """A minimal non-SQL `Task` — enough to prove `run_grpo`'s row/reward seam is task-agnostic."""
+
+    name = "integer"
+    parser = INT_PARSER
+
+    def make_verifier(self):
+        return INT_VERIFIER
+
+    def make_reward_fn(self, context_root, *, config=None):
+        cfg = config or RewardConfig()
+
+        def reward(completions, reference, **_kwargs):
+            return [
+                score_answer(
+                    completion_text(c),
+                    ref,
+                    None,
+                    parser=INT_PARSER,
+                    verifier=INT_VERIFIER,
+                    config=cfg,
+                ).total
+                for c, ref in zip(completions, reference, strict=True)
+            ]
+
+        return reward
+
+    def build_prompts(self, examples, resources, *, style="cot", **_kwargs):
+        return [[{"role": "user", "content": f"sum: {e}"}] for e in examples]
+
+    def build_grpo_rows(self, examples, resources, *, style="cot", **_kwargs):
+        prompts = self.build_prompts(examples, resources, style=style)
+        return [{"prompt": p, "reference": e} for e, p in zip(examples, prompts, strict=True)]
+
+
+def test_non_sql_task_flows_through_grpo_rows_and_reward() -> None:
+    task = IntegerTask()
+    assert isinstance(task, Task)
+
+    # the exact two calls run_grpo makes: task.build_grpo_rows(...) then task.make_reward_fn(...)
+    rows = task.build_grpo_rows([42, 7], {})
+    assert [set(r) for r in rows] == [{"prompt", "reference"}, {"prompt", "reference"}]
+    assert rows[0]["reference"] == 42
+
+    reward_fn = task.make_reward_fn("/unused")
+    rewards = reward_fn(
+        completions=[_wrap("42"), _wrap("41")],
+        reference=[r["reference"] for r in rows],
+    )
+    assert len(rewards) == 2
+    assert rewards[0] > rewards[1]  # exact match outscores executable-but-wrong
+
+
 # --- the SQL task satisfies the harness protocols -----------------------------------------------
 
 
