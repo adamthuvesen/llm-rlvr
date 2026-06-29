@@ -2,7 +2,7 @@
 
 Captures the dataset revision + DB-archive checksum, the model + revision, the decoding config,
 the resolved few-shot exemplars, the git commit/dirty flag, and library versions. Mirrors
-`grpo-gain-decomposition`'s RunProvenance.
+`grpo-decomp`'s RunProvenance.
 """
 
 from __future__ import annotations

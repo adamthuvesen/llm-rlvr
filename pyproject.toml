@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "llm-rlvr"
 version = "0.1.0"
-description = "Text-to-SQL post-training: SFT cold-start -> single-turn GRPO with execution-verified rewards (RLVR)."
+description = "Reusable RLVR library for LLM post-training, with text-to-SQL as the reference task."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

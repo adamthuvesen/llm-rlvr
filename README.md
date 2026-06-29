@@ -126,7 +126,7 @@ GPU generation and training run through Modal entrypoints in `[modal_app.py](mod
 ## Related Work
 
 This is the build-and-train companion to
-`[grpo-gain-decomposition](https://github.com/adamthuvesen/grpo-gain-decomposition)`, which studies
+`[grpo-decomp](https://github.com/adamthuvesen/grpo-decomp)`, which studies
 how much measured RL reasoning gain is real improvement versus evaluation artifact.
 
 ## Data and License
