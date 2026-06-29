@@ -9,6 +9,7 @@ caveat) exactly. Scoring is threaded (`workers`): identical results at any worke
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from llm_rlvr_sql.data import ensure_bird_dev, ensure_spider_databases
@@ -16,42 +17,24 @@ from llm_rlvr_sql.eval import read_completion_set, score_completion_set
 from llm_rlvr_sql.report import build_rl_row, render_progression
 
 HERE = Path(__file__).parent
-SFT = HERE.parent / "sft"
-GRPO = HERE.parent / "grpo"
-LLAMA = HERE.parent / "llama"
+RESULTS = HERE.parent
+GRPO = RESULTS / "grpo"
 WORKERS = 8
-GRPO_SEEDS = (0, 1, 2)
+
+_RESULTS_ROOT = RESULTS
+if str(_RESULTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RESULTS_ROOT))
+from manifest import DbKind, GRPO_SEEDS, repro_manifest  # noqa: E402, I001
 
 
 def main() -> None:
     spider_db = ensure_spider_databases().database_root
     bird_db = ensure_bird_dev().database_root
+    db_roots = {DbKind.SPIDER: spider_db, DbKind.BIRD: bird_db}
     rows = [
-        ("Spider-dev", "cot zero-shot", HERE / "spider-dev-zs.json", spider_db),
-        ("Spider-dev", "cot few-shot k=3", HERE / "spider-dev-fs3.json", spider_db),
-        ("Spider-dev", "direct zero-shot", HERE / "spider-dev-zs-direct.json", spider_db),
-        ("Spider-dev", "cot zs + sft-r32", SFT / "spider-dev-zs-sft-r32.json", spider_db),
-        ("Spider-dev", "direct zs + sft-r32", SFT / "spider-dev-zs-direct-sft-r32.json", spider_db),
-        ("BIRD-dev", "cot zero-shot", HERE / "bird-dev-zs.json", bird_db),
-        ("BIRD-dev", "direct zero-shot", HERE / "bird-dev-zs-direct.json", bird_db),
-        ("BIRD-dev", "cot zs + sft-r32", SFT / "bird-dev-zs-sft-r32.json", bird_db),
+        (row.benchmark, row.setting, row.completion_path, db_roots[row.db])
+        for row in repro_manifest()
     ]
-    for seed in GRPO_SEEDS:
-        shaped = f"grpo-s{seed} (shaped)"
-        rows.append(("Spider-dev", shaped, GRPO / f"spider-dev-zs-grpo-s{seed}.json", spider_db))
-        rows.append(("BIRD-dev", shaped, GRPO / f"bird-dev-zs-grpo-s{seed}.json", bird_db))
-    nb = "grpo-nb-s0 (near-bin)"
-    rows.append(("Spider-dev", nb, GRPO / "spider-dev-zs-grpo-nb-s0.json", spider_db))
-    rows.append(("BIRD-dev", nb, GRPO / "bird-dev-zs-grpo-nb-s0.json", bird_db))
-    # Cross-family control: the same recipe on Llama-3.2-3B (1 seed, point estimates).
-    lt = "llama-3.2-3b-instruct"
-    for setting, suffix in (
-        ("llama base cot zs", ""),
-        ("llama + sft-llama-r32", "-sft-llama-r32"),
-        ("llama + grpo-llama-s0", "-grpo-llama-s0"),
-    ):
-        rows.append(("Spider-dev", setting, LLAMA / f"spider-dev-zs-{lt}{suffix}.json", spider_db))
-        rows.append(("BIRD-dev", setting, LLAMA / f"bird-dev-zs-{lt}{suffix}.json", bird_db))
 
     ex: dict[tuple[str, str], float] = {}
     print(f"{'benchmark':<12} {'setting':<22} {'EX':>7} {'well-formed':>12}  correct/n")
