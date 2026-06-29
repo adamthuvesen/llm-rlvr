@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from llm_rlvr_sql.data.models import Column, DatabaseSchema, Example, Table
-from llm_rlvr_sql.eval.completions import CompletionSet, GenerationSample, ProblemCompletions
-from llm_rlvr_sql.eval.provenance import DecodingConfig, GenerationProvenance
-from llm_rlvr_sql.eval.revision_probe import (
+from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
+from llm_rlvr.eval.completions import CompletionSet, GenerationSample, ProblemCompletions
+from llm_rlvr.eval.provenance import DecodingConfig, GenerationProvenance
+from llm_rlvr.eval.revision_probe import (
     build_revision_prompts,
     read_prompt_rows,
     score_revision_probe,

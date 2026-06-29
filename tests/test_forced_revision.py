@@ -12,21 +12,21 @@ from typing import ClassVar
 
 import pytest
 
-from llm_rlvr_sql.data.models import Column, DatabaseSchema, Example, Table
-from llm_rlvr_sql.env.text2sql_env import FeedbackConfig
-from llm_rlvr_sql.eval.bestofn import select_best_of_n
-from llm_rlvr_sql.eval.completions import (
+from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
+from llm_rlvr.env.text2sql_env import FeedbackConfig
+from llm_rlvr.eval.bestofn import select_best_of_n
+from llm_rlvr.eval.completions import (
     CompletionSet,
     GenerationSample,
     ProblemCompletions,
 )
-from llm_rlvr_sql.eval.forced_revision_generate import (
+from llm_rlvr.eval.forced_revision_generate import (
     build_revision_messages,
     forced_revision_artifact_stem,
     generate_forced_revision,
 )
-from llm_rlvr_sql.eval.provenance import DecodingConfig
-from llm_rlvr_sql.revision import (
+from llm_rlvr.eval.provenance import DecodingConfig
+from llm_rlvr.revision import (
     REVISE_INSTRUCTION,
     UNPARSEABLE_FEEDBACK,
     attempt_feedback,
@@ -37,14 +37,14 @@ from llm_rlvr_sql.revision import (
     revision_user_message,
     splice_episode,
 )
-from llm_rlvr_sql.revision.smoke import count_nan_log_values, fr_smoke_failures
-from llm_rlvr_sql.revision.train import (
+from llm_rlvr.revision.smoke import count_nan_log_values, fr_smoke_failures
+from llm_rlvr.revision.train import (
     ForcedRevisionProvenance,
     build_forced_revision_provenance,
 )
-from llm_rlvr_sql.rewards.multiturn import MultiTurnRewardConfig, score_trajectory
-from llm_rlvr_sql.train.grpo import GrpoHyperparams
-from llm_rlvr_sql.train.grpo_smoke import (
+from llm_rlvr.rewards.multiturn import MultiTurnRewardConfig, score_trajectory
+from llm_rlvr.train.grpo import GrpoHyperparams
+from llm_rlvr.train.grpo_smoke import (
     FEEDBACK_MARKER,
     IS_RATIO_HEALTHY_BAND,
     IsRatioCheck,
@@ -632,11 +632,11 @@ def test_forced_revision_artifact_stem_separates_policies() -> None:
 
 
 def test_fr_metrics_decomposes_fix_and_harm(scoring_root: Path, provenance) -> None:
-    from llm_rlvr_sql.eval.forced_revision_generate import (
+    from llm_rlvr.eval.forced_revision_generate import (
         ForcedRevisionEpisode,
         ForcedRevisionTranscriptSet,
     )
-    from llm_rlvr_sql.eval.fr_metrics import compute_fr_metrics
+    from llm_rlvr.eval.fr_metrics import compute_fr_metrics
 
     wrong_sql = "SELECT a FROM t WHERE a = 999"  # executes, empty result -> wrong
     err_sql = "SELECT nope FROM missing"
@@ -697,11 +697,11 @@ def test_fr_metrics_decomposes_fix_and_harm(scoring_root: Path, provenance) -> N
 def test_forced_revision_eval_report_accounts_for_error_only_policy(
     scoring_root: Path, provenance
 ) -> None:
-    from llm_rlvr_sql.eval.forced_revision_generate import (
+    from llm_rlvr.eval.forced_revision_generate import (
         ForcedRevisionEpisode,
         ForcedRevisionTranscriptSet,
     )
-    from llm_rlvr_sql.eval.fr_metrics import compute_forced_revision_eval_report
+    from llm_rlvr.eval.fr_metrics import compute_forced_revision_eval_report
 
     wrong_sql = "SELECT a FROM t WHERE a = 999"
     err_sql = "SELECT nope FROM missing"
@@ -771,8 +771,8 @@ def test_forced_revision_eval_report_accounts_for_error_only_policy(
 
 
 def test_fr_metrics_rejects_misaligned_inputs(scoring_root: Path, provenance) -> None:
-    from llm_rlvr_sql.eval.forced_revision_generate import ForcedRevisionTranscriptSet
-    from llm_rlvr_sql.eval.fr_metrics import compute_fr_metrics
+    from llm_rlvr.eval.forced_revision_generate import ForcedRevisionTranscriptSet
+    from llm_rlvr.eval.fr_metrics import compute_fr_metrics
 
     completion_set = CompletionSet(
         provenance=provenance.model_copy(update={"n_examples": 0}), items=()
@@ -785,7 +785,7 @@ def test_fr_metrics_rejects_misaligned_inputs(scoring_root: Path, provenance) ->
 
 
 def test_error_only_replay_revises_only_on_error_feedback(scoring_root: Path, provenance) -> None:
-    from llm_rlvr_sql.eval.forced_revision_generate import (
+    from llm_rlvr.eval.forced_revision_generate import (
         ForcedRevisionEpisode,
         ForcedRevisionTranscriptSet,
         replay_error_only_revision,
@@ -858,7 +858,7 @@ def test_error_only_replay_revises_only_on_error_feedback(scoring_root: Path, pr
 def test_error_only_replay_keeps_parse_error_attempts_on_error_feedback(
     scoring_root: Path, provenance
 ) -> None:
-    from llm_rlvr_sql.eval.forced_revision_generate import (
+    from llm_rlvr.eval.forced_revision_generate import (
         ForcedRevisionEpisode,
         ForcedRevisionTranscriptSet,
         replay_error_only_revision,
@@ -900,7 +900,7 @@ def test_error_only_replay_keeps_parse_error_attempts_on_error_feedback(
 
 
 def test_error_only_replay_rejects_misaligned_inputs(scoring_root: Path, provenance) -> None:
-    from llm_rlvr_sql.eval.forced_revision_generate import (
+    from llm_rlvr.eval.forced_revision_generate import (
         ForcedRevisionEpisode,
         ForcedRevisionTranscriptSet,
         replay_error_only_revision,

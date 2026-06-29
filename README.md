@@ -1,4 +1,4 @@
-# llm-rlvr-sql
+# llm-rlvr
 
 A small, disciplined **RLVR harness** — SFT cold-start, GRPO with a *verifiable* reward, and an
 eval/provenance layer where every reported number re-derives from a committed artifact — with

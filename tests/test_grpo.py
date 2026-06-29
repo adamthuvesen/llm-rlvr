@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from llm_rlvr_sql.data.models import Column, DatabaseSchema, Example, Table
-from llm_rlvr_sql.tasks.sql import RewardConfig
-from llm_rlvr_sql.train.grpo import (
+from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
+from llm_rlvr.tasks.sql import RewardConfig
+from llm_rlvr.train.grpo import (
     GrpoHyperparams,
     GrpoProvenance,
     build_grpo_provenance,

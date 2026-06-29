@@ -35,20 +35,20 @@ model. Decoding settings, dataset revision, and the DB-archive checksum are reco
 
 ```bash
 # zero-shot
-PYTORCH_ENABLE_MPS_FALLBACK=1 uv run llm-rlvr-sql generate \
+PYTORCH_ENABLE_MPS_FALLBACK=1 uv run llm-rlvr generate \
   --model Qwen/Qwen2.5-Coder-3B-Instruct --split dev \
   --tables-json data/spider/spider_data/tables.json --backend transformers \
   --out runs/baseline_3b_dev50.json --limit 50 --slice-seed 0 --max-new-tokens 512
 
 # few-shot (k=3 seeded train exemplars; never dev/test — enforced)
-PYTORCH_ENABLE_MPS_FALLBACK=1 uv run llm-rlvr-sql generate \
+PYTORCH_ENABLE_MPS_FALLBACK=1 uv run llm-rlvr generate \
   --model Qwen/Qwen2.5-Coder-3B-Instruct --split dev \
   --tables-json data/spider/spider_data/tables.json --backend transformers \
   --out runs/baseline_3b_dev50_fewshot.json --limit 50 --slice-seed 0 \
   --few-shot-k 3 --few-shot-seed 0 --max-new-tokens 512
 
 # score either run against the real databases (model-free, deterministic)
-uv run llm-rlvr-sql score --completions runs/baseline_3b_dev50.json \
+uv run llm-rlvr score --completions runs/baseline_3b_dev50.json \
   --db-root data/spider/spider_data/database --out results/baseline_3b_dev50.json
 ```
 
@@ -70,7 +70,7 @@ modal run --detach modal_app.py::main --dataset bird --prompt-style direct --spa
 
 # pull a result from the Volume and score on CPU
 modal volume get text2sql-runs spider-dev-zs.json ./runs/spider-dev-zs.json
-uv run llm-rlvr-sql score --completions runs/spider-dev-zs.json --db-root data/spider/spider_data/database
+uv run llm-rlvr score --completions runs/spider-dev-zs.json --db-root data/spider/spider_data/database
 ```
 
 **Recorded base-model baseline** (Qwen2.5-Coder-3B-Instruct, greedy, full dev):
@@ -111,7 +111,7 @@ guard is ON), and write the JSONL + manifest:
 
 ```bash
 modal volume get text2sql-runs sft/candidates-n8-seed0.json ./runs/sft/candidates-n8-seed0.json
-uv run llm-rlvr-sql build-traces --candidates runs/sft/candidates-n8-seed0.json \
+uv run llm-rlvr build-traces --candidates runs/sft/candidates-n8-seed0.json \
   --db-root data/spider/spider_data/database \
   --out data/sft/traces.jsonl --manifest results/sft/traces.manifest.json
 ```
@@ -140,7 +140,7 @@ modal run --detach modal_app.py::main --dataset spider --adapter sft/sft-r32 --p
 modal run --detach modal_app.py::main --dataset bird --adapter sft/sft-r32 --spawn
 
 modal volume get text2sql-runs spider-dev-zs-sft-r32.json ./runs/spider-dev-zs-sft-r32.json
-uv run llm-rlvr-sql score --completions runs/spider-dev-zs-sft-r32.json \
+uv run llm-rlvr score --completions runs/spider-dev-zs-sft-r32.json \
   --db-root data/spider/spider_data/database
 ```
 
@@ -200,7 +200,7 @@ modal run --detach modal_app.py::grpo --run-id grpo-nb-s0 --learning-rate 5e-5 \
 LB=unsloth/Llama-3.2-3B-Instruct    # ungated mirror, byte-identical to meta-llama (no token)
 modal run --detach modal_app.py::traces --base-model $LB --spawn
 modal volume get text2sql-runs sft/candidates-llama-3.2-3b-instruct-n8-seed0.json runs/sft/
-uv run llm-rlvr-sql build-traces --candidates runs/sft/candidates-llama-3.2-3b-instruct-n8-seed0.json \
+uv run llm-rlvr build-traces --candidates runs/sft/candidates-llama-3.2-3b-instruct-n8-seed0.json \
   --db-root data/spider/spider_data/database \
   --out data/sft/traces-llama.jsonl --manifest results/sft/traces-llama.manifest.json
 modal volume put text2sql-runs data/sft/traces-llama.jsonl sft/traces-llama.jsonl
@@ -216,7 +216,7 @@ artifacts get a family tag so they can't collide). Score on CPU with `--workers 
 ```bash
 modal run --detach modal_app.py::main --dataset bird --adapter grpo/grpo-s0 --spawn
 modal volume get text2sql-runs bird-dev-zs-grpo-s0.json results/grpo/
-uv run llm-rlvr-sql score --completions results/grpo/bird-dev-zs-grpo-s0.json \
+uv run llm-rlvr score --completions results/grpo/bird-dev-zs-grpo-s0.json \
   --db-root <bird-db-root> --workers 8
 ```
 
@@ -240,7 +240,7 @@ runner executes an answer, feeds back execution information, and asks the model 
 modal run modal_app.py::fr_smoke
 modal run --detach modal_app.py::fr_eval --dataset spider --policy error_only \
   --adapter grpo-fr/grpo-fr-pilot --spawn
-uv run llm-rlvr-sql fr-metrics --completions results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.json \
+uv run llm-rlvr fr-metrics --completions results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.json \
   --transcripts results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.transcripts.json \
   --db-root data/spider/spider_data/database
 ```

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from llm_rlvr_sql.data import ensure_bird_dev, load_bird_examples, resolve_database
-from llm_rlvr_sql.data.spider import load_schemas
+from llm_rlvr.data import ensure_bird_dev, load_bird_examples, resolve_database
+from llm_rlvr.data.spider import load_schemas
 
 
 @pytest.mark.integration

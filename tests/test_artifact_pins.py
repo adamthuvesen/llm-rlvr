@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from llm_rlvr_sql.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
+from llm_rlvr.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
 
 REPO = Path(__file__).resolve().parents[1]
 ARTIFACTS_MD = REPO / "docs/ARTIFACTS.md"

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from llm_rlvr_sql.data.bird import ensure_bird_dev
-from llm_rlvr_sql.data.spider import ensure_spider_databases
+from llm_rlvr.data.bird import ensure_bird_dev
+from llm_rlvr.data.spider import ensure_spider_databases
 
 
 @pytest.fixture(scope="session")

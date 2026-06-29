@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from llm_rlvr_sql.data import (
+from llm_rlvr.data import (
     Column,
     DatabaseSchema,
     ForeignKey,

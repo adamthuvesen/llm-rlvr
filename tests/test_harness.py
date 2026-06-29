@@ -11,7 +11,7 @@ import re
 
 import pytest
 
-from llm_rlvr_sql.harness import (
+from llm_rlvr.harness import (
     AnswerParser,
     ReferenceUnverifiable,
     RewardConfig,
@@ -21,8 +21,8 @@ from llm_rlvr_sql.harness import (
     completion_text,
     score_answer,
 )
-from llm_rlvr_sql.tasks import get_task
-from llm_rlvr_sql.tasks.sql import SQL_PARSER, SqlTask, SqlVerifier, sql_task
+from llm_rlvr.tasks import get_task
+from llm_rlvr.tasks.sql import SQL_PARSER, SqlTask, SqlVerifier, sql_task
 
 # --- a tiny non-SQL task: "what is the integer answer?" -----------------------------------------
 

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from llm_rlvr_sql.eval.completions import read_completion_set
-from llm_rlvr_sql.eval.score import score_completion_set
+from llm_rlvr.eval.completions import read_completion_set
+from llm_rlvr.eval.score import score_completion_set
 
 REPO = Path(__file__).resolve().parents[1]
 N50_COMPLETION = REPO / "results/baseline/spider-dev-fs3-n50.json"

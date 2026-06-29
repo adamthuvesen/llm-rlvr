@@ -12,7 +12,7 @@ your own problem, you implement a small task and reuse everything else.
 ## The three protocols (`harness/`)
 
 ```python
-from llm_rlvr_sql.harness import AnswerParser, Verifier, Verdict, Task, score_answer
+from llm_rlvr.harness import AnswerParser, Verifier, Verdict, Task, score_answer
 ```
 
 1. **`AnswerParser`** — pull the answer out of a raw completion, and judge its format.
@@ -50,7 +50,7 @@ You do **not** write reward shaping. `harness.score_answer` turns your parser + 
 shaped or near-binary RLVR reward:
 
 ```python
-from llm_rlvr_sql.harness import RewardConfig, score_answer
+from llm_rlvr.harness import RewardConfig, score_answer
 
 breakdown = score_answer(
     completion_text, reference, context,

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from llm_rlvr_sql.data.models import Example
-from llm_rlvr_sql.eval.completions import (
+from llm_rlvr.data.models import Example
+from llm_rlvr.eval.completions import (
     CompletionSet,
     GenerationSample,
     ProblemCompletions,
@@ -15,7 +15,7 @@ from llm_rlvr_sql.eval.completions import (
     read_completion_set,
     write_completion_set,
 )
-from llm_rlvr_sql.eval.provenance import GenerationProvenance
+from llm_rlvr.eval.provenance import GenerationProvenance
 
 EXAMPLE = Example(db_id="concert", question="how many?", gold_sql="SELECT a FROM t", split="dev")
 

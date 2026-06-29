@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from llm_rlvr_sql.data.models import Column, DatabaseSchema, Example, Table
-from llm_rlvr_sql.eval import generate as gen
-from llm_rlvr_sql.eval.provenance import DecodingConfig
+from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
+from llm_rlvr.eval import generate as gen
+from llm_rlvr.eval.provenance import DecodingConfig
 
 QWEN = "Qwen/Qwen2.5-Coder-3B-Instruct"
 LLAMA = "meta-llama/Llama-3.2-3B-Instruct"

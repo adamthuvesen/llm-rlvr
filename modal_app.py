@@ -12,7 +12,7 @@ Long entrypoints (main, traces, sft, grpo, fr_train, fr_eval, mt_eval) spawn by 
 `--no-spawn` to force a long entrypoint to block (e.g. a tiny `--limit` smoke).
 
 Generation/sampling write artifacts to a Modal Volume; pull with `modal volume get text2sql-runs
-<name> ./runs/<name>` and filter/score on CPU (`llm-rlvr-sql build-traces` / `score` / `make
+<name> ./runs/<name>` and filter/score on CPU (`llm-rlvr build-traces` / `score` / `make
 eval`). Run with the `modal` CLI (`uv tool install modal`), not as a project dependency. Public HF
 datasets/model, so no HF token is needed.
 
@@ -34,9 +34,9 @@ from modal.helpers import (
     volume_path,
 )
 
-APP_NAME = "llm-rlvr-sql-baseline"
+APP_NAME = "llm-rlvr-baseline"
 CUDA_IMAGE = "nvidia/cuda:12.4.1-devel-ubuntu22.04"
-REMOTE_ROOT = "/root/llm-rlvr-sql"
+REMOTE_ROOT = "/root/llm-rlvr"
 RUNS_DIR = "/runs"
 MODEL = "Qwen/Qwen2.5-Coder-3B-Instruct"
 
@@ -55,7 +55,7 @@ app = modal.App(APP_NAME)
 # Transient/local-only caches: never part of the image (they also mutate during a build and trip
 # Modal's "modified during build" guard). .git is stripped — the entrypoint passes git state in.
 # NOTE: the cache dirs are root-anchored (`runs/**`, not `**/runs`) — a deep glob like `**/data`
-# would also strip the `src/llm_rlvr_sql/data/` *package* from the image.
+# would also strip the `src/llm_rlvr/data/` *package* from the image.
 _IGNORE = [
     "**/.git",
     "**/.venv",
@@ -134,9 +134,9 @@ def baseline(
     """
     from pathlib import Path
 
-    from llm_rlvr_sql.eval.completions import write_completion_set
-    from llm_rlvr_sql.eval.generate import generate
-    from llm_rlvr_sql.eval.provenance import DecodingConfig
+    from llm_rlvr.eval.completions import write_completion_set
+    from llm_rlvr.eval.generate import generate
+    from llm_rlvr.eval.provenance import DecodingConfig
 
     ctx = load_eval_context(
         dataset=dataset,
@@ -195,8 +195,8 @@ def sample_traces(
     `base_model` defaults to Qwen; set the Llama base for the cross-family control so the SFT
     cold-start traces are distilled from the same family that GRPO will then train (matched recipe).
     """
-    from llm_rlvr_sql.eval.completions import write_json
-    from llm_rlvr_sql.train.traces import CandidateSet, TraceSamplingConfig, sample_candidates
+    from llm_rlvr.eval.completions import write_json
+    from llm_rlvr.train.traces import CandidateSet, TraceSamplingConfig, sample_candidates
 
     ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)
 
@@ -239,7 +239,7 @@ def sft_train(
     (an adapter dir relative to the Volume, e.g. `grpo/grpo-s0`) continues that adapter instead
     of training a fresh one — the Stage-3 tool-use cold start.
     """
-    from llm_rlvr_sql.train.sft import SftHyperparams, run_sft
+    from llm_rlvr.train.sft import SftHyperparams, run_sft
 
     out = run_sft(
         runs_path(traces),
@@ -277,8 +277,8 @@ def grpo_train(
     `reward_arm` is `shaped` (headline) or `near_binary` (the ablation). Adapter + provenance land
     under `grpo/<run-id>/`.
     """
-    from llm_rlvr_sql.tasks.sql import RewardConfig
-    from llm_rlvr_sql.train.grpo import GrpoHyperparams, run_grpo
+    from llm_rlvr.tasks.sql import RewardConfig
+    from llm_rlvr.train.grpo import GrpoHyperparams, run_grpo
 
     ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)
 
@@ -323,7 +323,7 @@ def multiturn_smoke(
     measuring the multi-turn memory/step-time envelope. Report JSON lands under
     `grpo-mt/<run-id>/`; a failed assertion exits non-zero AFTER persisting the report.
     """
-    from llm_rlvr_sql.train.multiturn import MultiTurnHyperparams, run_multiturn_smoke
+    from llm_rlvr.train.multiturn import MultiTurnHyperparams, run_multiturn_smoke
 
     ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)
 
@@ -361,9 +361,9 @@ def multiturn_eval(
     """Multi-turn greedy eval (no RL): the tool loop at inference time. Writes a normal
     CompletionSet plus the full `MultiTurnTranscriptSet` under `grpo-mt/eval/` on the Volume.
     """
-    from llm_rlvr_sql.eval.completions import write_completion_set, write_json
-    from llm_rlvr_sql.eval.multiturn_generate import generate_multiturn
-    from llm_rlvr_sql.eval.provenance import DecodingConfig
+    from llm_rlvr.eval.completions import write_completion_set, write_json
+    from llm_rlvr.eval.multiturn_generate import generate_multiturn
+    from llm_rlvr.eval.provenance import DecodingConfig
 
     ctx = load_eval_context(dataset=dataset, split="dev", data_root=runs_path("data"), limit=limit)
     completion_set, transcripts = generate_multiturn(
@@ -405,8 +405,8 @@ def forced_revision_smoke(
     masking, the TRL #4543 IS-ratio band, and no NaNs. Report lands under `grpo-fr/<run-id>/`;
     a failed assertion exits non-zero AFTER persisting the report.
     """
-    from llm_rlvr_sql.revision import run_forced_revision_smoke
-    from llm_rlvr_sql.train.grpo import GrpoHyperparams
+    from llm_rlvr.revision import run_forced_revision_smoke
+    from llm_rlvr.train.grpo import GrpoHyperparams
 
     ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)
 
@@ -448,8 +448,8 @@ def forced_revision_train(
     `max_steps` bounds the pilot; the full run leaves it unset. Adapter + provenance + the D8
     diagnostics series land under `grpo-fr/<run-id>/`.
     """
-    from llm_rlvr_sql.revision import run_forced_revision_train
-    from llm_rlvr_sql.train.grpo import GrpoHyperparams
+    from llm_rlvr.revision import run_forced_revision_train
+    from llm_rlvr.train.grpo import GrpoHyperparams
 
     ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)
 
@@ -491,14 +491,14 @@ def forced_revision_eval(
 ) -> str:
     """Forced-revision eval: greedy attempt, execution feedback, optional greedy revision.
     Writes a normal CompletionSet plus the full transcripts under `grpo-fr/eval/`."""
-    from llm_rlvr_sql.eval.completions import write_completion_set, write_json
-    from llm_rlvr_sql.eval.forced_revision_generate import (
+    from llm_rlvr.eval.completions import write_completion_set, write_json
+    from llm_rlvr.eval.forced_revision_generate import (
         forced_revision_artifact_stem,
         generate_forced_revision,
         validate_forced_revision_policy,
     )
-    from llm_rlvr_sql.eval.fr_metrics import compute_forced_revision_eval_report
-    from llm_rlvr_sql.eval.provenance import DecodingConfig
+    from llm_rlvr.eval.fr_metrics import compute_forced_revision_eval_report
+    from llm_rlvr.eval.provenance import DecodingConfig
 
     policy = validate_forced_revision_policy(policy)
     ctx = load_eval_context(dataset=dataset, split="dev", data_root=runs_path("data"), limit=limit)
@@ -555,8 +555,8 @@ def raw_generate(
     + commit, so this fn carries no provenance of its own."""
     import json
 
-    from llm_rlvr_sql.eval.provenance import DecodingConfig
-    from llm_rlvr_sql.eval.vllm_backend import make_vllm_engine, sample_vllm_completions
+    from llm_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr.eval.vllm_backend import make_vllm_engine, sample_vllm_completions
 
     rows = [
         json.loads(line) for line in runs_path(prompts).read_text(encoding="utf-8").splitlines()

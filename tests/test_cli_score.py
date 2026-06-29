@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from llm_rlvr_sql.eval.cli import main
+from llm_rlvr.eval.cli import main
 
 
 def test_score_cli_writes_report(tmp_path: Path, scoring_root: Path, provenance) -> None:
-    from llm_rlvr_sql.data.models import Example
-    from llm_rlvr_sql.eval.completions import (
+    from llm_rlvr.data.models import Example
+    from llm_rlvr.eval.completions import (
         CompletionSet,
         GenerationSample,
         ProblemCompletions,

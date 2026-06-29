@@ -48,7 +48,7 @@ adapter that binds the harness protocols to the SQL pieces in `eval/` + `data/`;
 `train/` build on the SQL task. Nothing under `harness/` imports SQL.
 
 `modal_app.py` (repo root) is the only GPU surface; `src/` never imports Modal, and the GPU
-functions import `llm_rlvr_sql` lazily so the package installs and tests without the training stack.
+functions import `llm_rlvr` lazily so the package installs and tests without the training stack.
 
 ## Data and result flow
 
@@ -112,11 +112,11 @@ completion, from a single sandbox execution:
 
 ## Modal (GPU runner)
 
-- App `llm-rlvr-sql-baseline`; Volumes `text2sql-runs` (`/runs`) + `text2sql-hf-cache`.
+- App `llm-rlvr-baseline`; Volumes `text2sql-runs` (`/runs`) + `text2sql-hf-cache`.
 - Two-layer image: the heavy CUDA/torch/vLLM layer is keyed on `pyproject.toml`+`uv.lock` only, so a
   source edit re-runs just the fast editable relink, not the multi-GB install.
 - Image ignore patterns are **root-anchored** (`data/**`, not `**/data`) — a deep glob would strip
-  the `src/llm_rlvr_sql/data/` package out of the image.
+  the `src/llm_rlvr/data/` package out of the image.
 - Entrypoints are thin `@app.local_entrypoint`s, each mirroring a GPU `@app.function` and taking
   `--spawn`. The supported training path uses `main` (baseline/adapter generate), `traces`
   (STaR sampling), `sft`, and `grpo`; analysis helpers add `mt_smoke`/`mt_eval`,
