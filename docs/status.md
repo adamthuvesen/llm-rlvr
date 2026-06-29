@@ -13,9 +13,9 @@ both closed honestly without a full training run, all archived in `openspec/chan
   GRPO / two tool-use-SFT checkpoints and every prompting strength; a two-arm probe ruled out
   RL formatting as the cause. TRL #4543 stayed clear throughout.
 - **Stage 3b (`grpo-forced-revision`) — ABORTED 2026-06-12 at the pilot gate set before the run.**
-  Tool choice removed (runner executes every answer; hand-written TRL `rollout_func` with
-  loss-masked feedback splice — its smoke validated mask + IS-ratio on real spliced rollouts,
-  the validation Stage 3 never reached). The probe passed (fix 14.9%, harm 6.3%), but the
+  No tool choice (runner executes every answer; hand-written TRL `rollout_func` with
+  loss-masked feedback splice — its smoke validates mask + IS-ratio on real spliced rollouts).
+  The probe passed (fix 14.9%, harm 6.3%), but the
   60-step pilot failed gates P1/P2: GRPO drifts toward identity-resubmission (frac_revising
   0.26→0.05, delta bonus below its untrained baseline, `frac_reward_zero_std` ≈ 0.6 — weak
   learning signal). Pilot-ckpt documentation evals (n=200): FR runner 0.720 vs Stage-2 anchor

@@ -1,10 +1,15 @@
 """Modal app: GPU steps — baseline generation, trace sampling, and LoRA SFT (single A100).
 
-    modal run modal_app.py::main --dataset spider --limit 8        # day-1 smoke
-    modal run --detach modal_app.py::main --dataset spider --spawn # full Spider-dev baseline
-    modal run modal_app.py::traces --limit 8                       # trace-sampling smoke
-    modal run --detach modal_app.py::traces --spawn                # Spider-train candidates
-    modal run --detach modal_app.py::sft --spawn                   # LoRA SFT on the traces
+    modal run --no-spawn modal_app.py::main --dataset spider --limit 8  # day-1 smoke (blocks)
+    modal run --detach modal_app.py::main --dataset spider             # full Spider-dev baseline
+    modal run --no-spawn modal_app.py::traces --limit 8                # trace-sampling smoke
+    modal run --detach modal_app.py::traces                            # Spider-train candidates
+    modal run --detach modal_app.py::sft                               # LoRA SFT on the traces
+
+Long entrypoints (main, traces, sft, grpo, fr_train, fr_eval, mt_eval) spawn by default, so
+`--detach` is safe to leave without remembering `--spawn`; the smoke/foreground entrypoints
+(generate_raw, fr_smoke, mt_smoke) block on `.remote()` so you get the inline result. Pass
+`--no-spawn` to force a long entrypoint to block (e.g. a tiny `--limit` smoke).
 
 Generation/sampling write artifacts to a Modal Volume; pull with `modal volume get text2sql-runs
 <name> ./runs/<name>` and filter/score on CPU (`llm-rlvr-sql build-traces` / `score` / `make
@@ -775,9 +780,10 @@ def fr_train(
     dev_size: int | None = None,
     limit: int | None = None,
     max_steps: int | None = None,
-    spawn: bool = False,
+    spawn: bool = True,
 ) -> None:
-    """Launch forced-revision GRPO. Use --detach --spawn for the pilot and the full run."""
+    """Launch forced-revision GRPO (pilot and full run). Spawns by default so `modal run --detach`
+    is safe to leave; pass --no-spawn to block on the result (e.g. a tiny --limit smoke)."""
     kwargs = {
         "run_id": run_id,
         "warm_start": warm_start,
@@ -795,6 +801,7 @@ def fr_train(
     if spawn:
         call = forced_revision_train.spawn(**kwargs)
         print(f"forced-revision training dispatched (spawn): function call {call.object_id}")
+        print(f"monitor: modal app logs {APP_NAME}  (artifacts land on the text2sql-runs Volume)")
     else:
         print(f"forced-revision training complete: {forced_revision_train.remote(**kwargs)}")
 
@@ -809,9 +816,10 @@ def fr_eval(
     temperature: float = 0.0,
     sampling_seed: int = 0,
     policy: str = "always",
-    spawn: bool = False,
+    spawn: bool = True,
 ) -> None:
-    """Launch the forced-revision eval. Use --policy error_only for error-gated revision."""
+    """Launch the forced-revision eval (--policy error_only for error-gated revision). Spawns by
+    default so `modal run --detach` is safe to leave; pass --no-spawn for a tiny --limit smoke."""
     kwargs = {
         "dataset": dataset,
         "adapter": adapter,
@@ -828,6 +836,7 @@ def fr_eval(
     if spawn:
         call = forced_revision_eval.spawn(**kwargs)
         print(f"forced-revision eval dispatched (spawn): function call {call.object_id}")
+        print(f"monitor: modal app logs {APP_NAME}  (artifacts land on the text2sql-runs Volume)")
     else:
         print(f"forced-revision eval complete: {forced_revision_eval.remote(**kwargs)}")
 
@@ -839,9 +848,10 @@ def mt_eval(
     base_model: str = MODEL,
     limit: int | None = None,
     max_new_tokens: int = 1024,
-    spawn: bool = False,
+    spawn: bool = True,
 ) -> None:
-    """Launch the multi-turn greedy eval (no RL). Use --detach --spawn for full-dev runs."""
+    """Launch the multi-turn greedy eval (no RL). Spawns by default so `modal run --detach` is
+    safe to leave; pass --no-spawn to block on the inline result (e.g. a tiny --limit smoke)."""
     kwargs = {
         "dataset": dataset,
         "adapter": adapter,
@@ -855,6 +865,7 @@ def mt_eval(
     if spawn:
         call = multiturn_eval.spawn(**kwargs)
         print(f"multi-turn eval dispatched (spawn): function call {call.object_id}")
+        print(f"monitor: modal app logs {APP_NAME}  (artifacts land on the text2sql-runs Volume)")
     else:
         print(f"multi-turn eval complete: {multiturn_eval.remote(**kwargs)}")
 
@@ -872,9 +883,10 @@ def main(
     max_new_tokens: int = 512,
     temperature: float = 0.0,
     sampling_seed: int = 0,
-    spawn: bool = False,
+    spawn: bool = True,
 ) -> None:
-    """Launch a baseline generation on the GPU. Use --detach --spawn for long (full-dev) runs."""
+    """Launch a baseline generation on the GPU. Spawns by default so `modal run --detach` is
+    safe to leave; pass --no-spawn to block on the inline result (e.g. a tiny --limit smoke)."""
     kwargs = {
         "dataset": dataset,
         "split": split,
@@ -894,6 +906,7 @@ def main(
     if spawn:
         call = baseline.spawn(**kwargs)
         print(f"baseline dispatched (spawn): function call {call.object_id}")
+        print(f"monitor: modal app logs {APP_NAME}  (artifacts land on the text2sql-runs Volume)")
     else:
         print(f"baseline complete: {baseline.remote(**kwargs)}")
 
@@ -907,9 +920,10 @@ def traces(
     max_new_tokens: int = 1024,
     limit: int | None = None,
     base_model: str = MODEL,
-    spawn: bool = False,
+    spawn: bool = True,
 ) -> None:
-    """Launch Spider-train trace sampling. Use --detach --spawn for the full-train run."""
+    """Launch Spider-train trace sampling. Spawns by default so `modal run --detach` is safe to
+    leave; pass --no-spawn to block on the inline result (e.g. a tiny --limit smoke)."""
     kwargs = {
         "n": n,
         "temperature": temperature,
@@ -922,6 +936,7 @@ def traces(
     if spawn:
         call = sample_traces.spawn(**kwargs)
         print(f"trace sampling dispatched (spawn): function call {call.object_id}")
+        print(f"monitor: modal app logs {APP_NAME}  (artifacts land on the text2sql-runs Volume)")
     else:
         print(f"trace sampling complete: {sample_traces.remote(**kwargs)}")
 
@@ -937,9 +952,10 @@ def sft(
     epochs: int = 3,
     learning_rate: float = 1e-4,
     seed: int = 0,
-    spawn: bool = False,
+    spawn: bool = True,
 ) -> None:
-    """Launch the LoRA SFT. `traces` is the dataset path relative to the runs Volume."""
+    """Launch the LoRA SFT. `traces` is the dataset path relative to the runs Volume. Spawns by
+    default so `modal run --detach` is safe to leave; pass --no-spawn to block on the result."""
     kwargs = {
         "traces": traces,
         "run_id": run_id,
@@ -957,6 +973,7 @@ def sft(
     if spawn:
         call = sft_train.spawn(**kwargs)
         print(f"SFT dispatched (spawn): function call {call.object_id}")
+        print(f"monitor: modal app logs {APP_NAME}  (artifacts land on the text2sql-runs Volume)")
     else:
         print(f"SFT complete: {sft_train.remote(**kwargs)}")
 
@@ -972,12 +989,12 @@ def grpo(
     seed: int = 0,
     dev_size: int | None = None,
     limit: int | None = None,
-    spawn: bool = False,
+    spawn: bool = True,
 ) -> None:
-    """Launch single-turn GRPO. Use --detach --spawn for the headline/seed runs.
+    """Launch single-turn GRPO. Spawns by default so `modal run --detach` is safe to leave.
 
-    modal run modal_app.py::grpo --run-id grpo-smoke --limit 32 --dev-size 8  # colocate smoke
-    modal run --detach modal_app.py::grpo --run-id grpo-s0 --spawn            # a headline seed
+    modal run --no-spawn modal_app.py::grpo --run-id grpo-smoke --limit 32 --dev-size 8  # smoke
+    modal run --detach modal_app.py::grpo --run-id grpo-s0                               # seed
     """
     kwargs = {
         "run_id": run_id,
@@ -996,6 +1013,7 @@ def grpo(
     if spawn:
         call = grpo_train.spawn(**kwargs)
         print(f"GRPO dispatched (spawn): function call {call.object_id}")
+        print(f"monitor: modal app logs {APP_NAME}  (artifacts land on the text2sql-runs Volume)")
     else:
         print(f"GRPO complete: {grpo_train.remote(**kwargs)}")
 

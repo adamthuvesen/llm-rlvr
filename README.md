@@ -49,7 +49,7 @@ The model is not allowed to see hidden labels or write to databases. Datasets ar
 
 ## Follow-Up: Execution-Error Retry
 
-After the single-turn result landed, the repo tested whether the same 3B model could check and fix its own SQL.
+Beyond single-turn RLVR, the repo covers whether the same 3B model can check and fix its own SQL.
 
 ![Execution-error retry](docs/figures/execution-error-retry.svg)
 

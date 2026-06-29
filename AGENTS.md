@@ -4,8 +4,8 @@ Text-to-SQL post-training project: SFT + single-turn GRPO worked; the later self
 follow-up did not. Every claimed gain is backed by committed results, controls, multi-seed CIs,
 and disclosed caveats.
 
-Global tone, principles, and git etiquette live in `~/.claude/CLAUDE.md` and
-`~/dotfiles/agents/AGENTS.md`; they are not duplicated here. This file is project-specific facts.
+Global tone, principles, and git etiquette live in the user's agent defaults; they are not
+duplicated here. This file is project-specific facts.
 
 ## Read this first, then route
 

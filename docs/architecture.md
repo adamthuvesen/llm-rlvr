@@ -95,7 +95,7 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (commi
 - Two-layer image: the heavy CUDA/torch/vLLM layer is keyed on `pyproject.toml`+`uv.lock` only, so a
   source edit re-runs just the fast editable relink, not the multi-GB install.
 - Image ignore patterns are **root-anchored** (`data/**`, not `**/data`) — a deep glob would strip
-  the `src/llm_rlvr_sql/data/` package out of the image (this bit once).
+  the `src/llm_rlvr_sql/data/` package out of the image.
 - Entrypoints are thin `@app.local_entrypoint`s, each mirroring a GPU `@app.function` and taking
   `--spawn`. Stages 0–2: `main` (baseline/adapter generate), `traces` (STaR sampling), `sft`,
   `grpo` — all base-model-parametric (Qwen default, Llama control). The self-correction surfaces add
@@ -119,12 +119,12 @@ The two self-correction sequels both closed honestly **without a full training r
   the `run_sql` protocol (0 tool calls in 672 sampled episodes across base / SFT / GRPO / two
   tool-use-SFT checkpoints and every prompting strength); a two-arm probe ruled out RL formatting as
   the cause.
-- **Stage 3b** (`grpo-forced-revision`) — removed tool choice via a hand-written TRL `rollout_func`
-  (`train/forced_revision.py`: unconditional execution, loss-masked feedback splice, revision). Its
-  smoke validated the masking + IS-ratio assertions on real spliced rollouts (the validation Stage 3
-  never reached), and the sequence **aborted at the pre-registered pilot gate** (identity-resubmission
-  drift; see `results/grpo-fr/` and the README progression table). Only a cheap inference-time
-  error-only retry recovered most of the would-be gain.
+- **Stage 3b** (`grpo-forced-revision`) — forced revision with no tool choice, via a hand-written TRL
+  `rollout_func` (`train/forced_revision.py`: unconditional execution, loss-masked feedback splice,
+  revision). Its smoke validates the masking + IS-ratio assertions on real spliced rollouts, and the
+  sequence **aborted at the pre-registered pilot gate** (identity-resubmission drift; see
+  `results/grpo-fr/` and the README progression table). Only a cheap inference-time error-only retry
+  recovered most of the would-be gain.
 
 The self-correction support code (env tool loop, forced-revision rollout + eval runner, multi-turn
 rewards + D8 diagnostics, `select-bestofn`, `fr-metrics`) stays tested in the tree for a future

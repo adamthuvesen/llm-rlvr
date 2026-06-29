@@ -150,12 +150,11 @@ tested, for any future attempt on a larger base model.
 
 ## Stage 3b: forced-revision GRPO — ABORTED at the pilot gate (`results/grpo-fr/`)
 
-**Decision (2026-06-12): closed as an honest negative; no full run.** Sequel to the Stage-3
-closure: tool choice was the failed step, so this change removed it. The runner executes every
-answer and asks the model to revise after seeing feedback (SCoRe / ReEx-SQL shape), built as a
-hand-written TRL `rollout_func` with feedback-token loss masking. The sequence ran
-probe → build → smoke → pilot and stopped at the pilot gate set before the run. Stage-2 artifacts
-untouched.
+**Decision (2026-06-12): closed as an honest negative; no full run.** Stage 3b has no tool choice:
+the runner executes every answer and asks the model to revise after seeing feedback (SCoRe /
+ReEx-SQL shape), built as a hand-written TRL `rollout_func` with feedback-token loss masking. The
+sequence ran probe → build → smoke → pilot and stopped at the pilot gate set before the run.
+Stage-2 artifacts untouched.
 
 | File | What | Result |
 | --- | --- | --- |

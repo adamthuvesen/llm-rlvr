@@ -142,7 +142,7 @@ uv run llm-rlvr-sql score --completions runs/spider-dev-zs-sft-r32.json \
   --db-root data/spider/spider_data/database
 ```
 
-`score` now reports `well_formed_rate` alongside execution accuracy. **Success bar (D6):**
+`score` reports `well_formed_rate` alongside execution accuracy. **Success bar (D6):**
 format rate near-100% on dev AND no EX regression below the base `<think>` anchor (0.625
 Spider-dev / 0.313 BIRD-dev; target ≥ the direct anchor). If the bar is missed, the fallback
 sequence is documented in `openspec/changes/archive/2026-06-10-sft-coldstart/design.md` (more
@@ -156,7 +156,7 @@ GRPO trains the SFT adapter further with an execution-grounded reward: 4 rollout
 when `<think>` leads). The spend sequence is mandatory: **smoke → pilot → paid runs**, each step
 validating the next one's assumptions.
 
-**Modal discipline** (learned the hard way): long runs use `modal run --detach … --spawn` — a
+**Modal discipline**: long runs use `modal run --detach … --spawn` — a
 plain `modal run` dies with your laptop's connection and takes the run with it. Stagger app
 creations by ~45s (3 simultaneous creations hit a rate limit). The HF "set HF_TOKEN for higher
 rate limits" warning is benign noise for our public/ungated repos.
@@ -232,7 +232,7 @@ are saturating (expected under near-binary; a shaped-arm rise means the dev slic
 ## Stage 3b: forced-revision GRPO (smoke → pilot → ABORTED at the pilot gate)
 
 Stage 3 (tool choice) closed without training — the 3B model never calls an offered tool
-(0/672; see ARTIFACTS). Stage 3b removed tool choice: every attempt is executed unconditionally,
+(0/672; see ARTIFACTS). Stage 3b has no tool choice: every attempt is executed unconditionally,
 the gold-free feedback is spliced in loss-masked, and the model revises (hand-written TRL
 `rollout_func`; see `train/forced_revision.py`). The sequence and its verdicts:
 
