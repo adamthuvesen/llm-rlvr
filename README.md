@@ -1,76 +1,74 @@
 # llm-rlvr-sql
 
-Execution-verified post-training for text-to-SQL.
+Text-to-SQL post-training with verifiable rewards. The short version: single-turn execution-verified GRPO worked well. Training the same 3B model to self-correct with execution feedback did not.
 
-The question is narrow: can a 3B coding model improve when the reward is the result of
-running its SQL? In this repo, yes. Starting from Qwen2.5-Coder-3B, a LoRA SFT cold start
-teaches the answer format, then GRPO trains against a reward computed by executing the
-model's SQL in a read-only SQLite sandbox.
+## Main Result
 
-The main result is single-turn: one question, one generated SQL query, one execution-verified
-reward. It improves over the SFT baseline on both Spider-dev and BIRD-dev.
+Starting from `Qwen/Qwen2.5-Coder-3B-Instruct`, the project uses:
 
-![Training results](docs/figures/training-results.svg)
+1. **LoRA SFT** to teach the answer format.
+2. **GRPO** with a reward computed by executing the model's SQL in a read-only SQLite sandbox.
+3. **CPU** replay of committed completions to re-score every reported number.
 
-| Benchmark  |  Base |   SFT |      GRPO | Gain vs SFT | Evidence                      |
-| ---------- | ----: | ----: | --------: | ----------: | ----------------------------- |
+Training results
+
+| Benchmark  | Base  | SFT   | GRPO      | Gain vs SFT | Evidence                      |
+| ---------- | ----- | ----- | --------- | ----------- | ----------------------------- |
 | Spider-dev | 0.625 | 0.678 | **0.779** | **+10.2pt** | 3 seeds, 95% CI excludes zero |
-| BIRD-dev   | 0.313 | 0.344 | **0.406** |  **+6.1pt** | 3 seeds, 95% CI excludes zero |
+| BIRD-dev   | 0.313 | 0.344 | **0.406** | **+6.1pt**  | 3 seeds, 95% CI excludes zero |
 
-## Why Trust It
+Evaluation steps:
 
-- The reported numbers re-run from committed `CompletionSet` artifacts with `make eval`.
-- The main Qwen result uses three independent GRPO seeds, aggregated at the seed level.
-- A near-binary reward ablation also beats SFT, though it is weaker on BIRD.
-- The same SFT -> GRPO recipe improves a Llama-3.2-3B control model.
-- The verifier used for evaluation is the same execution-match path used by the training reward.
+- `make eval` re-derives the table from committed `CompletionSet` artifacts.
+- GRPO is aggregated per seed; rollouts are not pooled to fake a tighter interval.
+- The near-binary reward ablation still beats SFT, though it is weaker on BIRD.
+- The same SFT -> GRPO process improves a Llama-3.2-3B control model.
+- Training reward and evaluation use the same execution-match verifier.
 
-Exact artifact paths, dataset pins, score reports, confidence intervals, and caveats are in
-[`docs/ARTIFACTS.md`](docs/ARTIFACTS.md).
+Exact artifact paths, dataset pins, score reports, confidence intervals, and caveats live in
+`[docs/ARTIFACTS.md](docs/ARTIFACTS.md)`.
 
-## What Is In The Repo
+## How It Works
 
-The main training path is deliberately small:
+The training path is deliberately small.
 
-1. Build prompts from pinned Spider/BIRD records.
-2. Generate one SQL answer per question.
+1. Load pinned Spider/BIRD examples and schemas.
+2. Ask the model for SQL.
 3. Execute predicted and gold SQL in a read-only SQLite sandbox.
-4. Score denotation match, with a guard against always-empty-result reward hacking during training.
-5. Train LoRA adapters with SFT, then GRPO.
-6. Re-score saved completions without loading a model.
+4. Score denotation match.
+5. Keep `guard_trivial_empty=True` so the model cannot win by returning empty results.
+6. Train LoRA adapters with SFT, then GRPO.
+7. Re-score saved completions without loading a model.
 
-The model never sees hidden labels during reward computation and cannot write to the databases.
-Datasets are pinned and fetched; database files are not committed.
+The model never sees hidden labels during reward computation. The sandbox cannot write to the
+databases. Datasets are pinned and fetched; database files are not committed.
 
-## Self-Correction Results
+For the module map and design notes, see `[docs/architecture.md](docs/architecture.md)`.
 
-The repo also records a negative result: training this 3B model to use execution feedback for
-self-correction did not work.
+## What Failed
 
-![Execution-error retry](docs/figures/execution-error-retry.svg)
+The self-correction idea did not survive contact with the model.
 
-| Attempt                            | Result                                                                                                                                                                                                                                                               |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tool-calling loop                  | Across 672 sampled episodes, base/SFT/GRPO/tool-use checkpoints made 0 `run_sql` calls.                                                                                                                                                                              |
-| Forced-revision training           | Retained as analysis tooling; it did not produce the shipped training result.                                                                                                                                                                                        |
-| Error-only retry at inference time | Useful as a rule: ask for a second answer only when the first SQL execution errors. Spider improved 0.768 -> 0.782 with 40/1034 second generations; BIRD improved 0.405 -> 0.435 over locally decomposable items with 297/1534 second generations. Both had 0 harms. |
+Execution-error retry
 
-That last row is an inference-time policy, not evidence that self-correction training succeeded.
-The shipped training result is the single-turn GRPO result above.
+| Attempt                            | What happened                                                                                                                                                                                                                                                          |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tool-calling loop                  | Across 672 sampled episodes, base/SFT/GRPO/tool-use checkpoints made 0 `run_sql` calls.                                                                                                                                                                                |
+| Forced-revision training           | Kept as analysis tooling; it did not produce the shipped training result.                                                                                                                                                                                              |
+| Error-only retry at inference time | Useful as a rule, not as training evidence: retry only when the first SQL execution errors. Spider moved 0.768 -> 0.782 with 40/1034 second generations; BIRD moved 0.405 -> 0.435 over locally decomposable items with 297/1534 second generations. Both had 0 harms. |
+
+The full trail is in `[docs/status.md](docs/status.md)` and `[docs/ARTIFACTS.md](docs/ARTIFACTS.md)`.
 
 ## Reproduce
 
-Fast local checks:
+Set up the CPU dev environment and run the normal gate:
 
 ```bash
 make install
 make check
 ```
 
-`make check` is the normal development gate: ruff, format-check, and unit tests. It does not
-download datasets, launch models, or run Modal jobs.
-
-Tiny no-GPU demo:
+Run a tiny no-GPU demo:
 
 ```bash
 make demo
@@ -83,50 +81,41 @@ execution_accuracy=0.5000 well_formed_rate=0.0000 (1/2; gold_errors=0)
 reasons={'match': 1, 'denotation_mismatch': 1}
 ```
 
-Full artifact re-score:
+Re-score the committed artifacts:
 
 ```bash
 make data
 make eval
 ```
 
-`make eval` is CPU-only and model-free, but it is not a quick test. It executes the committed
-SQL completions against Spider and BIRD databases and prints the result tables. Run it when
-artifacts, scoring, or reported numbers change.
+`make eval` is CPU-only and model-free, but it is not a quick smoke test. It executes the committed
+SQL completions against Spider and BIRD databases and prints the result tables.
 
-GPU generation and training run through Modal entrypoints in `modal_app.py`. Read
-[`docs/RUNBOOK.md`](docs/RUNBOOK.md) before launching paid jobs.
+GPU generation and training run through Modal entrypoints in `[modal_app.py](modal_app.py)`. Read
+`[docs/RUNBOOK.md](docs/RUNBOOK.md)` before launching paid jobs.
 
 ## Caveats
 
-- Accuracy is single-DB execution match, not test-suite multi-DB accuracy. The README and
-  reports disclose the known single-DB false-positive caveat.
-- All main evals are greedy. The max-token difference between base/SFT and RL evals is quantified
-  in [`docs/ARTIFACTS.md`](docs/ARTIFACTS.md).
-- The self-correction support code remains tested, but it is not the main claim.
+- Accuracy is single-DB execution match, not test-suite multi-DB accuracy. The known single-DB
+  false-positive caveat is disclosed in the reports.
+- All main evaluations are greedy. The max-token difference between base/SFT and RL evals is
+  quantified in `[docs/ARTIFACTS.md](docs/ARTIFACTS.md)`.
+- Self-correction code remains tested, but it is not the headline result.
 
-## Repository Layout
+## Docs
 
-```text
-src/llm_rlvr_sql/
-  data/         Spider/BIRD loaders, typed records, schema serialization
-  env/          read-only SQLite sandbox and run_sql environment
-  eval/         generation, scoring, provenance, artifact replay
-  rewards/      execution rewards and trajectory scoring
-  train/        trace sampling, LoRA SFT, GRPO, diagnostics
-  revision/     forced-revision rollout, smoke tests, feedback artifacts
-  report/       progression tables and caveats
-  third_party/  vendored Test-Suite SQL Eval execution verifier
-```
+- `[docs/architecture.md](docs/architecture.md)`: module map, data flow, reward design.
+- `[docs/RUNBOOK.md](docs/RUNBOOK.md)`: setup, data fetches, Modal commands, paid-run discipline.
+- `[docs/ARTIFACTS.md](docs/ARTIFACTS.md)`: pins, artifact paths, scores, confidence intervals.
+- `[docs/status.md](docs/status.md)`: what is shipped and what remains as analysis code.
 
-## Related Repo
+## Related Work
 
 This is the build-and-train companion to
-[`grpo-gain-decomposition`](https://github.com/adamthuvesen/grpo-gain-decomposition), which
-studies how much of measured RL reasoning gains come from real improvement versus evaluation
-artifacts.
+`[grpo-gain-decomposition](https://github.com/adamthuvesen/grpo-gain-decomposition)`, which studies
+how much measured RL reasoning gain is real improvement versus evaluation artifact.
 
-## Data And License
+## Data and License
 
 Spider is CC-BY-SA-4.0. BIRD-dev is CC-BY-NC-4.0. The vendored evaluator is Apache 2.0.
 Datasets and databases are pinned and fetched, not committed.
