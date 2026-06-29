@@ -22,9 +22,8 @@ from pydantic import Field
 from llm_rlvr_sql._base import Frozen
 from llm_rlvr_sql.data.models import DatabaseSchema, Example
 from llm_rlvr_sql.eval.completions import write_json
-from llm_rlvr_sql.eval.generate import build_prompts
 from llm_rlvr_sql.eval.provenance import git_commit, git_is_dirty, library_versions
-from llm_rlvr_sql.rewards import RewardConfig, make_reward_fn
+from llm_rlvr_sql.tasks.sql import RewardConfig, make_reward_fn, sql_task
 from llm_rlvr_sql.train.lora import lora_kwargs as shared_lora_kwargs
 
 _TRAIN_LIBRARIES = ("llm-rlvr-sql", "trl", "peft", "transformers", "torch", "accelerate", "vllm")
@@ -146,12 +145,8 @@ def build_grpo_rows(
 ) -> list[dict[str, object]]:
     """One GRPO dataset row per example: the chat `prompt` plus the `gold_sql` + `db_id` the reward
     needs. Pure/testable — TRL applies the chat template to `prompt` and passes the rest to the
-    reward function as aligned kwargs."""
-    prompts = build_prompts(examples, schemas, style=style)
-    return [
-        {"prompt": prompt, "gold_sql": example.gold_sql, "db_id": example.db_id}
-        for example, prompt in zip(examples, prompts, strict=True)
-    ]
+    reward function as aligned kwargs. Delegates to the SQL task's row builder (`tasks.sql`)."""
+    return sql_task().build_grpo_rows(examples, schemas, style=style)
 
 
 class GrpoProvenance(Frozen):

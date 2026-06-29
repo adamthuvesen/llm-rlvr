@@ -26,7 +26,8 @@ from typing import Literal
 from llm_rlvr_sql._base import Frozen
 from llm_rlvr_sql.eval.parsing import extract_sql
 from llm_rlvr_sql.eval.verifier import GoldExecutionError, VerifierConfig, execution_match
-from llm_rlvr_sql.rewards.reward import RewardBreakdown, RewardConfig, score_completion
+from llm_rlvr_sql.harness import RewardBreakdown
+from llm_rlvr_sql.tasks.sql import RewardConfig, score_completion
 
 CreditScheme = Literal["hybrid", "trajectory"]
 

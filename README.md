@@ -1,8 +1,21 @@
 # llm-rlvr-sql
 
-Text-to-SQL post-training with verifiable rewards. The short version: single-turn execution-verified GRPO worked well. Training the same 3B model to self-correct with execution feedback did not.
+A small, disciplined **RLVR harness** — SFT cold-start, GRPO with a *verifiable* reward, and an
+eval/provenance layer where every reported number re-derives from a committed artifact — with
+**text-to-SQL as the reference task** that proves it end-to-end.
 
-## Main Result
+The harness is task-agnostic: a task plugs in by implementing two small protocols — `AnswerParser`
+(pull the answer out of a completion) and `Verifier` (check it, return a `Verdict`) — and the shaped
+/ near-binary reward is generic over them. The same verifier is the training reward *and* the offline
+scorer, so a bug in one is a bug in the other. To train your own model on your own verifiable
+problem, add a task: see **[docs/harness.md](docs/harness.md)**. The model is already a parameter
+(Qwen default + a Llama-3.2-3B cross-family control), so swapping in your own base model is a config
+change, not a refactor.
+
+The reference task is below. The short version: single-turn execution-verified GRPO worked well.
+Training the same 3B model to self-correct with execution feedback did not.
+
+## Main Result (the reference task: text-to-SQL)
 
 Starting from `Qwen/Qwen2.5-Coder-3B-Instruct`, the project uses:
 
@@ -104,6 +117,7 @@ GPU generation and training run through Modal entrypoints in `[modal_app.py](mod
 
 ## Docs
 
+- `[docs/harness.md](docs/harness.md)`: the task-agnostic RLVR harness and how to add your own task.
 - `[docs/architecture.md](docs/architecture.md)`: module map, data flow, reward design.
 - `[docs/RUNBOOK.md](docs/RUNBOOK.md)`: setup, data fetches, Modal commands, paid-run discipline.
 - `[docs/ARTIFACTS.md](docs/ARTIFACTS.md)`: pins, artifact paths, scores, confidence intervals.

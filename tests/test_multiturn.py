@@ -16,9 +16,9 @@ from llm_rlvr_sql.env.sandbox import ExecutionResult
 from llm_rlvr_sql.env.text2sql_env import BUDGET_EXHAUSTED_FEEDBACK
 from llm_rlvr_sql.rewards import (
     MultiTurnRewardConfig,
-    RewardConfig,
     score_trajectory,
 )
+from llm_rlvr_sql.tasks.sql import RewardConfig
 from llm_rlvr_sql.train.diagnostics import compute_diagnostics
 from llm_rlvr_sql.train.grpo import GrpoHyperparams
 from llm_rlvr_sql.train.multiturn_provenance import (

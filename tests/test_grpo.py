@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from llm_rlvr_sql.data.models import Column, DatabaseSchema, Example, Table
-from llm_rlvr_sql.rewards import RewardConfig
+from llm_rlvr_sql.tasks.sql import RewardConfig
 from llm_rlvr_sql.train.grpo import (
     GrpoHyperparams,
     GrpoProvenance,

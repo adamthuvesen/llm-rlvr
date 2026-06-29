@@ -277,7 +277,7 @@ def grpo_train(
     `reward_arm` is `shaped` (headline) or `near_binary` (the ablation). Adapter + provenance land
     under `grpo/<run-id>/`.
     """
-    from llm_rlvr_sql.rewards import RewardConfig
+    from llm_rlvr_sql.tasks.sql import RewardConfig
     from llm_rlvr_sql.train.grpo import GrpoHyperparams, run_grpo
 
     ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)

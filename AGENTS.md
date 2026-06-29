@@ -12,6 +12,7 @@ duplicated here. This file is project-specific facts.
 | When you are… | Read |
 |---|---|
 | Touching any code, or new to the repo | `docs/architecture.md` |
+| Adding an RLVR task, or plugging in a different model | `docs/harness.md` |
 | Running baselines, training, or Modal commands | `docs/RUNBOOK.md` |
 | Citing a number, or pinning/locating an artifact | `docs/ARTIFACTS.md` |
 | Checking the current stage / what's done | `docs/status.md` |

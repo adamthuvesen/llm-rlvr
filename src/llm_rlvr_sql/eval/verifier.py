@@ -18,6 +18,7 @@ from typing import Literal
 
 from llm_rlvr_sql._base import Frozen
 from llm_rlvr_sql.env.sandbox import ExecutionResult, SqliteSandbox
+from llm_rlvr_sql.harness.verifier import ReferenceUnverifiable
 from llm_rlvr_sql.third_party.test_suite_sql_eval.exec_eval import (
     postprocess,
     replace_cur_year,
@@ -49,8 +50,15 @@ class MatchResult(Frozen):
     reason: MatchReason
 
 
-class GoldExecutionError(RuntimeError):
-    """The gold query failed to execute — the example/DB pairing is broken, not the prediction."""
+class GoldExecutionError(ReferenceUnverifiable):
+    """The gold query failed to execute — the example/DB pairing is broken, not the prediction.
+
+    A SQL-specific `ReferenceUnverifiable` (reason ``"gold_error"``), so the generic harness reward
+    handles it without knowing about SQL.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, reason="gold_error")
 
 
 def execution_match(

@@ -12,12 +12,12 @@ from llm_rlvr_sql.data.paths import resolve_database
 from llm_rlvr_sql.env.text2sql_env import FeedbackConfig, make_environment_factory
 from llm_rlvr_sql.eval.completions import write_json
 from llm_rlvr_sql.eval.parsing import extract_sql
+from llm_rlvr_sql.harness import completion_text
 from llm_rlvr_sql.rewards.multiturn import (
     MultiTurnRewardConfig,
     TrajectoryBreakdown,
     score_trajectory,
 )
-from llm_rlvr_sql.rewards.reward import _completion_text
 from llm_rlvr_sql.train.diagnostics import CollapseDiagnostics, compute_diagnostics
 from llm_rlvr_sql.train.grpo import (
     GrpoHyperparams,
@@ -85,7 +85,7 @@ def make_multiturn_reward_fn(
         for completion, gold, dbid, env in zip(
             completions, gold_sql, db_id, environments, strict=True
         ):
-            text = _completion_text(completion)
+            text = completion_text(completion)
             queries = [turn.query for turn in env.turns]
             breakdown = score_trajectory(queries, text, gold, resolver(dbid, db_root), config=cfg)
             if on_episode is not None:
