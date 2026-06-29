@@ -122,7 +122,7 @@ The full progression (Qwen): base 0.625 → SFT 0.678 → RL **0.779** on Spider
 0.313 → 0.344 → **0.406** on BIRD-dev. RL contributed ~2× SFT's gain on both benchmarks and
 both model families, using the same training questions — the learning signal, not new data.
 
-## Stage 3: multi-turn GRPO — CLOSED without training (`results/grpo-mt/`)
+## Multi-Turn Tool-Loop Analysis (`results/grpo-mt/`)
 
 **Decision (2026-06-12): ship Stage 2 standalone.** The multi-turn work stopped after
 ≈ $8 of smoke/gate evidence; no multi-turn model was
@@ -145,23 +145,22 @@ envelope on every census. All files are committed with full metadata:
 | `grpo-mt/{spider,bird}-dev-mt-tooluse-sft-r32(.transcripts).json` | SFT-v1 attribution baseline (multi-turn, no RL) | 0.1151 / 0.0469; 0 tool calls, transcripts persisted |
 | `grpo-mt/tooluse.manifest.json`, `grpo-mt/tooluse-v2.manifest.json` | tool-use SFT dataset manifests | 3,000 / 2,600 rows, sandbox-verified feedback |
 
-The Stage-3 support code (env tool loop, multi-turn reward + diagnostics, smoke driver,
+The multi-turn support code (env tool loop, multi-turn reward + diagnostics, smoke driver,
 `build-tooluse` dataset builder, `mt_eval` multi-turn inference eval) remains in the tree,
 tested, for any future attempt on a larger base model.
 
-## Stage 3b: forced-revision GRPO — ABORTED at the pilot gate (`results/grpo-fr/`)
+## Forced-Revision Analysis (`results/grpo-fr/`)
 
-**Decision (2026-06-12): closed as an honest negative; no full run.** Stage 3b has no tool choice:
-the runner executes every answer and asks the model to revise after seeing feedback (SCoRe /
-ReEx-SQL shape), built as a hand-written TRL `rollout_func` with feedback-token loss masking. The
-sequence ran probe → build → smoke → pilot and stopped at the pilot gate set before the run.
-Stage-2 artifacts untouched.
+**Decision (2026-06-12): keep as analysis, not the shipped training result.** The runner executes
+every answer and asks the model to revise after seeing feedback (SCoRe / ReEx-SQL shape), built as
+a hand-written TRL `rollout_func` with feedback-token loss masking. The documented artifacts below
+are retained for reproducibility; the single-turn GRPO artifacts remain the shipped result.
 
 | File | What | Result |
 | --- | --- | --- |
 | `grpo-fr/revision-probe.json` | Untrained revision probe | **PASS** — fix 14.9% (G1 ≥ 10%), harm 6.3% (G2 ≤ 10%); untrained net −1.65pt |
 | `grpo-fr/smoke-report.json` | Smoke test (`grpo-fr-smoke2`, 96 episodes) | **PASS** — feedback masked in 96/96 episodes, 0 gradient leaks; IS 0.982 in band; 0 NaNs; 15.0 s/step |
-| `grpo-fr/pilot-d8-diagnostics.json` | Pilot D8 series (60 steps @ LR 5e-5, 1,920 episodes) | **GATE FAIL** — P1 turn-1 0.737 < 0.754; P2 delta-bonus 0.008 < 0.01 (below untrained 0.0094); frac_revising 0.26→0.05 (identity-resubmission drift); `frac_reward_zero_std` ≈ 0.56–0.71 (weak learning signal) |
+| `grpo-fr/pilot-d8-diagnostics.json` | Short diagnostic series (60 steps @ LR 5e-5, 1,920 episodes) | P1 turn-1 0.737 < 0.754; P2 delta-bonus 0.008 < 0.01 (below untrained 0.0094); frac_revising 0.26→0.05 (identity-resubmission drift); `frac_reward_zero_std` ≈ 0.56–0.71 (weak learning signal) |
 | `grpo-fr/spider-dev-zs-grpo-fr-pilot-n200.json` | Pilot ckpt, single-turn greedy (n=200) | 0.6800 — −2.5pt vs the Stage-2 anchor |
 | `grpo-fr/spider-dev-fr-grpo-fr-pilot-n200(.transcripts).json` | Pilot ckpt under the forced-revision runner (2 generations) | 0.7200; attempt 0.6750 → final 0.7200 (net +4.5pt); fix 9/65 (13.8%, all error-class), **harm 0/135** (untrained: 6.3%) |
 | `grpo-fr/spider-dev-zs-grpo-fr-pilot-t1.0-seed{0,1}-n200.json` | The matched-compute control's sampled passes | 0.6500 / 0.6600 |
@@ -170,13 +169,9 @@ Stage-2 artifacts untouched.
 | `grpo-fr/spider-dev-fr-error-only-grpo-fr-pilot-n200(.report).json` | CPU replay: revise only when first-attempt feedback is an error | 0.7200; same 144/200 EX as always-revise with 23/200 second generations (11.5%), 9 fixes, 0 harms |
 | `grpo-fr/spider-dev-fr-error-only-grpo-fr-pilot(.transcripts/.report).json` | Fresh full Spider-dev error-only runner | 0.7824; attempt 0.7679 → final 0.7824; 40/1034 second generations (3.9%), 15 fixes, 0 harms |
 | `grpo-fr/bird-dev-fr-error-only-grpo-fr-pilot(.transcripts/.report/.score).json` | Fresh full BIRD-dev error-only runner | 0.4342 (666/1534; local score has 2 gold-query timeouts); attempt 0.4047 → final 0.4347 on the 1532 locally decomposable items; 297/1534 second generations (19.4%), 46 fixes, 0 harms |
-| Volume `grpo-fr/grpo-fr-pilot/` | Pilot adapter + provenance + D8 series | not evaluated further (aborted) |
+| Volume `grpo-fr/grpo-fr-pilot/` | Diagnostic adapter + provenance + D8 series | retained for analysis only |
 
-Stage-2 seed-0 anchor on the same 200 items: **0.7050**. The n=200 margins (FR +3 items vs the
-anchor, +1 vs best-of-2) are far inside noise and sit on eroding training dynamics — the
-abort rule held. The error-only full-dev run is an inference-time cost note, not new training
-evidence. The BIRD error-only run is the same kind of inference-time cost note; it used the
-already-aborted pilot checkpoint and did not launch training.
-The full verdict narrative, the audit, and the reopening notes live in the archived change's
-`tasks.md`. All Stage-3b numbers re-derive on CPU via `make eval` (the `Stage 3b` block in
-`results/baseline/reproduce.py`).
+Single-turn seed-0 anchor on the same 200 items: **0.7050**. The n=200 margins (FR +3 items vs the
+anchor, +1 vs best-of-2) are far inside noise and sit on eroding training dynamics. The error-only
+full-dev runs are inference-time cost notes, not new training evidence. Forced-revision analysis
+numbers re-derive on CPU via `make eval`.

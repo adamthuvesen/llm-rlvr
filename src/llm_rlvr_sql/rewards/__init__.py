@@ -1,4 +1,4 @@
-"""Execution-grounded GRPO rewards (Stage 2) + the multi-turn trajectory reward (Stage 3)."""
+"""Execution-grounded GRPO rewards and multi-turn trajectory reward."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Shared provenance contract for Stage 3-style GRPO runs."""
+"""Shared provenance contract for self-correction GRPO runs."""
 
 from __future__ import annotations
 

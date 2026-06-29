@@ -1,4 +1,4 @@
-"""Forced-revision GRPO rollout: attempt → execute → feedback → revise (Stage 3b)."""
+"""Forced-revision GRPO rollout: attempt → execute → feedback → revise."""
 
 from __future__ import annotations
 

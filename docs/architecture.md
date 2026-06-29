@@ -98,33 +98,17 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (commi
 - Image ignore patterns are **root-anchored** (`data/**`, not `**/data`) — a deep glob would strip
   the `src/llm_rlvr_sql/data/` package out of the image.
 - Entrypoints are thin `@app.local_entrypoint`s, each mirroring a GPU `@app.function` and taking
-  `--spawn`. Stages 0–2: `main` (baseline/adapter generate), `traces` (STaR sampling), `sft`,
-  `grpo` — all base-model-parametric (Qwen default, Llama control). The self-correction surfaces add
-  `mt_smoke`/`mt_eval` (Stage 3 tool loop), `fr_smoke`/`fr_train`/`fr_eval` (Stage 3b forced
-  revision), and `generate_raw` (the probe's prompts-in/completions-out pass).
+  `--spawn`. The supported training path uses `main` (baseline/adapter generate), `traces`
+  (STaR sampling), `sft`, and `grpo`; analysis helpers add `mt_smoke`/`mt_eval`,
+  `fr_smoke`/`fr_train`/`fr_eval`, and `generate_raw`.
 
-## Stages
+## Supported Path
 
-Stages 0–2 shipped and remain the current supported path:
+- Eval foundation: data loaders, sandbox, vendored verifier, and baseline.
+- SFT cold-start: LoRA adapter that teaches the `<think>` + ```sql``` format.
+- Single-turn GRPO: the shipped result with 3-seed confidence intervals, a near-binary ablation,
+  and a Llama cross-family control.
 
-- **Stage 0** — eval foundation (data loaders, sandbox, vendored verifier, baseline).
-- **Stage 1** — SFT cold-start (LoRA; instills the `<think>` + ```sql``` format).
-- **Stage 2** — single-turn GRPO (the shipped result: 3-seed CI excludes zero on both benchmarks,
-  near-binary ablation, Llama cross-family control).
-
-The two self-correction sequels both closed honestly **without a full training run**:
-
-- **Stage 3** (`grpo-multi-turn`, tool choice) — closed without training: the 3B model never adopts
-  the `run_sql` protocol (0 tool calls in 672 sampled episodes across base / SFT / GRPO / two
-  tool-use-SFT checkpoints and every prompting strength); a two-arm probe ruled out RL formatting as
-  the cause.
-- **Stage 3b** (`grpo-forced-revision`) — forced revision with no tool choice, via a hand-written TRL
-  `rollout_func` (`revision/rollout.py`: unconditional execution, loss-masked feedback splice,
-  revision). Its smoke validates the masking + IS-ratio assertions on real spliced rollouts, and the
-  sequence **aborted at the pre-registered pilot gate** (identity-resubmission drift; see
-  `results/grpo-fr/` and the README progression table). Only a cheap inference-time error-only retry
-  recovered most of the would-be gain.
-
-The self-correction support code (env tool loop, forced-revision rollout + eval runner, multi-turn
-rewards + D8 diagnostics, `select-bestofn`, `fr-metrics`) stays tested in the tree for a future
-attempt on a larger base.
+Self-correction support code remains tested in the tree for analysis: env tool loop,
+forced-revision rollout + eval runner, multi-turn rewards + diagnostics, `select-bestofn`,
+and `fr-metrics`.

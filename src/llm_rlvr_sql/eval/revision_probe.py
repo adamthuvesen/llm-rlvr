@@ -1,4 +1,4 @@
-"""Pre-registered revision probe: untrained Stage-2 policy fix/harm rates (Stage 3b)."""
+"""Revision probe: untrained single-turn policy fix/harm rates."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ REVISE_INSTRUCTION = (
     "a ```sql ... ``` code block."
 )
 
-# Pre-registered gates (grpo-forced-revision tasks.md, task 1.1 — committed before the run).
+# Probe thresholds used to decide whether forced-revision analysis was worth running.
 G1_FIX_RATE = 0.10
 G2_HARM_RATE = 0.10
 RIGHT_SAMPLE_SIZE = 300

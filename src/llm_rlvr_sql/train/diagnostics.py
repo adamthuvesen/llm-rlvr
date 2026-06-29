@@ -1,4 +1,4 @@
-"""Anti-collapse training diagnostics (Stage 3, design D8).
+"""Anti-collapse training diagnostics for self-correction analysis.
 
 SCoRe's failure mode is invisible in aggregate reward until late: the policy sandbags turn 1 (or
 stops genuinely revising) while final reward keeps rising. These pure functions compute the

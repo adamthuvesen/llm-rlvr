@@ -1,4 +1,4 @@
-"""Stage 3 CPU tests: multiturn-environment, multiturn-reward, diagnostics, provenance."""
+"""CPU tests: multiturn environment, reward, diagnostics, and provenance."""
 
 from __future__ import annotations
 

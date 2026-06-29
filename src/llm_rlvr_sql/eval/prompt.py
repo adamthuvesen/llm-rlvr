@@ -37,7 +37,7 @@ DIRECT_INSTRUCTION = (
     "single SQLite query that answers it. Output only the query in a ```sql ... ``` code block, "
     "with no explanation."
 )
-# Stage 3 multiturn styles — see docs/status.md for outcome.
+# Multi-turn styles — see docs/status.md for current scope.
 INSTRUCTIONS = {
     "cot": INSTRUCTION,
     "direct": DIRECT_INSTRUCTION,

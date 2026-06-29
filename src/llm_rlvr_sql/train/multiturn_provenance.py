@@ -1,4 +1,4 @@
-"""Multi-turn GRPO provenance (Stage 3, task 1.6).
+"""Multi-turn GRPO provenance.
 
 Extends the Stage-2 provenance contract to the multi-turn run: everything Stage 2 records
 (base + warm-start + GRPO hyperparams + versions + git) plus the pieces unique to this stage —
@@ -23,8 +23,8 @@ class MultiTurnProvenance(Stage3GrpoProvenance):
 
     grpo: GrpoProvenance
     rollout: Literal["multiturn"] = "multiturn"
-    # Stage 3 departs from the frozen Stage-2 `cot` prompt: the instruction must offer the
-    # run_sql protocol or the policy never calls it (attempt-1 smoke: 0/96 episodes).
+    # Multi-turn prompts depart from the frozen single-turn `cot` prompt: the instruction
+    # must offer the run_sql protocol or the policy never calls it.
     prompt_style: str = "cot"
 
 

@@ -443,7 +443,7 @@ def forced_revision_train(
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> str:
-    """Forced-revision GRPO on Spider-train, warm-started from the Stage-2 adapter (Stage 3b).
+    """Forced-revision GRPO on Spider-train, warm-started from the single-turn adapter.
 
     `max_steps` bounds the pilot; the full run leaves it unset. Adapter + provenance + the D8
     diagnostics series land under `grpo-fr/<run-id>/`.

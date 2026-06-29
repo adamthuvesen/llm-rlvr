@@ -1,4 +1,4 @@
-"""Stage 3 CPU tests for the smoke wiring: config kwargs, the TRL-facing trajectory reward,
+"""CPU tests for smoke wiring: config kwargs, the TRL-facing trajectory reward,
 and the two D5 checks (tool-token masking, IS-ratio band). No GPU, no trl import."""
 
 from __future__ import annotations

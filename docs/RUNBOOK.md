@@ -1,4 +1,4 @@
-# Runbook: eval foundation (Stage 0) → SFT cold-start (Stage 1) → single-turn GRPO (Stage 2) → forced-revision (Stage 3b, aborted at gate)
+# Runbook: Text-to-SQL RLVR
 
 The procedure for fetching the data, running the base-model baseline, building the cold-start
 trace dataset, training the LoRA SFT adapter, running single-turn GRPO with its controls, and
@@ -230,51 +230,23 @@ group-relative signal; re-pilot before trusting results).
 are saturating (expected under near-binary; a shaped-arm rise means the dev slice is too easy);
 `clipped_ratio` > 0 → completions hitting the cap, raise it.
 
-## Stage 3b: forced-revision GRPO (smoke → pilot → ABORTED at the pilot gate)
+## Forced-Revision Analysis Utilities
 
-Stage 3 (tool choice) closed without training — the 3B model never calls an offered tool
-(0/672; see [`ARTIFACTS.md`](ARTIFACTS.md)). Stage 3b has no tool choice: every attempt is
-executed unconditionally, the gold-free feedback is spliced in loss-masked, and the model revises
-(hand-written TRL `rollout_func`; see `revision/rollout.py`). The sequence and its verdicts:
+Forced-revision helpers are retained for analysis, not as the supported training path. The
+runner executes an answer, feeds back execution information, and asks the model for one revision
+(`revision/rollout.py`). Use these entrypoints only when investigating revision behavior:
 
 ```bash
-modal run modal_app.py::fr_smoke                  # mask + IS-ratio + no-NaN assertions — PASSED
-modal run --detach modal_app.py::fr_train --run-id grpo-fr-pilot \
-  --limit 2000 --max-steps 60 --spawn              # pilot — GATE FAILED (P1/P2), full run stopped
-modal run --detach modal_app.py::fr_eval --dataset spider \
-  --adapter grpo-fr/grpo-fr-pilot --limit 200 --spawn   # forced-revision inference runner
+modal run modal_app.py::fr_smoke
 modal run --detach modal_app.py::fr_eval --dataset spider --policy error_only \
-  --adapter grpo-fr/grpo-fr-pilot --limit 200 --spawn   # fresh error-only runner; writes *-fr-error-only-*
-modal run --detach modal_app.py::fr_eval --dataset spider --policy error_only \
-  --adapter grpo-fr/grpo-fr-pilot --spawn               # full Spider-dev error-only runner
-modal run --detach modal_app.py::fr_eval --dataset bird --policy error_only \
-  --adapter grpo-fr/grpo-fr-pilot --limit 8 --spawn     # BIRD smoke
-modal run --detach modal_app.py::fr_eval --dataset bird --policy error_only \
-  --adapter grpo-fr/grpo-fr-pilot --spawn               # full BIRD-dev error-only runner
-# best-of-N control: two sampled single-turn passes + gold-free CPU selection
-modal run --detach modal_app.py::main --dataset spider --adapter grpo-fr/grpo-fr-pilot \
-  --limit 200 --max-new-tokens 1024 --temperature 1.0 --sampling-seed 0 --spawn   # and seed 1
-uv run llm-rlvr-sql select-bestofn --completions results/grpo-fr/spider-dev-zs-grpo-fr-pilot-t1.0-seed{0,1}-n200.json \
-  --db-root data/spider/spider_data/database \
-  --out results/grpo-fr/spider-dev-bo2-grpo-fr-pilot-n200.json \
-  --report results/grpo-fr/spider-dev-bo2-grpo-fr-pilot-n200.selection.json
+  --adapter grpo-fr/grpo-fr-pilot --spawn
 uv run llm-rlvr-sql fr-metrics --completions results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.json \
   --transcripts results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.transcripts.json \
-  --db-root data/spider/spider_data/database   # fix/harm decomposition of the revision pass
-uv run llm-rlvr-sql fr-error-only-replay \
-  --completions results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.json \
-  --transcripts results/grpo-fr/spider-dev-fr-grpo-fr-pilot-n200.transcripts.json \
-  --db-root data/spider/spider_data/database \
-  --out results/grpo-fr/spider-dev-fr-error-only-grpo-fr-pilot-n200.json \
-  --report results/grpo-fr/spider-dev-fr-error-only-grpo-fr-pilot-n200.report.json
+  --db-root data/spider/spider_data/database
 ```
 
-The pilot's continue/abort thresholds (P1–P6) were committed to the change's `tasks.md` BEFORE
-the pilot ran — same discipline as the probes. P1 (turn-1 quality) and P2 (delta-bonus floor)
-failed: GRPO drifts toward identity-resubmission instead of amplifying fixes, so the full run
-was never bought. The full Spider/BIRD error-only evals are inference-time cost notes on the
-aborted pilot checkpoint, not new training evidence. `make eval` re-derives the documentation
-table.
+The shipped training result remains the single-turn GRPO result. The forced-revision artifacts are
+kept so `make eval` can re-derive the documented analysis tables and error-only retry comparison.
 
 ## Reproduce the committed numbers (CPU only, no model)
 

@@ -1,4 +1,4 @@
-"""Multi-turn trajectory reward (Stage 3, design D3/D4).
+"""Multi-turn trajectory reward for tool-loop analysis.
 
 An episode under TRL's tool loop is: zero-or-more `run_sql` tool calls (bare SQL, recorded by
 the environment), then the model's final answer (a full `<think>`+SQL completion). Credit:

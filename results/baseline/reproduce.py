@@ -96,7 +96,7 @@ def main() -> None:
 
 
 def _stage3b_forced_revision(spider_db, bird_db) -> None:
-    """Stage 3b (grpo-forced-revision, ABORTED at the pre-registered pilot gate): re-derive
+    """Forced-revision analysis: re-derive
     the n=200 pilot-checkpoint documentation table — FR harness vs Stage-2 anchor vs the
     gold-free best-of-2 control — plus the fix/harm decomposition. Point estimates on a
     200-item slice; differences of 1-3 items are inside noise and no claim rests on them."""
@@ -113,7 +113,7 @@ def _stage3b_forced_revision(spider_db, bird_db) -> None:
 
     fr = HERE.parent / "grpo-fr"
     print()
-    print("Stage 3b — forced revision (pilot checkpoint, n=200 Spider-dev; ABORTED at gate)")
+    print("Forced revision analysis (diagnostic checkpoint, n=200 Spider-dev)")
 
     s2 = read_completion_set(GRPO / "spider-dev-zs-grpo-s0.json")
     s2_items = s2.items[:200]

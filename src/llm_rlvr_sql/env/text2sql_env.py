@@ -1,4 +1,4 @@
-"""The multi-turn text-to-SQL tool environment (Stage 3, design D2).
+"""The multi-turn text-to-SQL tool environment.
 
 Conforms to TRL v1.5.1's `environment_factory` contract (verified against the tagged source):
 the trainer instantiates one environment per rollout slot via a zero-arg factory, calls

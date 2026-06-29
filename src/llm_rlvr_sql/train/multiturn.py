@@ -1,4 +1,4 @@
-"""Multi-turn GRPO wiring and smoke driver (Stage 3). See docs/status.md for outcome."""
+"""Multi-turn GRPO wiring and smoke driver. See docs/status.md for current scope."""
 
 from __future__ import annotations
 

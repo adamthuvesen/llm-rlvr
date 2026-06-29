@@ -1,4 +1,4 @@
-"""Multiturn prompt styles and the fixed tool-protocol demonstration (Stage 3)."""
+"""Multiturn prompt styles and the fixed tool-protocol demonstration."""
 
 from __future__ import annotations
 
