@@ -6,7 +6,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-from llm_rlvr_sql.env import ExecutionError, ExecutionResult, SqliteSandbox
+from llm_rlvr.env import ExecutionError, ExecutionResult, SqliteSandbox
 
 
 def test_select_returns_rows(tiny_db: Path) -> None:

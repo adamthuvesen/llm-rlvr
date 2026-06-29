@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from llm_rlvr_sql.data.models import Example
-from llm_rlvr_sql.train.traces import (
+from llm_rlvr.data.models import Example
+from llm_rlvr.train.traces import (
     CandidateSet,
     TraceCandidates,
     TraceSamplingConfig,
@@ -122,7 +122,7 @@ def test_manifest_carries_reproducibility_fields(scoring_root: Path) -> None:
 
 
 def test_candidate_set_file_round_trip(tmp_path: Path) -> None:
-    from llm_rlvr_sql.eval.completions import write_json
+    from llm_rlvr.eval.completions import write_json
 
     candidate_set = _candidate_set(WF_CORRECT, WF_WRONG)
     path = write_json(candidate_set, tmp_path / "candidates.json")
@@ -132,8 +132,8 @@ def test_candidate_set_file_round_trip(tmp_path: Path) -> None:
 def test_build_traces_cli_runs_the_whole_cpu_funnel(scoring_root: Path, tmp_path: Path) -> None:
     import json
 
-    from llm_rlvr_sql.eval.cli import main
-    from llm_rlvr_sql.eval.completions import write_json
+    from llm_rlvr.eval.cli import main
+    from llm_rlvr.eval.completions import write_json
 
     candidates_path = write_json(
         _candidate_set(WF_CORRECT, WF_WRONG, MALFORMED_CORRECT), tmp_path / "candidates.json"

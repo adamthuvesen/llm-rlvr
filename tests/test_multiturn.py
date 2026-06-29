@@ -6,22 +6,22 @@ from pathlib import Path
 
 import pytest
 
-from llm_rlvr_sql.env import (
+from llm_rlvr.env import (
     FeedbackConfig,
     SqliteText2SqlEnv,
     format_feedback,
     make_environment_factory,
 )
-from llm_rlvr_sql.env.sandbox import ExecutionResult
-from llm_rlvr_sql.env.text2sql_env import BUDGET_EXHAUSTED_FEEDBACK
-from llm_rlvr_sql.rewards import (
+from llm_rlvr.env.sandbox import ExecutionResult
+from llm_rlvr.env.text2sql_env import BUDGET_EXHAUSTED_FEEDBACK
+from llm_rlvr.rewards import (
     MultiTurnRewardConfig,
-    RewardConfig,
     score_trajectory,
 )
-from llm_rlvr_sql.train.diagnostics import compute_diagnostics
-from llm_rlvr_sql.train.grpo import GrpoHyperparams
-from llm_rlvr_sql.train.multiturn_provenance import (
+from llm_rlvr.tasks.sql import RewardConfig
+from llm_rlvr.train.diagnostics import compute_diagnostics
+from llm_rlvr.train.grpo import GrpoHyperparams
+from llm_rlvr.train.multiturn_provenance import (
     MultiTurnProvenance,
     build_multiturn_provenance,
 )

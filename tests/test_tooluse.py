@@ -8,17 +8,17 @@ from pathlib import Path
 
 import pytest
 
-from llm_rlvr_sql.data.models import Column, DatabaseSchema, Example, Table
-from llm_rlvr_sql.env.text2sql_env import FeedbackConfig, SqliteText2SqlEnv
-from llm_rlvr_sql.eval.prompt import MULTITURN_INSTRUCTION
-from llm_rlvr_sql.train.tooluse import (
+from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
+from llm_rlvr.env.text2sql_env import FeedbackConfig, SqliteText2SqlEnv
+from llm_rlvr.eval.prompt import MULTITURN_INSTRUCTION
+from llm_rlvr.train.tooluse import (
     ToolUseMix,
     build_tooluse_manifest,
     build_tooluse_rows,
     corruption_candidates,
     write_tooluse_dataset,
 )
-from llm_rlvr_sql.train.traces import SftTrace
+from llm_rlvr.train.traces import SftTrace
 
 SCHEMA = DatabaseSchema(
     db_id="shop",
@@ -228,7 +228,7 @@ def test_no_completion_ever_quotes_the_feedback_marker(db_root: Path) -> None:
 
 
 def test_render_text_row_prefix_split() -> None:
-    from llm_rlvr_sql.train.tooluse import render_text_row
+    from llm_rlvr.train.tooluse import render_text_row
 
     def fake_template(messages, tools, add_generation_prompt, tokenize):
         text = f"[tools:{len(tools)}]" + "".join(
@@ -248,7 +248,7 @@ def test_render_text_row_prefix_split() -> None:
 def test_render_text_row_raises_when_not_prefix_stable() -> None:
     import pytest
 
-    from llm_rlvr_sql.train.tooluse import render_text_row
+    from llm_rlvr.train.tooluse import render_text_row
 
     def broken_template(messages, tools, add_generation_prompt, tokenize):
         return "X" if add_generation_prompt else "Y"

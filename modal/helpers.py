@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-from llm_rlvr_sql.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
-from llm_rlvr_sql.data.bird import ensure_bird_dev, load_bird_examples
-from llm_rlvr_sql.data.models import DatabaseSchema, Example
-from llm_rlvr_sql.data.spider import ensure_spider_databases, load_examples, load_schemas
+from llm_rlvr.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_REVISION
+from llm_rlvr.data.bird import ensure_bird_dev, load_bird_examples
+from llm_rlvr.data.models import DatabaseSchema, Example
+from llm_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
 
 
 @dataclass(frozen=True)

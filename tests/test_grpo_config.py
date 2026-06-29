@@ -7,7 +7,7 @@ import logging
 import sys
 import types
 
-from llm_rlvr_sql.train.grpo import build_grpo_config_from_kwargs
+from llm_rlvr.train.grpo import build_grpo_config_from_kwargs
 
 
 @dataclasses.dataclass

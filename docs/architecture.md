@@ -1,12 +1,20 @@
 # Architecture
 
-Core design: **the execution-match verifier that scores the baseline is the same code used as the
-RL training reward.** A bug in eval is a bug in training, and vice versa. Every result file carries
-enough metadata to re-derive committed numbers from disk with no model in the loop.
+Core design: **the verifier that scores the baseline is the same code used as the RL training
+reward.** A bug in eval is a bug in training, and vice versa. Every result file carries enough
+metadata to re-derive committed numbers from disk with no model in the loop.
 
-The shipped result is single-turn RLVR (SFT cold-start → GRPO with execution-verified rewards). The
-self-correction follow-ups (tool loop, forced revision) are documented negatives; their support code
-stays in the tree, tested, but is not on the main path. See *Stages* at the bottom.
+That verifier-as-reward idea is factored into a **task-agnostic harness** (`harness/`): a task plugs
+in by implementing two small protocols — `AnswerParser` (pull the answer out of a completion) and
+`Verifier` (check it, return a `Verdict`) — and bundling them as a `Task`. The shaped / near-binary
+reward (`harness.score_answer`) is generic over those. **Text-to-SQL is the reference task**
+(`tasks/sql.py`); to train your own model on your own verifiable problem, add a task — see
+`docs/harness.md`.
+
+The shipped result is single-turn RLVR on that SQL task (SFT cold-start → GRPO with execution-
+verified rewards). The self-correction follow-ups (tool loop, forced revision) are documented
+negatives; their support code stays in the tree, tested, but is not on the main path. See *Stages*
+at the bottom.
 
 ## Module map (dependency direction: top imports bottom, never the reverse)
 
@@ -17,8 +25,10 @@ revision/      feedback.py · rollout.py (Stage-3b forced-revision rollout_func 
 train/         traces.py (STaR sampling + execution filter) · sft.py (LoRA SFT) · grpo.py (GRPO) ·
                multiturn.py (Stage-3 tool-loop smoke) · diagnostics.py (D8 collapse alarms) ·
                tooluse.py (tool-use SFT dataset) · multiturn_provenance.py (Stage-3 provenance contract)
-rewards/       reward.py — shaped + near-binary arms over the verifier (TRL reward fn) ·
-               multiturn.py — trajectory credit + improvement-delta bonus
+rewards/       multiturn.py — trajectory credit + improvement-delta bonus over the SQL single-turn
+               reward (self-correction analysis only)
+tasks/         sql.py — the text-to-SQL Task: SQL parser + verifier + execution reward (shaped /
+               near-binary, empty-result guard) + prompt/row builders · __init__.py (task registry)
 eval/          completions.py (the CompletionSet artifact) · generate · score · verifier · parsing ·
                prompt · aggregate · provenance · cli · multiturn_generate ·
                forced_revision_generate · bestofn · fr_metrics · revision_probe
@@ -26,12 +36,19 @@ env/           sandbox.py — read-only SQLite execution (the safety boundary) �
                text2sql_env.py — the run_sql tool environment + gold-free feedback
 data/          models.py (typed Example/DatabaseSchema records) · spider.py · bird.py ·
                schema.py (schema → prompt text) · artifacts.py (pinned revisions + checksums)
+harness/       verifier.py (Verifier / Verdict / ReferenceUnverifiable) · answer.py (AnswerParser) ·
+               reward.py (RewardConfig shaping + score_answer + completion_text) · task.py (Task
+               protocol) — the task-agnostic RLVR core, imports only _base
 _base.py       Frozen — pydantic base: frozen=True, extra="forbid"
 third_party/   vendored Test-Suite SQL Eval (execution-match path only; Apache 2.0)
 ```
 
+Dependency direction: `harness/` sits at the bottom (it imports only `_base`); `tasks/sql.py` is the
+adapter that binds the harness protocols to the SQL pieces in `eval/` + `data/`; `rewards/` and
+`train/` build on the SQL task. Nothing under `harness/` imports SQL.
+
 `modal_app.py` (repo root) is the only GPU surface; `src/` never imports Modal, and the GPU
-functions import `llm_rlvr_sql` lazily so the package installs and tests without the training stack.
+functions import `llm_rlvr` lazily so the package installs and tests without the training stack.
 
 ## Data and result flow
 
@@ -67,7 +84,10 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (commi
 
 ## The reward (Stage 2)
 
-`rewards/reward.py` composes one per-completion score from a single sandbox execution:
+`harness.score_answer` composes one per-completion score from an `AnswerParser` + a `Verifier`;
+`tasks/sql.py` binds those to SQL (the `SqlAnswerParser` + execution-match `SqlVerifier`) and adds
+the empty-result guard. The shaping is task-agnostic; only the parser/verifier are SQL. Per
+completion, from a single sandbox execution:
 
 - **shaped arm** (SQL-R1-style): `format + executable + result_match + length`, config-driven
   weights (0.2 / 0.2 / 1.0 / 0.1). `format` gives full credit only when `<think>` *leads* the
@@ -92,11 +112,11 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (commi
 
 ## Modal (GPU runner)
 
-- App `llm-rlvr-sql-baseline`; Volumes `text2sql-runs` (`/runs`) + `text2sql-hf-cache`.
+- App `llm-rlvr-baseline`; Volumes `text2sql-runs` (`/runs`) + `text2sql-hf-cache`.
 - Two-layer image: the heavy CUDA/torch/vLLM layer is keyed on `pyproject.toml`+`uv.lock` only, so a
   source edit re-runs just the fast editable relink, not the multi-GB install.
 - Image ignore patterns are **root-anchored** (`data/**`, not `**/data`) — a deep glob would strip
-  the `src/llm_rlvr_sql/data/` package out of the image.
+  the `src/llm_rlvr/data/` package out of the image.
 - Entrypoints are thin `@app.local_entrypoint`s, each mirroring a GPU `@app.function` and taking
   `--spawn`. The supported training path uses `main` (baseline/adapter generate), `traces`
   (STaR sampling), `sft`, and `grpo`; analysis helpers add `mt_smoke`/`mt_eval`,

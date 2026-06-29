@@ -7,17 +7,17 @@ from pathlib import Path
 
 import pytest
 
-from llm_rlvr_sql.env import FeedbackConfig, SqliteText2SqlEnv, format_feedback
-from llm_rlvr_sql.env.sandbox import ExecutionResult
-from llm_rlvr_sql.env.text2sql_env import BUDGET_EXHAUSTED_FEEDBACK
-from llm_rlvr_sql.rewards import MultiTurnRewardConfig, score_trajectory
-from llm_rlvr_sql.train.grpo_smoke import (
+from llm_rlvr.env import FeedbackConfig, SqliteText2SqlEnv, format_feedback
+from llm_rlvr.env.sandbox import ExecutionResult
+from llm_rlvr.env.text2sql_env import BUDGET_EXHAUSTED_FEEDBACK
+from llm_rlvr.rewards import MultiTurnRewardConfig, score_trajectory
+from llm_rlvr.train.grpo_smoke import (
     FEEDBACK_MARKER,
     IS_RATIO_HEALTHY_BAND,
     check_is_ratio,
     check_tool_masking,
 )
-from llm_rlvr_sql.train.multiturn import (
+from llm_rlvr.train.multiturn import (
     MultiTurnHyperparams,
     make_multiturn_reward_fn,
     multiturn_grpo_config_kwargs,
@@ -170,7 +170,7 @@ def _passing_mask() -> dict[str, object]:
 
 
 def test_smoke_failures_empty_when_all_assertions_hold() -> None:
-    from llm_rlvr_sql.train.multiturn import IsRatioCheck, MaskCheck
+    from llm_rlvr.train.multiturn import IsRatioCheck, MaskCheck
 
     failures = smoke_failures(
         episodes_with_tool_calls=3,
@@ -190,7 +190,7 @@ def test_smoke_failures_empty_when_all_assertions_hold() -> None:
 
 
 def test_smoke_failures_name_every_broken_assertion() -> None:
-    from llm_rlvr_sql.train.multiturn import IsRatioCheck, MaskCheck
+    from llm_rlvr.train.multiturn import IsRatioCheck, MaskCheck
 
     failures = smoke_failures(
         episodes_with_tool_calls=0,
@@ -219,7 +219,7 @@ def test_smoke_failures_name_every_broken_assertion() -> None:
 
 
 def test_mt_prompt_style_offers_the_tool_and_keeps_the_final_format() -> None:
-    from llm_rlvr_sql.eval.prompt import INSTRUCTIONS, build_messages
+    from llm_rlvr.eval.prompt import INSTRUCTIONS, build_messages
 
     messages = build_messages("CREATE TABLE t (a INT)", "How many rows?", style="mt")
     system = messages[0]["content"]
@@ -231,8 +231,8 @@ def test_mt_prompt_style_offers_the_tool_and_keeps_the_final_format() -> None:
 
 
 def test_multiturn_provenance_records_the_prompt_style() -> None:
-    from llm_rlvr_sql.train.grpo import GrpoHyperparams
-    from llm_rlvr_sql.train.multiturn_provenance import build_multiturn_provenance
+    from llm_rlvr.train.grpo import GrpoHyperparams
+    from llm_rlvr.train.multiturn_provenance import build_multiturn_provenance
 
     provenance = build_multiturn_provenance(
         base_model="m",

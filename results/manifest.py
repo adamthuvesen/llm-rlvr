@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
 
-from llm_rlvr_sql._base import Frozen
+from llm_rlvr._base import Frozen
 
 RESULTS = Path(__file__).parent
 BASELINE = RESULTS / "baseline"

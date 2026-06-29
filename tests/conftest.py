@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_rlvr_sql.eval.provenance import DecodingConfig, GenerationProvenance
+from llm_rlvr.eval.provenance import DecodingConfig, GenerationProvenance
 
 
 def _build(path: Path, rows: list[tuple[int, str]]) -> None:

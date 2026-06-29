@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from llm_rlvr_sql.data.models import Column, DatabaseSchema, Example, Table
-from llm_rlvr_sql.eval.prompt import (
+from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
+from llm_rlvr.eval.prompt import (
     INSTRUCTION,
     FewShotExemplar,
     build_messages,
@@ -87,7 +87,7 @@ def test_no_evidence_leaves_prompt_unchanged() -> None:
 
 
 def test_prompt_style_selects_instruction() -> None:
-    from llm_rlvr_sql.eval.prompt import DIRECT_INSTRUCTION
+    from llm_rlvr.eval.prompt import DIRECT_INSTRUCTION
 
     assert build_messages("S", "Q", style="cot")[0]["content"] == INSTRUCTION
     assert build_messages("S", "Q", style="direct")[0]["content"] == DIRECT_INSTRUCTION
@@ -104,7 +104,7 @@ def test_unknown_prompt_style_raises() -> None:
 
 
 def test_mt_demo_inserts_demo_between_system_and_target() -> None:
-    from llm_rlvr_sql.eval.prompt import MULTITURN_INSTRUCTION, tool_demo_messages
+    from llm_rlvr.eval.prompt import MULTITURN_INSTRUCTION, tool_demo_messages
 
     messages = build_messages("SCHEMA-TEXT", "How many?", style="mt_demo")
     assert messages[0] == {"role": "system", "content": MULTITURN_INSTRUCTION}
@@ -117,7 +117,7 @@ def test_mt_demo_inserts_demo_between_system_and_target() -> None:
 
 
 def test_mt_demo_shows_two_tool_turns_then_final_answer() -> None:
-    from llm_rlvr_sql.eval.prompt import (
+    from llm_rlvr.eval.prompt import (
         DEMO_ERROR_FEEDBACK,
         DEMO_FIXED_SQL,
         DEMO_SUCCESS_FEEDBACK,
@@ -144,8 +144,8 @@ def test_mt_demo_shows_two_tool_turns_then_final_answer() -> None:
 def test_mt_demo_tool_calls_match_the_env_tool() -> None:
     import inspect
 
-    from llm_rlvr_sql.env.text2sql_env import SqliteText2SqlEnv
-    from llm_rlvr_sql.eval.prompt import tool_demo_messages
+    from llm_rlvr.env.text2sql_env import SqliteText2SqlEnv
+    from llm_rlvr.eval.prompt import tool_demo_messages
 
     params = set(inspect.signature(SqliteText2SqlEnv.run_sql).parameters) - {"self"}
     for message in tool_demo_messages():
@@ -159,9 +159,9 @@ def test_mt_demo_feedback_byte_matches_real_execution(tmp_path) -> None:
     queries in the real sandbox against the demo schema and compare byte-for-byte."""
     import sqlite3
 
-    from llm_rlvr_sql.env.sandbox import SqliteSandbox
-    from llm_rlvr_sql.env.text2sql_env import FeedbackConfig, format_feedback
-    from llm_rlvr_sql.eval.prompt import (
+    from llm_rlvr.env.sandbox import SqliteSandbox
+    from llm_rlvr.env.text2sql_env import FeedbackConfig, format_feedback
+    from llm_rlvr.eval.prompt import (
         DEMO_ERROR_FEEDBACK,
         DEMO_FIXED_SQL,
         DEMO_SUCCESS_FEEDBACK,
@@ -189,7 +189,7 @@ def test_mt_demo_feedback_byte_matches_real_execution(tmp_path) -> None:
 def test_mt_demo_is_gold_free_and_synthetic() -> None:
     """The demo must never leak dataset content: synthetic db, and no verdict/gold tokens
     (the same invariant the env's feedback tests pin)."""
-    from llm_rlvr_sql.eval.prompt import DEMO_SCHEMA_TEXT, tool_demo_messages
+    from llm_rlvr.eval.prompt import DEMO_SCHEMA_TEXT, tool_demo_messages
 
     assert 'CREATE TABLE "plants"' in DEMO_SCHEMA_TEXT
     text = " ".join(str(m.get("content", "")) for m in tool_demo_messages()).lower()
