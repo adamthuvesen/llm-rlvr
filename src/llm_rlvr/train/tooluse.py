@@ -21,6 +21,7 @@ from __future__ import annotations
 import random
 import re
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from llm_rlvr._base import Frozen
@@ -66,6 +67,14 @@ class ToolUseRow(Frozen):
     shape: str  # revise | check | direct
     prompt: tuple[Message, ...]
     completion: tuple[Message, ...]
+
+
+@dataclass(frozen=True)
+class _ToolExampleRows:
+    rows: tuple[ToolUseRow, ...] = ()
+    shape: str | None = None
+    gold_error: bool = False
+    corruption_fallback: bool = False
 
 
 class ToolUseCounts(Frozen):
@@ -201,6 +210,124 @@ def _transcript_rows(
     return rows
 
 
+def _first_erroring_corruption(
+    example: Example,
+    schema: DatabaseSchema,
+    sandbox: SqliteSandbox,
+    feedback: FeedbackConfig,
+) -> tuple[str, str] | None:
+    for candidate in corruption_candidates(example.gold_sql, schema):
+        outcome = sandbox.execute(candidate)
+        if isinstance(outcome, ExecutionError):
+            return candidate, format_feedback(outcome, feedback)
+    return None
+
+
+def _tool_example_rows(
+    example: Example,
+    schema: DatabaseSchema,
+    db_root: str | Path,
+    rng: random.Random,
+    feedback: FeedbackConfig,
+    *,
+    want_revise: bool,
+    can_check: bool,
+) -> _ToolExampleRows:
+    from llm_rlvr.data.schema import serialize_schema
+
+    sandbox = SqliteSandbox(
+        resolve_database(example.db_id, db_root),
+        timeout_s=AGENT_TIMEOUT_S,
+        row_cap=AGENT_ROW_CAP,
+    )
+    gold_outcome = sandbox.execute(example.gold_sql)
+    if isinstance(gold_outcome, ExecutionError):
+        return _ToolExampleRows(gold_error=True)
+
+    schema_text = serialize_schema(schema)
+    gold_feedback = format_feedback(gold_outcome, feedback)
+    success_turn = (
+        tool_call_message(example.gold_sql),
+        {"role": "tool", "content": gold_feedback},
+    )
+
+    if want_revise:
+        corrupted = _first_erroring_corruption(example, schema, sandbox, feedback)
+        if corrupted is not None:
+            bad_sql, bad_feedback = corrupted
+            think = rng.choice(_REVISE_THINKS).format(
+                reason=_reason_phrase(bad_feedback), rows=_rows_phrase(gold_feedback)
+            )
+            return _ToolExampleRows(
+                rows=tuple(
+                    _transcript_rows(
+                        example,
+                        schema_text,
+                        [
+                            (
+                                tool_call_message(bad_sql),
+                                {"role": "tool", "content": bad_feedback},
+                            ),
+                            success_turn,
+                        ],
+                        _final_answer(think, example.gold_sql),
+                        "revise",
+                    )
+                ),
+                shape="revise",
+            )
+        if not can_check:
+            return _ToolExampleRows(corruption_fallback=True)
+
+    think = rng.choice(_CHECK_THINKS).format(rows=_rows_phrase(gold_feedback))
+    return _ToolExampleRows(
+        rows=tuple(
+            _transcript_rows(
+                example,
+                schema_text,
+                [success_turn],
+                _final_answer(think, example.gold_sql),
+                "check",
+            )
+        ),
+        shape="check",
+        corruption_fallback=want_revise,
+    )
+
+
+def _direct_rows(
+    traces: Sequence[SftTrace],
+    rng: random.Random,
+    n_target: int,
+) -> tuple[list[ToolUseRow], int, int]:
+    rows: list[ToolUseRow] = []
+    direct_pool = list(traces)
+    rng.shuffle(direct_pool)
+    n_skipped = 0
+
+    for trace in direct_pool:
+        if len(rows) >= n_target:
+            break
+        think_start = trace.completion.find("<think>")
+        if think_start == -1:
+            n_skipped += 1
+            continue
+        rows.append(
+            ToolUseRow(
+                db_id=trace.db_id,
+                question=trace.question,
+                shape="direct",
+                prompt=(
+                    {"role": "system", "content": MULTITURN_INSTRUCTION},
+                    *(m for m in trace.prompt if m.get("role") != "system"),
+                ),
+                completion=({"role": "assistant", "content": trace.completion[think_start:]},),
+            )
+        )
+
+    return rows, len(rows), n_skipped
+
+
 def build_tooluse_rows(
     examples: Sequence[Example],
     schemas: Mapping[str, DatabaseSchema],
@@ -214,8 +341,6 @@ def build_tooluse_rows(
 
     Raises loudly on any non-train example (R2 no-leakage, same invariant as the trace builder).
     """
-    from llm_rlvr.data.schema import serialize_schema
-
     mixed = mix or ToolUseMix()
     fb_config = feedback or FeedbackConfig()
     assert_train_split(examples, context="tool-use dataset")
@@ -230,95 +355,34 @@ def build_tooluse_rows(
         if n_revise >= mixed.n_revise and n_check >= mixed.n_check:
             break
         n_questions += 1
-        sandbox = SqliteSandbox(
-            resolve_database(example.db_id, db_root),
-            timeout_s=AGENT_TIMEOUT_S,
-            row_cap=AGENT_ROW_CAP,
+        result = _tool_example_rows(
+            example,
+            schemas[example.db_id],
+            db_root,
+            rng,
+            fb_config,
+            want_revise=n_revise < mixed.n_revise,
+            can_check=n_check < mixed.n_check,
         )
-        gold_outcome = sandbox.execute(example.gold_sql)
-        if isinstance(gold_outcome, ExecutionError):
+        if result.gold_error:
             n_gold_errors += 1
             continue
-        schema_text = serialize_schema(schemas[example.db_id])
-        gold_feedback = format_feedback(gold_outcome, fb_config)
-        success_turn = (
-            tool_call_message(example.gold_sql),
-            {"role": "tool", "content": gold_feedback},
-        )
 
-        want_revise = n_revise < mixed.n_revise
-        corrupted: tuple[str, str] | None = None
-        if want_revise:
-            for candidate in corruption_candidates(example.gold_sql, schemas[example.db_id]):
-                outcome = sandbox.execute(candidate)
-                if isinstance(outcome, ExecutionError):
-                    corrupted = (candidate, format_feedback(outcome, fb_config))
-                    break
-
-        if want_revise and corrupted is not None:
-            bad_sql, bad_feedback = corrupted
-            think = rng.choice(_REVISE_THINKS).format(
-                reason=_reason_phrase(bad_feedback), rows=_rows_phrase(gold_feedback)
-            )
-            rows.extend(
-                _transcript_rows(
-                    example,
-                    schema_text,
-                    [
-                        (tool_call_message(bad_sql), {"role": "tool", "content": bad_feedback}),
-                        success_turn,
-                    ],
-                    _final_answer(think, example.gold_sql),
-                    "revise",
-                )
-            )
+        if result.corruption_fallback:
+            n_fallbacks += 1
+        rows.extend(result.rows)
+        if result.shape == "revise":
             n_revise += 1
-            continue
-
-        if want_revise:
-            n_fallbacks += 1  # no candidate errored; the question still yields a check transcript
-        if n_check >= mixed.n_check:
-            continue
-        think = rng.choice(_CHECK_THINKS).format(rows=_rows_phrase(gold_feedback))
-        rows.extend(
-            _transcript_rows(
-                example,
-                schema_text,
-                [success_turn],
-                _final_answer(think, example.gold_sql),
-                "check",
-            )
-        )
-        n_check += 1
+        elif result.shape == "check":
+            n_check += 1
 
     # `direct` rows: real Stage-1 trace completions, re-homed under the mt instruction so the
     # policy keeps producing its own reasoning style when it chooses not to call the tool.
     # Preambles are STRIPPED (everything before `<think>`): Stage-2's GRPO trained the leading-
     # `<think>` format, and attempt 4 showed verbatim preamble traces both re-teach the preamble
     # and out-mass the tool-call rows. A trace with no `<think>` span is skipped and counted.
-    direct_pool = list(traces)
-    rng.shuffle(direct_pool)
-    n_direct = n_direct_skipped = 0
-    for trace in direct_pool:
-        if n_direct >= mixed.n_direct:
-            break
-        think_start = trace.completion.find("<think>")
-        if think_start == -1:
-            n_direct_skipped += 1
-            continue
-        rows.append(
-            ToolUseRow(
-                db_id=trace.db_id,
-                question=trace.question,
-                shape="direct",
-                prompt=(
-                    {"role": "system", "content": MULTITURN_INSTRUCTION},
-                    *(m for m in trace.prompt if m.get("role") != "system"),
-                ),
-                completion=({"role": "assistant", "content": trace.completion[think_start:]},),
-            )
-        )
-        n_direct += 1
+    direct_rows, n_direct, n_direct_skipped = _direct_rows(traces, rng, mixed.n_direct)
+    rows.extend(direct_rows)
 
     counts = ToolUseCounts(
         n_questions=n_questions,

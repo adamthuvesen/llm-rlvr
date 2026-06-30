@@ -22,6 +22,16 @@ from llm_rlvr.eval.verifier import VerifierConfig
 
 
 def main(argv: list[str] | None = None) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    try:
+        return args.func(args)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="llm-rlvr",
         description="Text-to-SQL eval and Stage-3 support utilities.",
@@ -32,7 +42,17 @@ def main(argv: list[str] | None = None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="command", required=True)
+    _add_generate_parser(sub)
+    _add_score_parser(sub)
+    _add_build_traces_parser(sub)
+    _add_build_tooluse_parser(sub)
+    _add_select_bestofn_parser(sub)
+    _add_fr_metrics_parser(sub)
+    _add_fr_error_only_replay_parser(sub)
+    return parser
 
+
+def _add_generate_parser(sub: argparse._SubParsersAction) -> None:
     gen = sub.add_parser("generate", help="sample the model and write a CompletionSet")
     gen.add_argument("--model", required=True)
     gen.add_argument("--model-revision", default=None)
@@ -56,6 +76,8 @@ def main(argv: list[str] | None = None) -> int:
     gen.add_argument("--prompt-style", choices=["cot", "direct"], default="cot")
     gen.set_defaults(func=_cmd_generate)
 
+
+def _add_score_parser(sub: argparse._SubParsersAction) -> None:
     score = sub.add_parser("score", help="score a CompletionSet into execution accuracy")
     score.add_argument("--completions", required=True, help="CompletionSet json path")
     score.add_argument("--db-root", required=True, help="extracted Spider database/ directory")
@@ -66,6 +88,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     score.set_defaults(func=_cmd_score)
 
+
+def _add_build_traces_parser(sub: argparse._SubParsersAction) -> None:
     traces = sub.add_parser(
         "build-traces", help="filter sampled candidates into the SFT trace dataset (CPU)"
     )
@@ -75,6 +99,8 @@ def main(argv: list[str] | None = None) -> int:
     traces.add_argument("--manifest", required=True, help="output manifest json path")
     traces.set_defaults(func=_cmd_build_traces)
 
+
+def _add_build_tooluse_parser(sub: argparse._SubParsersAction) -> None:
     tooluse = sub.add_parser(
         "build-tooluse",
         help="[stage-3] build the tool-use SFT dataset (CPU; executes in the sandbox)",
@@ -90,6 +116,8 @@ def main(argv: list[str] | None = None) -> int:
     tooluse.add_argument("--seed", type=int, default=0)
     tooluse.set_defaults(func=_cmd_build_tooluse)
 
+
+def _add_select_bestofn_parser(sub: argparse._SubParsersAction) -> None:
     bestofn = sub.add_parser(
         "select-bestofn",
         help="[stage-3] gold-free best-of-N selection over sampled CompletionSets (CPU)",
@@ -102,6 +130,8 @@ def main(argv: list[str] | None = None) -> int:
     bestofn.add_argument("--report", required=True, help="output selection-report json path")
     bestofn.set_defaults(func=_cmd_select_bestofn)
 
+
+def _add_fr_metrics_parser(sub: argparse._SubParsersAction) -> None:
     fr_metrics = sub.add_parser(
         "fr-metrics",
         help="[stage-3] fix/harm decomposition of a forced-revision eval (CPU)",
@@ -112,6 +142,8 @@ def main(argv: list[str] | None = None) -> int:
     fr_metrics.add_argument("--out", default=None, help="optional FrMetricsReport json path")
     fr_metrics.set_defaults(func=_cmd_fr_metrics)
 
+
+def _add_fr_error_only_replay_parser(sub: argparse._SubParsersAction) -> None:
     fr_error_only = sub.add_parser(
         "fr-error-only-replay",
         help="[stage-3] replay forced-revision eval with second generation on errors only",
@@ -122,13 +154,6 @@ def main(argv: list[str] | None = None) -> int:
     fr_error_only.add_argument("--out", required=True, help="output replay CompletionSet path")
     fr_error_only.add_argument("--report", required=True, help="output replay report json path")
     fr_error_only.set_defaults(func=_cmd_fr_error_only_replay)
-
-    args = parser.parse_args(argv)
-    try:
-        return args.func(args)
-    except (FileNotFoundError, ValueError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
 
 
 def _cmd_score(args: argparse.Namespace) -> int:

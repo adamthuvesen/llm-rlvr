@@ -14,12 +14,14 @@ so the trained numbers compare directly against the untrained probe (fix 14.9%, 
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from llm_rlvr._base import Frozen
 from llm_rlvr.data.paths import resolve_database
-from llm_rlvr.eval.completions import CompletionSet
+from llm_rlvr.eval.completions import CompletionSet, ProblemCompletions
 from llm_rlvr.eval.forced_revision_generate import (
+    ForcedRevisionEpisode,
     ForcedRevisionPolicy,
     ForcedRevisionTranscriptSet,
 )
@@ -73,6 +75,69 @@ class ForcedRevisionEvalReport(Frozen):
     cost_notes: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class _EpisodeScore:
+    attempt_ok: bool
+    final_ok: bool
+    revised: bool
+    error_feedback: bool
+
+
+@dataclass
+class _FrCounters:
+    n_skipped: int = 0
+    n_wrong: int = 0
+    n_fixed: int = 0
+    n_fixed_err: int = 0
+    n_fixed_res: int = 0
+    n_right: int = 0
+    n_harmed: int = 0
+    n_revised: int = 0
+    attempt_correct: int = 0
+    final_correct: int = 0
+
+    @property
+    def n(self) -> int:
+        return self.n_wrong + self.n_right
+
+    def add(self, score: _EpisodeScore) -> None:
+        self.attempt_correct += score.attempt_ok
+        self.final_correct += score.final_ok
+        self.n_revised += score.revised
+
+        if score.attempt_ok:
+            self.n_right += 1
+            self.n_harmed += not score.final_ok
+            return
+
+        self.n_wrong += 1
+        if score.final_ok:
+            self.n_fixed += 1
+            if score.error_feedback:
+                self.n_fixed_err += 1
+            else:
+                self.n_fixed_res += 1
+
+    def report(self) -> FrMetricsReport:
+        n = self.n
+        return FrMetricsReport(
+            n=n,
+            n_skipped_gold_error=self.n_skipped,
+            attempt_ex=self.attempt_correct / n if n else 0.0,
+            final_ex=self.final_correct / n if n else 0.0,
+            n_attempt_wrong=self.n_wrong,
+            n_fixed=self.n_fixed,
+            n_fixed_from_error_feedback=self.n_fixed_err,
+            n_fixed_from_result_feedback=self.n_fixed_res,
+            fix_rate=self.n_fixed / self.n_wrong if self.n_wrong else 0.0,
+            n_attempt_right=self.n_right,
+            n_harmed=self.n_harmed,
+            harm_rate=self.n_harmed / self.n_right if self.n_right else 0.0,
+            n_revised=self.n_revised,
+            net_delta=(self.final_correct - self.attempt_correct) / n if n else 0.0,
+        )
+
+
 def _eval_report_from_metrics(
     metrics: FrMetricsReport,
     *,
@@ -104,6 +169,59 @@ def _eval_report_from_metrics(
     )
 
 
+def _assert_aligned(episode: ForcedRevisionEpisode, *, db_id: str, question: str) -> None:
+    if db_id != episode.db_id or question != episode.question:
+        raise ValueError("completion set and transcripts are not aligned")
+
+
+def _sql_changed(attempt_sql: str | None, final_sql: str | None) -> bool:
+    if attempt_sql is not None and final_sql is not None:
+        return attempt_sql.strip() != final_sql.strip()
+    return attempt_sql != final_sql
+
+
+def _execution_ok(
+    sql: str | None,
+    *,
+    gold_sql: str,
+    db_path: Path,
+    config: VerifierConfig,
+) -> bool:
+    if sql is None:
+        return False
+    return execution_match(sql, gold_sql, db_path, config=config).matched
+
+
+def _score_episode(
+    item: ProblemCompletions,
+    episode: ForcedRevisionEpisode,
+    db_root: str | Path,
+    config: VerifierConfig,
+) -> _EpisodeScore | None:
+    example = item.example
+    _assert_aligned(episode, db_id=example.db_id, question=example.question)
+    db_path = resolve_database(example.db_id, db_root)
+    attempt_sql = extract_sql(episode.attempt_text)
+    final_sql = item.samples[0].sql
+
+    try:
+        attempt_ok = _execution_ok(
+            attempt_sql, gold_sql=example.gold_sql, db_path=db_path, config=config
+        )
+        final_ok = _execution_ok(
+            final_sql, gold_sql=example.gold_sql, db_path=db_path, config=config
+        )
+    except Exception:  # GoldExecutionError and kin — nothing to decompose on this item
+        return None
+
+    return _EpisodeScore(
+        attempt_ok=attempt_ok,
+        final_ok=final_ok,
+        revised=_sql_changed(attempt_sql, final_sql),
+        error_feedback=is_error_feedback(episode.feedback),
+    )
+
+
 def compute_fr_metrics(
     completion_set: CompletionSet,
     transcripts: ForcedRevisionTranscriptSet,
@@ -118,68 +236,15 @@ def compute_fr_metrics(
         )
     config = verifier or VerifierConfig()
 
-    n_skipped = 0
-    n_wrong = n_fixed = n_fixed_err = n_fixed_res = 0
-    n_right = n_harmed = n_revised = 0
-    attempt_correct = final_correct = 0
-    n = 0
+    counters = _FrCounters()
     for item, episode in zip(completion_set.items, transcripts.items, strict=True):
-        example = item.example
-        if example.db_id != episode.db_id or example.question != episode.question:
-            raise ValueError("completion set and transcripts are not aligned")
-        db_path = resolve_database(example.db_id, db_root)
-        attempt_sql = extract_sql(episode.attempt_text)
-        final_sql = item.samples[0].sql
-
-        def verdict(sql: str | None, gold: str = example.gold_sql, db: Path = db_path) -> bool:
-            if sql is None:
-                return False
-            return execution_match(sql, gold, db, config=config).matched
-
-        try:
-            attempt_ok = verdict(attempt_sql)
-            final_ok = verdict(final_sql)
-        except Exception:  # GoldExecutionError and kin — nothing to decompose on this item
-            n_skipped += 1
+        score = _score_episode(item, episode, db_root, config)
+        if score is None:
+            counters.n_skipped += 1
             continue
+        counters.add(score)
 
-        n += 1
-        attempt_correct += attempt_ok
-        final_correct += final_ok
-        has_error_feedback = is_error_feedback(episode.feedback)
-        if attempt_sql is not None and final_sql is not None:
-            n_revised += attempt_sql.strip() != final_sql.strip()
-        elif attempt_sql != final_sql:
-            n_revised += 1
-        if not attempt_ok:
-            n_wrong += 1
-            if final_ok:
-                n_fixed += 1
-                if has_error_feedback:
-                    n_fixed_err += 1
-                else:
-                    n_fixed_res += 1
-        else:
-            n_right += 1
-            if not final_ok:
-                n_harmed += 1
-
-    return FrMetricsReport(
-        n=n,
-        n_skipped_gold_error=n_skipped,
-        attempt_ex=attempt_correct / n if n else 0.0,
-        final_ex=final_correct / n if n else 0.0,
-        n_attempt_wrong=n_wrong,
-        n_fixed=n_fixed,
-        n_fixed_from_error_feedback=n_fixed_err,
-        n_fixed_from_result_feedback=n_fixed_res,
-        fix_rate=n_fixed / n_wrong if n_wrong else 0.0,
-        n_attempt_right=n_right,
-        n_harmed=n_harmed,
-        harm_rate=n_harmed / n_right if n_right else 0.0,
-        n_revised=n_revised,
-        net_delta=(final_correct - attempt_correct) / n if n else 0.0,
-    )
+    return counters.report()
 
 
 def compute_forced_revision_eval_report(
