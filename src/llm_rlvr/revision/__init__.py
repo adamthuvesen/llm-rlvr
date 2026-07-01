@@ -1,0 +1,36 @@
+"""Forced-revision support code for analysis runs."""
+
+from llm_rlvr.revision.episode import ForcedRevisionEpisode, ForcedRevisionTranscriptSet
+from llm_rlvr.revision.feedback import (
+    REVISE_INSTRUCTION,
+    UNPARSEABLE_FEEDBACK,
+    attempt_feedback,
+    is_error_feedback,
+    revision_user_message,
+)
+from llm_rlvr.revision.rollout import (
+    build_db_id_lookup,
+    build_suffix_ids,
+    make_forced_revision_reward_fn,
+    make_forced_revision_rollout,
+    splice_episode,
+)
+from llm_rlvr.revision.smoke import run_forced_revision_smoke
+from llm_rlvr.revision.train import run_forced_revision_train
+
+__all__ = [
+    "REVISE_INSTRUCTION",
+    "UNPARSEABLE_FEEDBACK",
+    "ForcedRevisionEpisode",
+    "ForcedRevisionTranscriptSet",
+    "attempt_feedback",
+    "build_db_id_lookup",
+    "build_suffix_ids",
+    "is_error_feedback",
+    "make_forced_revision_reward_fn",
+    "make_forced_revision_rollout",
+    "revision_user_message",
+    "run_forced_revision_smoke",
+    "run_forced_revision_train",
+    "splice_episode",
+]
