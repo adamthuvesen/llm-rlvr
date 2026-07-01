@@ -105,8 +105,8 @@ with no SQL involved — copy it as your starting point.
 The model is already a parameter — nothing to refactor. Generation, SFT, and GRPO all take a
 `--model` / `--base-model`, and the project ships a Llama-3.2-3B cross-family control alongside the
 Qwen default, so a third base model is a config change. Your model needs to be a Hugging Face
-`AutoModelForCausalLM` that LoRA + vLLM-colocate can load. See
-`docs/internal/runbook.md` for operator commands.
+`AutoModelForCausalLM` that LoRA + vLLM-colocate can load. Runtime-specific launch commands are in
+`docs/internal/runbook.md`.
 
 ## What stays SQL-only
 

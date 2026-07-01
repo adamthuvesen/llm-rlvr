@@ -10,7 +10,7 @@ import pytest
 from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
 from llm_rlvr.eval.completions import CompletionSet, GenerationSample, ProblemCompletions
 from llm_rlvr.eval.provenance import DecodingConfig, GenerationProvenance
-from llm_rlvr.eval.revision_probe import (
+from llm_rlvr.revision.probe import (
     build_revision_prompts,
     read_prompt_rows,
     score_revision_probe,

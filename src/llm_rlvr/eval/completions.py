@@ -42,8 +42,8 @@ class GenerationSample(Frozen):
         if parsed_sql is not None:
             if parsed_sql != supplied_sql:
                 raise ValueError("GenerationSample.sql does not match SQL extracted from text")
-        elif text.strip() != supplied_sql.strip():
-            raise ValueError("GenerationSample.sql is set but text contains no matching SQL")
+        else:
+            raise ValueError("GenerationSample.sql is set but text contains no extracted SQL")
         return data
 
 
@@ -66,7 +66,7 @@ class CompletionSet(Frozen):
         return self
 
 
-def write_json(model: BaseModel, path: str | Path) -> Path:
+def write_pydantic_json(model: BaseModel, path: str | Path) -> Path:
     """Write any Pydantic model to a JSON file, creating parent directories. Returns the path."""
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -93,7 +93,7 @@ def assemble_completion_set(
 
 
 def write_completion_set(completion_set: CompletionSet, path: str | Path) -> Path:
-    return write_json(completion_set, path)
+    return write_pydantic_json(completion_set, path)
 
 
 def read_completion_set(path: str | Path) -> CompletionSet:

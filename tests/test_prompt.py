@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
 from llm_rlvr.eval.prompt import (
     INSTRUCTION,
@@ -154,7 +156,7 @@ def test_mt_demo_tool_calls_match_the_env_tool() -> None:
             assert set(call["function"]["arguments"]) == params
 
 
-def test_mt_demo_feedback_byte_matches_real_execution(tmp_path) -> None:
+def test_mt_demo_feedback_byte_matches_real_execution(tmp_path: Path) -> None:
     """The demonstrated feedback must be what the env would actually say — execute the demo
     queries in the real sandbox against the demo schema and compare byte-for-byte."""
     import sqlite3

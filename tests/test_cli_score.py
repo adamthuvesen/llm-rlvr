@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from llm_rlvr.eval.cli import main
+from llm_rlvr.cli import main
 
 
 def test_score_cli_writes_report(tmp_path: Path, scoring_root: Path, provenance) -> None:

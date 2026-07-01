@@ -69,7 +69,12 @@ def generate(
     exemplars = select_exemplars(train_pool, schemas, k=few_shot_k, seed=few_shot_seed)
     prompts = build_prompts(examples, schemas, exemplars, style=prompt_style)
     raw_texts = _run_backend(
-        prompts, model=model, backend=backend, decoding=decoding, adapter_path=adapter_path
+        prompts,
+        model=model,
+        model_revision=model_revision,
+        backend=backend,
+        decoding=decoding,
+        adapter_path=adapter_path,
     )
     return finish_eval_run(
         examples,
@@ -98,13 +103,26 @@ def _run_backend(
     model: str,
     backend: str,
     decoding: DecodingConfig,
+    model_revision: str | None = None,
     adapter_path: str | Path | None = None,
 ) -> list[str]:
     """Dispatch to a generation backend (lazy imports). Returns one raw completion per prompt."""
     if backend == "transformers":
-        return _run_transformers(prompts, model=model, decoding=decoding, adapter_path=adapter_path)
+        return _run_transformers(
+            prompts,
+            model=model,
+            model_revision=model_revision,
+            decoding=decoding,
+            adapter_path=adapter_path,
+        )
     if backend == "vllm":
-        return _run_vllm(prompts, model=model, decoding=decoding, adapter_path=adapter_path)
+        return _run_vllm(
+            prompts,
+            model=model,
+            model_revision=model_revision,
+            decoding=decoding,
+            adapter_path=adapter_path,
+        )
     raise ValueError(f"unknown backend {backend!r}; expected 'transformers' or 'vllm'")
 
 
@@ -112,6 +130,7 @@ def _run_transformers(
     prompts: Sequence[Messages],
     *,
     model: str,
+    model_revision: str | None = None,
     decoding: DecodingConfig,
     adapter_path: str | Path | None = None,
 ) -> list[str]:
@@ -127,8 +146,11 @@ def _run_transformers(
         if torch.backends.mps.is_available()
         else "cpu"
     )
-    tokenizer = AutoTokenizer.from_pretrained(model)
-    lm = AutoModelForCausalLM.from_pretrained(model, torch_dtype="auto").to(device)
+    revision_kwargs = {"revision": model_revision} if model_revision else {}
+    tokenizer = AutoTokenizer.from_pretrained(model, **revision_kwargs)
+    lm = AutoModelForCausalLM.from_pretrained(model, torch_dtype="auto", **revision_kwargs).to(
+        device
+    )
     if adapter_path is not None:
         from peft import PeftModel  # lazy import: train extra only
 
@@ -160,8 +182,11 @@ def _run_vllm(
     prompts: Sequence[Messages],
     *,
     model: str,
+    model_revision: str | None = None,
     decoding: DecodingConfig,
     adapter_path: str | Path | None = None,
 ) -> list[str]:
-    llm, chat_kwargs = make_vllm_engine(model, adapter_path=adapter_path)
+    llm, chat_kwargs = make_vllm_engine(
+        model, model_revision=model_revision, adapter_path=adapter_path
+    )
     return sample_vllm_completions(llm, prompts, decoding, chat_kwargs=chat_kwargs)

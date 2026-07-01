@@ -25,8 +25,9 @@ def _stub_backend(monkeypatch: pytest.MonkeyPatch):
     """Replace the model backend with a recorder so no weights load."""
     seen: dict[str, object] = {}
 
-    def fake_backend(prompts, *, model, backend, decoding, adapter_path=None):
+    def fake_backend(prompts, *, model, backend, decoding, model_revision=None, adapter_path=None):
         seen["model"] = model
+        seen["model_revision"] = model_revision
         seen["adapter_path"] = adapter_path
         return ["<think>x</think>\n```sql\nSELECT a FROM t\n```" for _ in prompts]
 
@@ -34,7 +35,7 @@ def _stub_backend(monkeypatch: pytest.MonkeyPatch):
     return seen
 
 
-def _run(model: str, adapter_path=None):
+def _run(model: str, adapter_path=None, model_revision=None):
     return gen.generate(
         EXAMPLES,
         SCHEMAS,
@@ -44,6 +45,7 @@ def _run(model: str, adapter_path=None):
         dataset="spider",
         dataset_revision="rev",
         split="dev",
+        model_revision=model_revision,
         adapter_path=adapter_path,
     )
 
@@ -61,3 +63,9 @@ def test_llama_base_routes_and_is_recorded(_stub_backend) -> None:
     assert _stub_backend["adapter_path"] == "grpo/grpo-llama-s0"
     assert cs.provenance.model == LLAMA
     assert cs.provenance.adapter == "grpo/grpo-llama-s0"
+
+
+def test_model_revision_routes_and_is_recorded(_stub_backend) -> None:
+    cs = _run(QWEN, model_revision="abc123")
+    assert _stub_backend["model_revision"] == "abc123"
+    assert cs.provenance.model_revision == "abc123"

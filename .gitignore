@@ -6,15 +6,25 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.cache/
 .DS_Store
 
 # Project artifacts
 /runs/
+/text2sql-runs/
 /checkpoints/
 /exports/
+/completions/
+/completion_payloads/
 /wandb/
+/modal_logs/
+/lightning_logs/
+/mlruns/
 /.modal/
 /results/
+/hf-cache/
+/huggingface/
+/text2sql-hf-cache/
 # Datasets / databases are pinned + fetched, never committed
 /data/spider/
 /data/bird/

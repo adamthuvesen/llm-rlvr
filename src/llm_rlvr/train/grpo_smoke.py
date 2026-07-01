@@ -26,6 +26,9 @@ class MaskCheck(Frozen):
     feedback_in_unmasked_text: bool
 
 
+CapturedMaskBatch = Mapping[str, Sequence[Sequence[int]]]
+
+
 def check_tool_masking(
     completion_ids: Sequence[Sequence[int]],
     completion_mask: Sequence[Sequence[int]],
@@ -50,6 +53,17 @@ def check_tool_masking(
         masked_tokens_total=masked_total,
         feedback_in_masked_text=any(FEEDBACK_MARKER in text for text in masked_texts),
         feedback_in_unmasked_text=any(FEEDBACK_MARKER in text for text in unmasked_texts),
+    )
+
+
+def check_captured_tool_masking(
+    captured: Sequence[CapturedMaskBatch], decode: Callable[[Sequence[int]], str]
+) -> MaskCheck:
+    return check_tool_masking(
+        [row for batch in captured for row in batch["completion_ids"]],
+        [row for batch in captured for row in batch["completion_mask"]],
+        [row for batch in captured for row in batch["tool_mask"]],
+        decode,
     )
 
 

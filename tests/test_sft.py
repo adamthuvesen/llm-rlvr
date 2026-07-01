@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import hashlib
+import sys
+from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from llm_rlvr.train.sft import (
     SftHyperparams,
     build_adapter_provenance,
+    build_sft_config_from_kwargs,
     lora_kwargs,
     sft_config_kwargs,
 )
@@ -51,6 +55,19 @@ def test_real_configs_build_when_train_extra_installed() -> None:
     config = build_sft_config(SftHyperparams(), "out")
     assert isinstance(config, trl.SFTConfig)
     assert config.completion_only_loss is True
+
+
+def test_sft_config_builder_drops_unsupported_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
+    @dataclass
+    class FakeSFTConfig:
+        output_dir: str
+        bf16: bool
+
+    monkeypatch.setitem(sys.modules, "trl", SimpleNamespace(SFTConfig=FakeSFTConfig))
+    config = build_sft_config_from_kwargs(
+        {"output_dir": "out", "bf16": True, "removed_in_this_trl": "x"}
+    )
+    assert config == FakeSFTConfig(output_dir="out", bf16=True)
 
 
 def test_adapter_provenance_hashes_dataset_and_records_versions(tmp_path: Path) -> None:

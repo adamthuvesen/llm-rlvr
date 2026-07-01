@@ -142,6 +142,11 @@ def make_forced_revision_rollout(
         _, revision_ids, revision_lps, _ = trainer.vllm_generation.generate(
             prompts=revision_prompt_ids, images=None, num_generations=1
         )
+        if revision_lps is None:
+            raise RuntimeError(
+                "rollout needs revision per-token sampling logprobs; "
+                "vllm_importance_sampling_correction must stay enabled"
+            )
         revision_ids = [list(ids) for ids in revision_ids]
         revision_lps, n_none_revision = _top1_logprobs(revision_lps)
         revision_texts = tokenizer.batch_decode(revision_ids, skip_special_tokens=True)

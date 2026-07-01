@@ -12,9 +12,10 @@ completion-only loss in `SFTTrainer` without relying on the chat template's gene
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+
+from pydantic import Field
 
 from llm_rlvr._base import Frozen
 from llm_rlvr.data.jsonl import write_jsonl
@@ -68,6 +69,18 @@ class SftTrace(Frozen):
     completion: str
 
 
+class TraceMessage(Frozen):
+    role: str
+    content: str
+
+
+class TraceDatasetRow(Frozen):
+    prompt: tuple[TraceMessage, ...]
+    completion: tuple[TraceMessage, ...] = Field(min_length=1, max_length=1)
+    db_id: str
+    question: str
+
+
 class TraceCounts(Frozen):
     """Filter-funnel counts: questions in, candidates sampled, eligible after filtering, kept."""
 
@@ -99,6 +112,7 @@ def sample_candidates(
     schemas: Mapping[str, DatabaseSchema],
     *,
     model: str,
+    model_revision: str | None = None,
     sampling: TraceSamplingConfig,
 ) -> tuple[TraceCandidates, ...]:
     """Sample N `<think>`-prompt completions per train question (vLLM; GPU).
@@ -108,7 +122,7 @@ def sample_candidates(
     """
     assert_train_split(examples, context="trace dataset")
     prompts = build_prompts(examples, schemas, style="cot")
-    sampled = _sample_vllm(prompts, model=model, sampling=sampling)
+    sampled = _sample_vllm(prompts, model=model, model_revision=model_revision, sampling=sampling)
     return tuple(
         TraceCandidates(example=example, prompt=tuple(prompt), texts=tuple(texts))
         for example, prompt, texts in zip(examples, prompts, sampled, strict=True)
@@ -119,20 +133,15 @@ def _sample_vllm(
     prompts: Sequence[list[dict[str, str]]],
     *,
     model: str,
+    model_revision: str | None = None,
     sampling: TraceSamplingConfig,
 ) -> list[list[str]]:
     """N completions per prompt (unlike the baseline backend's single greedy output)."""
-    from vllm import LLM, SamplingParams  # lazy import: GPU backend only
+    from llm_rlvr.eval.vllm_backend import make_vllm_engine, vllm_sampling_params
 
-    llm = LLM(model=model)
-    params = SamplingParams(
-        n=sampling.n,
-        temperature=sampling.temperature,
-        top_p=sampling.top_p,
-        max_tokens=sampling.max_new_tokens,
-        seed=sampling.seed,
-    )
-    results = llm.chat([list(p) for p in prompts], params)
+    llm, chat_kwargs = make_vllm_engine(model, model_revision=model_revision)
+    params = vllm_sampling_params(sampling, n=sampling.n)
+    results = llm.chat([list(p) for p in prompts], params, **chat_kwargs)
     return [[output.text for output in result.outputs] for result in results]
 
 
@@ -238,14 +247,14 @@ def read_trace_dataset(path: str | Path) -> tuple[SftTrace, ...]:
     """Read a trace-dataset JSONL back into typed records (strict; loud on malformed lines)."""
     traces = []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
-        record = json.loads(line)
-        (completion,) = record["completion"]  # exactly one assistant turn
+        record = TraceDatasetRow.model_validate_json(line)
+        (completion,) = record.completion
         traces.append(
             SftTrace(
-                db_id=record["db_id"],
-                question=record["question"],
-                prompt=tuple(record["prompt"]),
-                completion=completion["content"],
+                db_id=record.db_id,
+                question=record.question,
+                prompt=tuple(message.model_dump() for message in record.prompt),
+                completion=completion.content,
             )
         )
     return tuple(traces)

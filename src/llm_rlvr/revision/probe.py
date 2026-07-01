@@ -19,7 +19,7 @@ from llm_rlvr.env.text2sql_env import (
 )
 from llm_rlvr.eval.completions import CompletionSet
 from llm_rlvr.eval.parsing import extract_sql
-from llm_rlvr.eval.verifier import VerifierConfig, execution_match
+from llm_rlvr.eval.verifier import GoldExecutionError, VerifierConfig, execution_match
 from llm_rlvr.revision.feedback import is_error_feedback
 
 REVISE_INSTRUCTION = (
@@ -123,7 +123,7 @@ def build_revision_prompts(
             matched = execution_match(
                 sql, example.gold_sql, db_path, config=verifier_config
             ).matched
-        except Exception:  # GoldExecutionError and kin: nothing to probe on this item
+        except GoldExecutionError:
             n_skipped += 1
             continue
         sandbox = SqliteSandbox(db_path, timeout_s=AGENT_TIMEOUT_S, row_cap=AGENT_ROW_CAP)
@@ -191,19 +191,21 @@ def score_revision_probe(
         has_error_feedback = is_error_feedback(row.feedback)
         if not row.was_correct and has_error_feedback:
             n_wrong_err += 1
-        try:
-            matched = (
-                execution_match(
+        db_path = resolve_database(row.db_id, db_root)
+        if new_sql is None:
+            matched = False
+        else:
+            try:
+                matched = execution_match(
                     new_sql,
                     row.gold_sql,
-                    resolve_database(row.db_id, db_root),
+                    db_path,
                     config=verifier_config,
                 ).matched
-                if new_sql is not None
-                else False
-            )
-        except Exception:
-            matched = False
+            except GoldExecutionError as exc:
+                raise ValueError(
+                    f"revision probe row {row.item_id} has unverifiable gold SQL"
+                ) from exc
         if not row.was_correct and matched:
             n_fixed += 1
             if has_error_feedback:

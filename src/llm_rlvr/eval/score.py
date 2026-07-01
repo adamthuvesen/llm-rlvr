@@ -50,8 +50,9 @@ def _score_item(
 ) -> tuple[bool, ScoreReason, bool]:
     """One item's verdict: (well_formed, reason, matched). Runs on any thread — the sandbox
     opens a fresh read-only connection per execution, so items are independent."""
-    formed = bool(item.samples) and well_formed(item.samples[0].text)
-    sql = item.samples[0].sql if item.samples else None
+    sample = item.samples[0]
+    formed = well_formed(sample.text)
+    sql = sample.sql
     if sql is None:
         return formed, "no_sql", False
     db_path = resolve_database(item.example.db_id, db_root)

@@ -64,8 +64,8 @@ make eval
 
 `make eval` is CPU-only and model-free when local completion artifacts are present.
 
-GPU generation and training run through [modal_app.py](modal_app.py). Paid runs require an operator
-runbook and explicit approval.
+GPU generation and training run through [modal_app.py](modal_app.py). Those jobs are intentionally
+outside the CPU quickstart.
 
 ## Caveats
 

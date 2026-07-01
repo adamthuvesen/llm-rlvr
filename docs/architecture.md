@@ -19,16 +19,16 @@ not on the main training path.
 
 ```
 report/        progression.py — base→SFT→RL table; seed-level CIs; single-DB caveat
-revision/      feedback.py · rollout.py · train.py — forced-revision analysis utilities
+revision/      feedback.py · rollout.py · train.py · diagnostics.py · eval.py · metrics.py · probe.py —
+               forced-revision analysis utilities
 train/         traces.py (STaR sampling + execution filter) · sft.py (LoRA SFT) · grpo.py (GRPO) ·
-               multiturn.py · diagnostics.py · tooluse.py · multiturn_provenance.py
+               multiturn.py · diagnostics.py · tooluse.py · multiturn_provenance.py · policy.py
 rewards/       multiturn.py — trajectory credit + improvement-delta bonus over the SQL single-turn
                reward (self-correction analysis only)
 tasks/         sql.py — the text-to-SQL Task: SQL parser + verifier + execution reward (shaped /
                near-binary, empty-result guard) + prompt/row builders · __init__.py (task registry)
 eval/          completions.py (the CompletionSet artifact) · generate · score · verifier · parsing ·
-               prompt · aggregate · provenance · cli · multiturn_generate ·
-               forced_revision_generate · bestofn · fr_metrics
+               prompt · aggregate · provenance · multiturn_generate · bestofn
 env/           sandbox.py — read-only SQLite execution (the safety boundary) ·
                text2sql_env.py — the run_sql tool environment + reference-free feedback
 data/          models.py (typed Example/DatabaseSchema records) · spider.py · bird.py ·
@@ -37,6 +37,8 @@ harness/       verifier.py (Verifier / Verdict / ReferenceUnverifiable) · answe
                reward.py (RewardConfig shaping + score_answer + completion_text) · task.py (Task
                protocol) — the task-agnostic RLVR core, imports only _base
 _base.py       Frozen — pydantic base: frozen=True, extra="forbid"
+cli.py         installed CPU CLI for generation, scoring, trace/tool-use builders, and reports
+modal_helpers.py  Modal entrypoint support: provenance, dataset contexts, dispatch helpers
 third_party/   vendored Test-Suite SQL Eval (execution-match path only; Apache 2.0)
 ```
 
@@ -44,8 +46,9 @@ Dependency direction: `harness/` sits at the bottom (it imports only `_base`); `
 adapter that binds the harness protocols to the SQL pieces in `eval/` + `data/`; `rewards/` and
 `train/` build on the SQL task. Nothing under `harness/` imports SQL.
 
-`modal_app.py` (repo root) is the only GPU surface; `src/` never imports Modal, and the GPU
-functions import `llm_rlvr` lazily so the package installs and tests without the training stack.
+`modal_app.py` (repo root) is the only direct Modal API surface; `src/llm_rlvr/modal_helpers.py`
+contains Modal-adjacent support code but does not import Modal. GPU functions import `llm_rlvr`
+lazily so the package installs and tests without the training stack.
 
 ## Data and result flow
 
@@ -62,7 +65,8 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (local
   `make eval` after pulling the matching run artifacts — no number in a doc without a source file.
 - **Metadata chain**: every artifact embeds model+revision, dataset+revision, DB archive sha256,
   decoding/hyperparams, library versions, and git commit/dirty. The Modal image strips `.git`, so
-  local entrypoints compute git state and pass it in (`_local_git_commit()` in `modal_app.py`).
+  local entrypoints compute git state and pass it in (`_local_git_commit()` in
+  `modal_helpers.py`).
 
 ## Key types and patterns
 

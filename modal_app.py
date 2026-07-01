@@ -24,7 +24,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import modal
-from modal.helpers import (
+
+from llm_rlvr.modal_helpers import (
     commit_volume,
     dispatch_remote,
     git_kwargs,
@@ -92,7 +93,7 @@ hf_cache = modal.Volume.from_name("text2sql-hf-cache", create_if_missing=True)
 VOLUMES = {RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache}
 
 
-def gpu_function(*, timeout_hours: int):
+def modal_gpu_entrypoint(*, timeout_hours: int):
     return app.function(
         image=image,
         gpu="A100-80GB",
@@ -109,7 +110,7 @@ def adapter_path(adapter: str | None) -> Path | None:
     return runs_path(adapter) if adapter else None
 
 
-@gpu_function(timeout_hours=6)
+@modal_gpu_entrypoint(timeout_hours=6)
 def baseline(
     dataset: str = "spider",
     split: str = "dev",
@@ -118,6 +119,7 @@ def baseline(
     prompt_style: str = "cot",
     adapter: str | None = None,
     base_model: str = MODEL,
+    model_revision: str | None = None,
     limit: int | None = None,
     max_new_tokens: int = 512,
     temperature: float = 0.0,
@@ -155,6 +157,7 @@ def baseline(
         dataset=ctx.dataset,
         dataset_revision=ctx.dataset_revision,
         split=split,
+        model_revision=model_revision,
         db_archive_sha256=ctx.db_archive_sha256,
         train_pool=ctx.train_pool,
         few_shot_k=few_shot_k if ctx.dataset == "spider" else 0,
@@ -179,7 +182,7 @@ def baseline(
     return str(out)
 
 
-@gpu_function(timeout_hours=6)
+@modal_gpu_entrypoint(timeout_hours=6)
 def sample_traces(
     n: int = 8,
     temperature: float = 0.8,
@@ -188,13 +191,14 @@ def sample_traces(
     max_new_tokens: int = 1024,
     limit: int | None = None,
     base_model: str = MODEL,
+    model_revision: str | None = None,
 ) -> str:
     """Sample N `<think>` completions per Spider-train question; write a CandidateSet (D2/D4).
 
     `base_model` defaults to Qwen; set the Llama base for the cross-family control so the SFT
     cold-start traces are distilled from the same family that GRPO will then train (matched recipe).
     """
-    from llm_rlvr.eval.completions import write_json
+    from llm_rlvr.eval.completions import write_pydantic_json
     from llm_rlvr.train.traces import CandidateSet, TraceSamplingConfig, sample_candidates
 
     ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)
@@ -204,20 +208,27 @@ def sample_traces(
     )
     candidate_set = CandidateSet(
         base_model=base_model,
+        base_model_revision=model_revision,
         sampling=sampling,
         dataset="spider",
         dataset_revision=ctx.dataset_revision,
         db_archive_sha256=ctx.db_archive_sha256,
-        items=sample_candidates(ctx.examples, ctx.schemas, model=base_model, sampling=sampling),
+        items=sample_candidates(
+            ctx.examples,
+            ctx.schemas,
+            model=base_model,
+            model_revision=model_revision,
+            sampling=sampling,
+        ),
     )
     tag = _model_tag(base_model)
     name = f"candidates-{tag}-n{n}-seed{seed}" + (f"-limit{limit}" if limit else "") + ".json"
-    out = write_json(candidate_set, runs_path("sft", name))
+    out = write_pydantic_json(candidate_set, runs_path("sft", name))
     commit_volume(runs, f"wrote {len(candidate_set.items)} questions x {n} samples -> {out}")
     return str(out)
 
 
-@gpu_function(timeout_hours=6)
+@modal_gpu_entrypoint(timeout_hours=6)
 def sft_train(
     traces: str = "sft/traces.jsonl",
     run_id: str = "sft-r32",
@@ -255,7 +266,7 @@ def sft_train(
     return str(out)
 
 
-@gpu_function(timeout_hours=8)
+@modal_gpu_entrypoint(timeout_hours=8)
 def grpo_train(
     run_id: str = "grpo-s0",
     warm_start: str = "sft/sft-r32",
@@ -304,7 +315,7 @@ def grpo_train(
     return str(out)
 
 
-@gpu_function(timeout_hours=2)
+@modal_gpu_entrypoint(timeout_hours=2)
 def multiturn_smoke(
     run_id: str = "grpo-mt-smoke",
     warm_start: str | None = "grpo/grpo-s0",
@@ -347,11 +358,12 @@ def multiturn_smoke(
     return str(out)
 
 
-@gpu_function(timeout_hours=4)
+@modal_gpu_entrypoint(timeout_hours=4)
 def multiturn_eval(
     dataset: str = "spider",
     adapter: str | None = None,
     base_model: str = MODEL,
+    model_revision: str | None = None,
     limit: int | None = None,
     max_new_tokens: int = 1024,
     commit: str | None = None,
@@ -360,7 +372,7 @@ def multiturn_eval(
     """Multi-turn greedy eval (no RL): the tool loop at inference time. Writes a normal
     CompletionSet plus the full `MultiTurnTranscriptSet` under `grpo-mt/eval/` on the Volume.
     """
-    from llm_rlvr.eval.completions import write_completion_set, write_json
+    from llm_rlvr.eval.completions import write_completion_set, write_pydantic_json
     from llm_rlvr.eval.multiturn_generate import generate_multiturn
     from llm_rlvr.eval.provenance import DecodingConfig
 
@@ -374,6 +386,7 @@ def multiturn_eval(
         dataset=ctx.dataset,
         dataset_revision=ctx.dataset_revision,
         split="dev",
+        model_revision=model_revision,
         adapter_path=adapter_path(adapter),
         db_archive_sha256=ctx.db_archive_sha256,
         commit=commit,
@@ -382,12 +395,12 @@ def multiturn_eval(
     adapter_tag = f"-{Path(adapter).name}" if adapter else ""
     name = f"{dataset}-dev-mt{adapter_tag}" + (f"-n{limit}" if limit else "")
     out = write_completion_set(completion_set, runs_path("grpo-mt", "eval", f"{name}.json"))
-    write_json(transcripts, runs_path("grpo-mt", "eval", f"{name}.transcripts.json"))
+    write_pydantic_json(transcripts, runs_path("grpo-mt", "eval", f"{name}.transcripts.json"))
     commit_volume(runs, f"wrote {len(completion_set.items)} multi-turn completions -> {out}")
     return str(out)
 
 
-@gpu_function(timeout_hours=2)
+@modal_gpu_entrypoint(timeout_hours=2)
 def forced_revision_smoke(
     run_id: str = "grpo-fr-smoke",
     warm_start: str = "grpo/grpo-s0",
@@ -428,7 +441,7 @@ def forced_revision_smoke(
     return str(out)
 
 
-@gpu_function(timeout_hours=12)
+@modal_gpu_entrypoint(timeout_hours=12)
 def forced_revision_train(
     run_id: str = "grpo-fr-s0",
     warm_start: str = "grpo/grpo-s0",
@@ -475,11 +488,12 @@ def forced_revision_train(
     return str(out)
 
 
-@gpu_function(timeout_hours=4)
+@modal_gpu_entrypoint(timeout_hours=4)
 def forced_revision_eval(
     dataset: str = "spider",
     adapter: str | None = None,
     base_model: str = MODEL,
+    model_revision: str | None = None,
     limit: int | None = None,
     max_new_tokens: int = 1024,
     temperature: float = 0.0,
@@ -490,14 +504,14 @@ def forced_revision_eval(
 ) -> str:
     """Forced-revision eval: greedy attempt, execution feedback, optional greedy revision.
     Writes a normal CompletionSet plus the full transcripts under `grpo-fr/eval/`."""
-    from llm_rlvr.eval.completions import write_completion_set, write_json
-    from llm_rlvr.eval.forced_revision_generate import (
+    from llm_rlvr.eval.completions import write_completion_set, write_pydantic_json
+    from llm_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr.revision.eval import (
         forced_revision_artifact_stem,
         generate_forced_revision,
         validate_forced_revision_policy,
     )
-    from llm_rlvr.eval.fr_metrics import compute_forced_revision_eval_report
-    from llm_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr.revision.metrics import compute_forced_revision_eval_report
 
     policy = validate_forced_revision_policy(policy)
     ctx = load_eval_context(dataset=dataset, split="dev", data_root=runs_path("data"), limit=limit)
@@ -512,6 +526,7 @@ def forced_revision_eval(
         dataset=ctx.dataset,
         dataset_revision=ctx.dataset_revision,
         split="dev",
+        model_revision=model_revision,
         adapter_path=adapter_path(adapter),
         db_archive_sha256=ctx.db_archive_sha256,
         policy=policy,
@@ -530,8 +545,8 @@ def forced_revision_eval(
         policy=policy,
     )
     out = write_completion_set(completion_set, runs_path("grpo-fr", "eval", f"{name}.json"))
-    write_json(transcripts, runs_path("grpo-fr", "eval", f"{name}.transcripts.json"))
-    write_json(report, runs_path("grpo-fr", "eval", f"{name}.report.json"))
+    write_pydantic_json(transcripts, runs_path("grpo-fr", "eval", f"{name}.transcripts.json"))
+    write_pydantic_json(report, runs_path("grpo-fr", "eval", f"{name}.report.json"))
     commit_volume(
         runs,
         f"wrote {len(completion_set.items)} forced-revision completions "
@@ -540,8 +555,8 @@ def forced_revision_eval(
     return str(out)
 
 
-@gpu_function(timeout_hours=2)
-def raw_generate(
+@modal_gpu_entrypoint(timeout_hours=2)
+def prompt_completion_batch(
     prompts: str,
     out: str,
     adapter: str | None = None,
@@ -593,7 +608,7 @@ def generate_raw(
         "max_new_tokens": max_new_tokens,
     }
     dispatch_remote(
-        raw_generate,
+        prompt_completion_batch,
         kwargs,
         spawn=spawn,
         label="raw generation",
@@ -672,6 +687,7 @@ def fr_eval(
     dataset: str = "spider",
     adapter: str | None = None,
     base_model: str = MODEL,
+    model_revision: str | None = None,
     limit: int | None = None,
     max_new_tokens: int = 1024,
     temperature: float = 0.0,
@@ -684,6 +700,7 @@ def fr_eval(
         "dataset": dataset,
         "adapter": adapter,
         "base_model": base_model,
+        "model_revision": model_revision,
         "limit": limit,
         "max_new_tokens": max_new_tokens,
         "temperature": temperature,
@@ -705,6 +722,7 @@ def mt_eval(
     dataset: str = "spider",
     adapter: str | None = None,
     base_model: str = MODEL,
+    model_revision: str | None = None,
     limit: int | None = None,
     max_new_tokens: int = 1024,
     spawn: bool = True,
@@ -714,6 +732,7 @@ def mt_eval(
         "dataset": dataset,
         "adapter": adapter,
         "base_model": base_model,
+        "model_revision": model_revision,
         "limit": limit,
         "max_new_tokens": max_new_tokens,
         **git_kwargs(),
@@ -736,6 +755,7 @@ def main(
     prompt_style: str = "cot",
     adapter: str | None = None,
     base_model: str = MODEL,
+    model_revision: str | None = None,
     limit: int | None = None,
     max_new_tokens: int = 512,
     temperature: float = 0.0,
@@ -752,6 +772,7 @@ def main(
         "prompt_style": prompt_style,
         "adapter": adapter,
         "base_model": base_model,
+        "model_revision": model_revision,
         "limit": limit,
         "max_new_tokens": max_new_tokens,
         "temperature": temperature,
@@ -776,6 +797,7 @@ def traces(
     max_new_tokens: int = 1024,
     limit: int | None = None,
     base_model: str = MODEL,
+    model_revision: str | None = None,
     spawn: bool = True,
 ) -> None:
     """Launch Spider-train trace sampling. Spawns by default so `modal run --detach` is safe to
@@ -788,6 +810,7 @@ def traces(
         "max_new_tokens": max_new_tokens,
         "limit": limit,
         "base_model": base_model,
+        "model_revision": model_revision,
     }
     dispatch_remote(
         sample_traces,

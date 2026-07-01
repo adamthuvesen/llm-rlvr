@@ -20,11 +20,12 @@ from pydantic import Field
 
 from llm_rlvr._base import Frozen
 from llm_rlvr.data.models import DatabaseSchema, Example
-from llm_rlvr.eval.completions import write_json
+from llm_rlvr.eval.completions import write_pydantic_json
 from llm_rlvr.eval.provenance import git_commit, git_is_dirty, library_versions
 from llm_rlvr.harness import Task
 from llm_rlvr.tasks.sql import RewardConfig, sql_task
 from llm_rlvr.train.lora import lora_kwargs as shared_lora_kwargs
+from llm_rlvr.train.policy import load_base_causal_lm, load_trainable_lora_adapter
 
 _TRAIN_LIBRARIES = ("llm-rlvr", "trl", "peft", "transformers", "torch", "accelerate", "vllm")
 
@@ -50,7 +51,7 @@ class GrpoHyperparams(Frozen):
     warmup_ratio: float = 0.03
     vllm_gpu_memory_utilization: float = 0.3  # colocate: leave room for the trainer on one card
     save_steps: int = 50  # periodic checkpoints so dev-EX selection has candidates to score
-    eval_slice_size: int = 500  # held-out dev-EX slice for checkpoint selection
+    eval_slice_size: int = Field(default=500, ge=0)  # held-out dev-EX slice
     seed: int = 0
 
 
@@ -127,6 +128,8 @@ def split_train_dev(
     """
     import random
 
+    if dev_size < 0:
+        raise ValueError(f"dev_size must be >= 0, got {dev_size}")
     order = list(range(len(examples)))
     random.Random(seed).shuffle(order)
     k = min(dev_size, max(0, len(examples) - 1))
@@ -203,21 +206,14 @@ def load_trainable_policy(
     *,
     hyperparams: GrpoHyperparams | None = None,
 ):
-    from peft import PeftModel
-    from transformers import AutoModelForCausalLM
-
-    base = AutoModelForCausalLM.from_pretrained(
-        base_model,
-        dtype="bfloat16",
-        **({"revision": base_model_revision} if base_model_revision else {}),
-    )
     if warm_start_adapter is not None:
-        return PeftModel.from_pretrained(base, str(warm_start_adapter), is_trainable=True)
+        return load_trainable_lora_adapter(base_model, base_model_revision, warm_start_adapter)
 
     if hyperparams is None:
         raise ValueError("fresh trainable policy requires hyperparams for LoRA config")
     from peft import get_peft_model
 
+    base = load_base_causal_lm(base_model, base_model_revision)
     return get_peft_model(base, build_lora_config(hyperparams))
 
 
@@ -289,5 +285,5 @@ def run_grpo(
         commit=commit,
         dirty=dirty,
     )
-    write_json(provenance, Path(output_dir) / PROVENANCE_FILENAME)
+    write_pydantic_json(provenance, Path(output_dir) / PROVENANCE_FILENAME)
     return Path(output_dir)

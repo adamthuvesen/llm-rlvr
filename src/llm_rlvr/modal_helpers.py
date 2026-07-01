@@ -1,4 +1,4 @@
-"""Shared helpers for ``modal_app.py`` entrypoints."""
+"""Runtime support for Modal entrypoints: provenance, dataset contexts, and Volume dispatch."""
 
 from __future__ import annotations
 
@@ -49,6 +49,11 @@ def git_provenance() -> tuple[str | None, bool | None]:
     return _local_git_commit(), _local_git_dirty()
 
 
+def _validate_limit(limit: int | None) -> None:
+    if limit is not None and limit < 1:
+        raise ValueError(f"limit must be >= 1, got {limit}")
+
+
 def _local_git_commit() -> str | None:
     try:
         return (
@@ -83,6 +88,7 @@ def load_eval_context(
     few_shot_k: int = 0,
     limit: int | None = None,
 ) -> EvalContext:
+    _validate_limit(limit)
     if dataset == "spider":
         dbs = ensure_spider_databases(data_root / "spider")
         schemas = load_schemas(dbs.tables_json)
@@ -118,6 +124,7 @@ def load_eval_context(
 
 
 def load_spider_train_context(*, data_root: Path, limit: int | None = None) -> SpiderTrainContext:
+    _validate_limit(limit)
     dbs = ensure_spider_databases(data_root / "spider")
     schemas = load_schemas(dbs.tables_json)
     examples = list(load_examples("train"))

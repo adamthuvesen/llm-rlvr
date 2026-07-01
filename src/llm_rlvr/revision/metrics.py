@@ -20,13 +20,13 @@ from pathlib import Path
 from llm_rlvr._base import Frozen
 from llm_rlvr.data.paths import resolve_database
 from llm_rlvr.eval.completions import CompletionSet, ProblemCompletions
-from llm_rlvr.eval.forced_revision_generate import (
+from llm_rlvr.eval.parsing import extract_sql
+from llm_rlvr.eval.verifier import GoldExecutionError, VerifierConfig, execution_match
+from llm_rlvr.revision.eval import (
     ForcedRevisionEpisode,
     ForcedRevisionPolicy,
     ForcedRevisionTranscriptSet,
 )
-from llm_rlvr.eval.parsing import extract_sql
-from llm_rlvr.eval.verifier import VerifierConfig, execution_match
 from llm_rlvr.revision.feedback import is_error_feedback
 
 
@@ -86,37 +86,37 @@ class _EpisodeScore:
 @dataclass
 class _FrCounters:
     n_skipped: int = 0
-    n_wrong: int = 0
-    n_fixed: int = 0
-    n_fixed_err: int = 0
-    n_fixed_res: int = 0
-    n_right: int = 0
-    n_harmed: int = 0
-    n_revised: int = 0
+    attempt_wrong: int = 0
+    fixed_attempts: int = 0
+    fixed_after_error_feedback: int = 0
+    fixed_after_result_feedback: int = 0
+    attempt_right: int = 0
+    harmed_attempts: int = 0
+    changed_sql: int = 0
     attempt_correct: int = 0
     final_correct: int = 0
 
     @property
     def n(self) -> int:
-        return self.n_wrong + self.n_right
+        return self.attempt_wrong + self.attempt_right
 
     def add(self, score: _EpisodeScore) -> None:
         self.attempt_correct += score.attempt_ok
         self.final_correct += score.final_ok
-        self.n_revised += score.revised
+        self.changed_sql += score.revised
 
         if score.attempt_ok:
-            self.n_right += 1
-            self.n_harmed += not score.final_ok
+            self.attempt_right += 1
+            self.harmed_attempts += not score.final_ok
             return
 
-        self.n_wrong += 1
+        self.attempt_wrong += 1
         if score.final_ok:
-            self.n_fixed += 1
+            self.fixed_attempts += 1
             if score.error_feedback:
-                self.n_fixed_err += 1
+                self.fixed_after_error_feedback += 1
             else:
-                self.n_fixed_res += 1
+                self.fixed_after_result_feedback += 1
 
     def report(self) -> FrMetricsReport:
         n = self.n
@@ -125,15 +125,15 @@ class _FrCounters:
             n_skipped_gold_error=self.n_skipped,
             attempt_ex=self.attempt_correct / n if n else 0.0,
             final_ex=self.final_correct / n if n else 0.0,
-            n_attempt_wrong=self.n_wrong,
-            n_fixed=self.n_fixed,
-            n_fixed_from_error_feedback=self.n_fixed_err,
-            n_fixed_from_result_feedback=self.n_fixed_res,
-            fix_rate=self.n_fixed / self.n_wrong if self.n_wrong else 0.0,
-            n_attempt_right=self.n_right,
-            n_harmed=self.n_harmed,
-            harm_rate=self.n_harmed / self.n_right if self.n_right else 0.0,
-            n_revised=self.n_revised,
+            n_attempt_wrong=self.attempt_wrong,
+            n_fixed=self.fixed_attempts,
+            n_fixed_from_error_feedback=self.fixed_after_error_feedback,
+            n_fixed_from_result_feedback=self.fixed_after_result_feedback,
+            fix_rate=self.fixed_attempts / self.attempt_wrong if self.attempt_wrong else 0.0,
+            n_attempt_right=self.attempt_right,
+            n_harmed=self.harmed_attempts,
+            harm_rate=self.harmed_attempts / self.attempt_right if self.attempt_right else 0.0,
+            n_revised=self.changed_sql,
             net_delta=(self.final_correct - self.attempt_correct) / n if n else 0.0,
         )
 
@@ -211,7 +211,7 @@ def _score_episode(
         final_ok = _execution_ok(
             final_sql, gold_sql=example.gold_sql, db_path=db_path, config=config
         )
-    except Exception:  # GoldExecutionError and kin — nothing to decompose on this item
+    except GoldExecutionError:
         return None
 
     return _EpisodeScore(

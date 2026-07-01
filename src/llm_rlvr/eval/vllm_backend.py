@@ -13,6 +13,7 @@ Messages = list[dict[str, object]]
 def make_vllm_engine(
     model: str,
     *,
+    model_revision: str | None = None,
     adapter_path: str | Path | None = None,
     max_lora_rank: int = 64,
 ) -> tuple[object, dict[str, object]]:
@@ -20,20 +21,25 @@ def make_vllm_engine(
     from vllm import LLM  # lazy import: GPU backend only
 
     chat_kwargs: dict[str, object] = {}
+    llm_kwargs: dict[str, object] = {"model": model}
+    if model_revision is not None:
+        llm_kwargs["revision"] = model_revision
+        llm_kwargs["tokenizer_revision"] = model_revision
     if adapter_path is not None:
         from vllm.lora.request import LoRARequest
 
-        llm = LLM(model=model, enable_lora=True, max_lora_rank=max_lora_rank)
+        llm = LLM(**llm_kwargs, enable_lora=True, max_lora_rank=max_lora_rank)
         chat_kwargs["lora_request"] = LoRARequest("adapter", 1, str(adapter_path))
     else:
-        llm = LLM(model=model)
+        llm = LLM(**llm_kwargs)
     return llm, chat_kwargs
 
 
-def vllm_sampling_params(decoding: DecodingConfig):
+def vllm_sampling_params(decoding: DecodingConfig, *, n: int = 1):
     from vllm import SamplingParams  # lazy import: GPU backend only
 
     return SamplingParams(
+        n=n,
         temperature=decoding.temperature,
         top_p=decoding.top_p,
         max_tokens=decoding.max_new_tokens,

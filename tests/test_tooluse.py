@@ -162,7 +162,7 @@ def test_dataset_jsonl_round_trip_and_manifest(db_root: Path, tmp_path: Path) ->
         mix=ToolUseMix(n_revise=1, n_check=0, n_direct=1),
     )
     out = write_tooluse_dataset(rows, tmp_path / "tooluse.jsonl")
-    lines = [json.loads(line) for line in out.read_text().splitlines()]
+    lines = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
     assert len(lines) == counts.n_rows
     assert all(
         set(line) == {"prompt", "completion", "db_id", "question", "shape"} for line in lines
@@ -211,6 +211,24 @@ def test_direct_rows_strip_preambles_and_skip_thinkless(db_root: Path) -> None:
     (direct,) = rows
     # The preamble is gone; the completion now leads with <think>.
     assert direct.completion[0]["content"].startswith("<think>Sum it.</think>")
+
+
+def test_direct_rows_accept_uppercase_think_tag(db_root: Path) -> None:
+    uppercase = SftTrace(
+        db_id="shop",
+        question="Upper?",
+        prompt=TRACES[0].prompt,
+        completion="Preamble.\n<THINK>Use the trace.</THINK>\n```sql\nSELECT 1\n```",
+    )
+    rows, counts = build_tooluse_rows(
+        [],
+        {"shop": SCHEMA},
+        db_root,
+        (uppercase,),
+        mix=ToolUseMix(n_revise=0, n_check=0, n_direct=1),
+    )
+    assert counts.n_direct == 1 and counts.n_direct_skipped == 0
+    assert rows[0].completion[0]["content"].startswith("<THINK>Use the trace.</THINK>")
 
 
 def test_no_completion_ever_quotes_the_feedback_marker(db_root: Path) -> None:

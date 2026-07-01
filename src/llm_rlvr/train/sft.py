@@ -10,15 +10,17 @@ The kwargs builders are pure (no trl/peft import) so hyperparameters are unit-te
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from pydantic import Field
 
 from llm_rlvr._base import Frozen
 from llm_rlvr.data.paths import sha256_of
-from llm_rlvr.eval.completions import write_json
+from llm_rlvr.eval.completions import write_pydantic_json
 from llm_rlvr.eval.provenance import git_commit, git_is_dirty, library_versions
 from llm_rlvr.train.lora import lora_kwargs as shared_lora_kwargs
+from llm_rlvr.train.policy import load_trainable_lora_adapter
 
 _TRAIN_LIBRARIES = ("llm-rlvr", "trl", "peft", "transformers", "torch", "accelerate")
 
@@ -80,10 +82,23 @@ def build_lora_config(hyperparams: SftHyperparams):
     return LoraConfig(**lora_kwargs(hyperparams))
 
 
-def build_sft_config(hyperparams: SftHyperparams, output_dir: str | Path):
+def build_sft_config_from_kwargs(desired: Mapping[str, object]):
+    import dataclasses
+    import logging
+
     from trl import SFTConfig  # lazy import: train extra only
 
-    return SFTConfig(**sft_config_kwargs(hyperparams, output_dir))
+    valid = {f.name for f in dataclasses.fields(SFTConfig)}
+    dropped = sorted(set(desired) - valid)
+    if dropped:
+        logging.getLogger(__name__).warning(
+            "SFTConfig dropped unsupported kwargs %s on this trl version", dropped
+        )
+    return SFTConfig(**{k: v for k, v in desired.items() if k in valid})
+
+
+def build_sft_config(hyperparams: SftHyperparams, output_dir: str | Path):
+    return build_sft_config_from_kwargs(sft_config_kwargs(hyperparams, output_dir))
 
 
 class AdapterProvenance(Frozen):
@@ -201,15 +216,7 @@ def run_sft(
             peft_config=build_lora_config(hp),
         )
     else:
-        from peft import PeftModel
-        from transformers import AutoModelForCausalLM
-
-        base = AutoModelForCausalLM.from_pretrained(
-            base_model,
-            dtype="bfloat16",
-            **({"revision": base_model_revision} if base_model_revision else {}),
-        )
-        policy = PeftModel.from_pretrained(base, str(warm_start_adapter), is_trainable=True)
+        policy = load_trainable_lora_adapter(base_model, base_model_revision, warm_start_adapter)
         trainer = SFTTrainer(model=policy, args=config, train_dataset=dataset)
     trainer.train()
     trainer.save_model(str(output_dir))
@@ -225,5 +232,5 @@ def run_sft(
         commit=commit,
         dirty=dirty,
     )
-    write_json(provenance, Path(output_dir) / PROVENANCE_FILENAME)
+    write_pydantic_json(provenance, Path(output_dir) / PROVENANCE_FILENAME)
     return Path(output_dir)

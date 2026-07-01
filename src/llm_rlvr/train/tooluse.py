@@ -304,10 +304,11 @@ def _direct_rows(
     for trace in direct_pool:
         if len(rows) >= n_target:
             break
-        think_start = trace.completion.find("<think>")
-        if think_start == -1:
+        think_match = re.search(r"<think>", trace.completion, re.IGNORECASE)
+        if think_match is None:
             n_skipped += 1
             continue
+        think_start = think_match.start()
         rows.append(
             ToolUseRow(
                 db_id=trace.db_id,

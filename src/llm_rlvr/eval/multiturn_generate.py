@@ -108,9 +108,12 @@ def generate_multiturn(
     from llm_rlvr.eval.vllm_backend import make_vllm_engine, vllm_sampling_params
 
     env_cfg = environment or FeedbackConfig()
-    tokenizer = AutoTokenizer.from_pretrained(model)
+    tokenizer_kwargs = {"revision": model_revision} if model_revision else {}
+    tokenizer = AutoTokenizer.from_pretrained(model, **tokenizer_kwargs)
     tools = [get_json_schema(SqliteText2SqlEnv(db_root, config=env_cfg).run_sql)]
-    llm, chat_kwargs = make_vllm_engine(model, adapter_path=adapter_path)
+    llm, chat_kwargs = make_vllm_engine(
+        model, model_revision=model_revision, adapter_path=adapter_path
+    )
     params = vllm_sampling_params(decoding)
 
     states: list[_EpisodeState] = []

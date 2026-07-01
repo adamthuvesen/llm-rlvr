@@ -21,11 +21,6 @@ from llm_rlvr.eval.completions import (
     GenerationSample,
     ProblemCompletions,
 )
-from llm_rlvr.eval.forced_revision_generate import (
-    build_revision_messages,
-    forced_revision_artifact_stem,
-    generate_forced_revision,
-)
 from llm_rlvr.eval.provenance import DecodingConfig
 from llm_rlvr.revision import (
     REVISE_INSTRUCTION,
@@ -37,6 +32,11 @@ from llm_rlvr.revision import (
     make_forced_revision_rollout,
     revision_user_message,
     splice_episode,
+)
+from llm_rlvr.revision.eval import (
+    build_revision_messages,
+    forced_revision_artifact_stem,
+    generate_forced_revision,
 )
 from llm_rlvr.revision.smoke import count_nan_log_values, fr_smoke_failures
 from llm_rlvr.revision.train import (
@@ -251,6 +251,30 @@ def test_rollout_unknown_prompt_is_loud(scoring_root: Path) -> None:
     trainer = _FakeTrainer(responses=[([11], ATTEMPT_OK)])
     with pytest.raises(KeyError, match="no db_id"):
         rollout([_prompt()], trainer)
+
+
+def test_rollout_missing_revision_logprobs_is_loud(scoring_root: Path) -> None:
+    class _MissingRevisionLogprobs:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def generate(self, prompts, images, num_generations):
+            self.calls += 1
+            if self.calls == 1:
+                _FAKE_DECODES[(11,)] = ATTEMPT_OK
+                return [list(p) for p in prompts], [[11]], [[[-0.5]]], None
+            _FAKE_DECODES[(21,)] = REVISION
+            return [list(p) for p in prompts], [[21]], None, None
+
+    class _Trainer:
+        def __init__(self) -> None:
+            self.processing_class = _FakeTokenizer()
+            self.vllm_generation = _MissingRevisionLogprobs()
+
+    prompt = _prompt()
+    rollout = make_forced_revision_rollout(scoring_root, {str(prompt[-1]["content"]): DB_PATH_KEY})
+    with pytest.raises(RuntimeError, match="revision per-token"):
+        rollout([prompt], _Trainer())
 
 
 def test_db_id_lookup_from_grpo_rows() -> None:
@@ -509,7 +533,8 @@ def test_error_only_fresh_generation_batches_only_error_feedback(
     class _FakeLLM:
         instances: ClassVar[list[_FakeLLM]] = []
 
-        def __init__(self, **_kwargs) -> None:
+        def __init__(self, **kwargs) -> None:
+            self.kwargs = kwargs
             self.calls: list[list[object]] = []
             _FakeLLM.instances.append(self)
 
@@ -540,6 +565,7 @@ def test_error_only_fresh_generation_batches_only_error_feedback(
         {DB_PATH_KEY: _schema()},
         scoring_root,
         model="fake",
+        model_revision="abc123",
         decoding=DecodingConfig(max_new_tokens=16),
         dataset="spider",
         dataset_revision="rev",
@@ -550,6 +576,8 @@ def test_error_only_fresh_generation_batches_only_error_feedback(
     )
 
     fake_llm = _FakeLLM.instances[-1]
+    assert fake_llm.kwargs["revision"] == "abc123"
+    assert fake_llm.kwargs["tokenizer_revision"] == "abc123"
     assert [len(call) for call in fake_llm.calls] == [2, 1]
     assert [item.samples[0].text for item in completion_set.items] == [REVISION, ATTEMPT_OK]
     assert completion_set.provenance.backend == "vllm-forced-revision-error-only"
@@ -632,11 +660,11 @@ def test_forced_revision_artifact_stem_separates_policies() -> None:
 
 
 def test_fr_metrics_decomposes_fix_and_harm(scoring_root: Path, provenance) -> None:
-    from llm_rlvr.eval.forced_revision_generate import (
+    from llm_rlvr.revision.eval import (
         ForcedRevisionEpisode,
         ForcedRevisionTranscriptSet,
     )
-    from llm_rlvr.eval.fr_metrics import compute_fr_metrics
+    from llm_rlvr.revision.metrics import compute_fr_metrics
 
     wrong_sql = "SELECT a FROM t WHERE a = 999"  # executes, empty result -> wrong
     err_sql = "SELECT nope FROM missing"
@@ -697,11 +725,11 @@ def test_fr_metrics_decomposes_fix_and_harm(scoring_root: Path, provenance) -> N
 def test_forced_revision_eval_report_accounts_for_error_only_policy(
     scoring_root: Path, provenance
 ) -> None:
-    from llm_rlvr.eval.forced_revision_generate import (
+    from llm_rlvr.revision.eval import (
         ForcedRevisionEpisode,
         ForcedRevisionTranscriptSet,
     )
-    from llm_rlvr.eval.fr_metrics import compute_forced_revision_eval_report
+    from llm_rlvr.revision.metrics import compute_forced_revision_eval_report
 
     wrong_sql = "SELECT a FROM t WHERE a = 999"
     err_sql = "SELECT nope FROM missing"
@@ -771,8 +799,8 @@ def test_forced_revision_eval_report_accounts_for_error_only_policy(
 
 
 def test_fr_metrics_rejects_misaligned_inputs(scoring_root: Path, provenance) -> None:
-    from llm_rlvr.eval.forced_revision_generate import ForcedRevisionTranscriptSet
-    from llm_rlvr.eval.fr_metrics import compute_fr_metrics
+    from llm_rlvr.revision.eval import ForcedRevisionTranscriptSet
+    from llm_rlvr.revision.metrics import compute_fr_metrics
 
     completion_set = CompletionSet(
         provenance=provenance.model_copy(update={"n_examples": 0}), items=()
@@ -785,7 +813,7 @@ def test_fr_metrics_rejects_misaligned_inputs(scoring_root: Path, provenance) ->
 
 
 def test_error_only_replay_revises_only_on_error_feedback(scoring_root: Path, provenance) -> None:
-    from llm_rlvr.eval.forced_revision_generate import (
+    from llm_rlvr.revision.eval import (
         ForcedRevisionEpisode,
         ForcedRevisionTranscriptSet,
         replay_error_only_revision,
@@ -858,7 +886,7 @@ def test_error_only_replay_revises_only_on_error_feedback(scoring_root: Path, pr
 def test_error_only_replay_keeps_parse_error_attempts_on_error_feedback(
     scoring_root: Path, provenance
 ) -> None:
-    from llm_rlvr.eval.forced_revision_generate import (
+    from llm_rlvr.revision.eval import (
         ForcedRevisionEpisode,
         ForcedRevisionTranscriptSet,
         replay_error_only_revision,
@@ -900,7 +928,7 @@ def test_error_only_replay_keeps_parse_error_attempts_on_error_feedback(
 
 
 def test_error_only_replay_rejects_misaligned_inputs(scoring_root: Path, provenance) -> None:
-    from llm_rlvr.eval.forced_revision_generate import (
+    from llm_rlvr.revision.eval import (
         ForcedRevisionEpisode,
         ForcedRevisionTranscriptSet,
         replay_error_only_revision,

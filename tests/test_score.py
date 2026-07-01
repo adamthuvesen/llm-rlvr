@@ -16,11 +16,15 @@ from llm_rlvr.eval.score import score_completion_set
 EXAMPLE = Example(db_id="concert", question="q", gold_sql="SELECT a FROM t", split="dev")
 
 
+def _completion_text(sql: str) -> str:
+    return f"<think>x</think>\n```sql\n{sql}\n```"
+
+
 def _completion_set(provenance: GenerationProvenance, *sqls: str | None) -> CompletionSet:
     items = tuple(
         ProblemCompletions(
             example=EXAMPLE,
-            samples=(GenerationSample(text=sql or "", sql=sql),),
+            samples=(GenerationSample(text=_completion_text(sql) if sql is not None else ""),),
         )
         for sql in sqls
     )
@@ -63,22 +67,29 @@ def test_well_formed_rate_counts_trained_format_only(
     items = tuple(
         ProblemCompletions(
             example=EXAMPLE,
-            samples=(GenerationSample(text=text, sql="SELECT a FROM t"),),
+            samples=(GenerationSample(text=text),),
         )
         for text in (well, bare)
     )
     report = score_completion_set(CompletionSet(provenance=provenance, items=items), scoring_root)
     assert report.well_formed_rate == 0.5
-    assert report.execution_accuracy == 1.0  # format and accuracy are independent metrics
+    assert report.execution_accuracy == 0.5
 
 
-def test_raw_sql_completions_score_zero_format_rate(
+def test_raw_sql_completions_are_unparseable(
     provenance: GenerationProvenance, scoring_root: Path
 ) -> None:
-    # The pre-existing fixture style (bare SQL text): scoring unchanged, format rate 0.
-    report = score_completion_set(_completion_set(provenance, "SELECT a FROM t"), scoring_root)
-    assert report.execution_accuracy == 1.0
+    item = ProblemCompletions(
+        example=EXAMPLE,
+        samples=(GenerationSample(text="SELECT a FROM t"),),
+    )
+    report = score_completion_set(
+        CompletionSet(provenance=provenance.model_copy(update={"n_examples": 1}), items=(item,)),
+        scoring_root,
+    )
+    assert report.execution_accuracy == 0.0
     assert report.well_formed_rate == 0.0
+    assert report.reasons["no_sql"] == 1
 
 
 def test_parallel_scoring_is_byte_identical(

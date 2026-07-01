@@ -57,3 +57,15 @@ def test_multi_statement_rejected(tiny_db: Path) -> None:
     out = SqliteSandbox(tiny_db).execute("SELECT 1; SELECT 2")
     assert isinstance(out, ExecutionError)
     assert out.error_type == "multi_statement"
+
+
+def test_database_path_uri_metacharacters_are_escaped(tmp_path: Path) -> None:
+    db = tmp_path / "db#frag.sqlite"
+    with sqlite3.connect(db) as conn:
+        conn.execute("CREATE TABLE t (a int)")
+        conn.execute("INSERT INTO t VALUES (1)")
+
+    out = SqliteSandbox(db).execute("SELECT a FROM t")
+
+    assert isinstance(out, ExecutionResult)
+    assert out.rows == ((1,),)

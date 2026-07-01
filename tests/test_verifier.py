@@ -81,5 +81,5 @@ def test_test_suite_catches_spurious_single_db_match(tiny_db: Path, test_suite_d
 
 
 def test_gold_failure_raises(tiny_db: Path) -> None:
-    with pytest.raises(GoldExecutionError):
+    with pytest.raises(GoldExecutionError, match="gold query failed"):
         execution_match("SELECT a FROM t", "SELECT bad FROM nope", tiny_db)

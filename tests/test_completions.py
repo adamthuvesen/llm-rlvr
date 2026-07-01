@@ -54,9 +54,9 @@ def test_generation_sample_rejects_mismatched_sql_cache() -> None:
         GenerationSample(text="```sql\nSELECT a FROM t\n```", sql="SELECT b FROM t")
 
 
-def test_generation_sample_accepts_legacy_raw_sql_text() -> None:
-    sample = GenerationSample(text="SELECT a FROM t", sql="SELECT a FROM t")
-    assert sample.sql == "SELECT a FROM t"
+def test_generation_sample_rejects_sql_cache_without_extracted_sql() -> None:
+    with pytest.raises(ValueError, match="no extracted SQL"):
+        GenerationSample(text="SELECT a FROM t", sql="SELECT a FROM t")
 
 
 def test_problem_completions_requires_at_least_one_sample() -> None:

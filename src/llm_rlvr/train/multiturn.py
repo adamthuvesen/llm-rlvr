@@ -10,7 +10,7 @@ from llm_rlvr._base import Frozen
 from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.data.paths import resolve_database
 from llm_rlvr.env.text2sql_env import FeedbackConfig, make_environment_factory
-from llm_rlvr.eval.completions import write_json
+from llm_rlvr.eval.completions import write_pydantic_json
 from llm_rlvr.eval.parsing import extract_sql
 from llm_rlvr.harness import completion_text
 from llm_rlvr.rewards.multiturn import (
@@ -31,8 +31,8 @@ from llm_rlvr.train.grpo_smoke import (
     IsRatioCheck,
     MaskCheck,
     capturing_grpo_trainer,
+    check_captured_tool_masking,
     check_is_ratio,
-    check_tool_masking,
     logged_mean,
 )
 from llm_rlvr.train.multiturn_provenance import (
@@ -230,12 +230,7 @@ def run_multiturn_smoke(
     def decode(ids: Sequence[int]) -> str:
         return tokenizer.decode(list(ids), skip_special_tokens=True)
 
-    mask = check_tool_masking(
-        [row for batch in captured for row in batch["completion_ids"]],
-        [row for batch in captured for row in batch["completion_mask"]],
-        [row for batch in captured for row in batch["tool_mask"]],
-        decode,
-    )
+    mask = check_captured_tool_masking(captured, decode)
     log_history = trainer.state.log_history
     is_ratio = check_is_ratio(log_history)
 
@@ -293,7 +288,7 @@ def run_multiturn_smoke(
             dirty=dirty,
         ),
     )
-    out = write_json(report, Path(output_dir) / SMOKE_REPORT_FILENAME)
+    out = write_pydantic_json(report, Path(output_dir) / SMOKE_REPORT_FILENAME)
     if failures:
         raise RuntimeError(
             "multi-turn smoke FAILED — paid runs are blocked (design-D5 fallback ladder): "

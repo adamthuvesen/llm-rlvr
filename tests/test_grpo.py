@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
 from llm_rlvr.tasks.sql import RewardConfig
 from llm_rlvr.train.grpo import (
@@ -64,6 +66,11 @@ def test_dev_split_clamps_so_train_is_never_empty() -> None:
     train, dev = split_train_dev(EXAMPLES[:2], dev_size=500, seed=0)
     assert len(train) >= 1
     assert {e.db_id for e in train}.isdisjoint(e.db_id for e in dev)
+
+
+def test_dev_split_rejects_negative_size() -> None:
+    with pytest.raises(ValueError, match="dev_size"):
+        split_train_dev(EXAMPLES, dev_size=-1, seed=0)
 
 
 def test_grpo_rows_carry_prompt_gold_and_db() -> None:

@@ -10,10 +10,10 @@ from pathlib import Path
 from llm_rlvr._base import Frozen
 from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.env.text2sql_env import FeedbackConfig
-from llm_rlvr.eval.completions import write_json
+from llm_rlvr.eval.completions import write_pydantic_json
+from llm_rlvr.revision.diagnostics import RevisionEpisodeLog
 from llm_rlvr.revision.train import (
     ForcedRevisionProvenance,
-    _EpisodeLog,
     build_forced_revision_provenance,
     build_trainer_pieces,
 )
@@ -29,8 +29,8 @@ from llm_rlvr.train.grpo_smoke import (
     IsRatioCheck,
     MaskCheck,
     capturing_grpo_trainer,
+    check_captured_tool_masking,
     check_is_ratio,
-    check_tool_masking,
     logged_mean,
 )
 
@@ -130,7 +130,7 @@ def run_forced_revision_smoke(
     env_cfg = environment or FeedbackConfig()
     reward_cfg = multiturn_reward or MultiTurnRewardConfig()
 
-    log = _EpisodeLog()
+    log = RevisionEpisodeLog()
     train_examples, dev_examples, train_dataset, rollout, reward_fn = build_trainer_pieces(
         examples,
         schemas,
@@ -174,12 +174,7 @@ def run_forced_revision_smoke(
     def decode(ids: Sequence[int]) -> str:
         return tokenizer.decode(list(ids), skip_special_tokens=True)
 
-    mask = check_tool_masking(
-        [row for batch in captured for row in batch["completion_ids"]],
-        [row for batch in captured for row in batch["completion_mask"]],
-        [row for batch in captured for row in batch["tool_mask"]],
-        decode,
-    )
+    mask = check_captured_tool_masking(captured, decode)
     log_history = trainer.state.log_history
     is_ratio = check_is_ratio(log_history)
     nan_log_values = count_nan_log_values(log_history)
@@ -227,7 +222,7 @@ def run_forced_revision_smoke(
             dirty=dirty,
         ),
     )
-    out = write_json(report, Path(output_dir) / SMOKE_REPORT_FILENAME)
+    out = write_pydantic_json(report, Path(output_dir) / SMOKE_REPORT_FILENAME)
     if failures:
         raise RuntimeError(
             "forced-revision smoke FAILED — paid runs are blocked: "

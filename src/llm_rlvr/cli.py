@@ -16,7 +16,13 @@ import argparse
 import random
 import sys
 
-from llm_rlvr.eval.completions import read_completion_set, write_completion_set, write_json
+from pydantic import ValidationError
+
+from llm_rlvr.eval.completions import (
+    read_completion_set,
+    write_completion_set,
+    write_pydantic_json,
+)
 from llm_rlvr.eval.score import score_completion_set
 from llm_rlvr.eval.verifier import VerifierConfig
 
@@ -26,7 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.func(args)
-    except (FileNotFoundError, ValueError) as exc:
+    except (FileNotFoundError, ValueError, ValidationError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
@@ -161,7 +167,7 @@ def _cmd_score(args: argparse.Namespace) -> int:
     config = VerifierConfig(keep_distinct=not args.no_keep_distinct)
     report = score_completion_set(completion_set, args.db_root, config=config, workers=args.workers)
     if args.out:
-        write_json(report, args.out)
+        write_pydantic_json(report, args.out)
     print(
         f"execution_accuracy={report.execution_accuracy:.4f} "
         f"well_formed_rate={report.well_formed_rate:.4f} "
@@ -218,7 +224,7 @@ def _cmd_build_traces(args: argparse.Namespace) -> int:
     candidate_set = read_candidate_set(args.candidates)
     kept, counts = filter_traces(candidate_set.items, args.db_root)
     path = write_trace_dataset(kept, args.out)
-    write_json(build_trace_manifest(candidate_set, counts), args.manifest)
+    write_pydantic_json(build_trace_manifest(candidate_set, counts), args.manifest)
     print(
         f"kept {counts.n_kept}/{counts.n_questions} questions "
         f"({counts.n_candidates} candidates, {counts.n_eligible} eligible, "
@@ -258,7 +264,7 @@ def _cmd_build_tooluse(args: argparse.Namespace) -> int:
         trace_dataset_path=args.traces,
         counts=counts,
     )
-    write_json(manifest, args.manifest)
+    write_pydantic_json(manifest, args.manifest)
     print(
         f"built {counts.n_rows} rows ({counts.n_revise} revise / {counts.n_check} check / "
         f"{counts.n_direct} direct; {counts.n_gold_errors} gold errors, "
@@ -273,7 +279,7 @@ def _cmd_select_bestofn(args: argparse.Namespace) -> int:
     sets = [read_completion_set(path) for path in args.completions]
     selection, report = select_best_of_n(sets, args.db_root)
     path = write_completion_set(selection, args.out)
-    write_json(report, args.report)
+    write_pydantic_json(report, args.report)
     print(
         f"selected {report.n_items} of {report.n_candidates_per_item} candidates each "
         f"(non-empty {report.n_selected_nonempty}, executes {report.n_selected_executes}, "
@@ -286,8 +292,8 @@ def _cmd_select_bestofn(args: argparse.Namespace) -> int:
 def _cmd_fr_metrics(args: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from llm_rlvr.eval.forced_revision_generate import ForcedRevisionTranscriptSet
-    from llm_rlvr.eval.fr_metrics import compute_fr_metrics
+    from llm_rlvr.revision.eval import ForcedRevisionTranscriptSet
+    from llm_rlvr.revision.metrics import compute_fr_metrics
 
     completion_set = read_completion_set(args.completions)
     transcripts = ForcedRevisionTranscriptSet.model_validate_json(
@@ -295,7 +301,7 @@ def _cmd_fr_metrics(args: argparse.Namespace) -> int:
     )
     report = compute_fr_metrics(completion_set, transcripts, args.db_root)
     if args.out:
-        write_json(report, args.out)
+        write_pydantic_json(report, args.out)
     print(
         f"attempt_ex={report.attempt_ex:.4f} final_ex={report.final_ex:.4f} "
         f"net={report.net_delta:+.4f} | fixed {report.n_fixed}/{report.n_attempt_wrong} "
@@ -310,7 +316,7 @@ def _cmd_fr_metrics(args: argparse.Namespace) -> int:
 def _cmd_fr_error_only_replay(args: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from llm_rlvr.eval.forced_revision_generate import (
+    from llm_rlvr.revision.eval import (
         ForcedRevisionTranscriptSet,
         replay_error_only_revision,
     )
@@ -321,7 +327,7 @@ def _cmd_fr_error_only_replay(args: argparse.Namespace) -> int:
     )
     replay, report = replay_error_only_revision(completion_set, transcripts, args.db_root)
     path = write_completion_set(replay, args.out)
-    write_json(report, args.report)
+    write_pydantic_json(report, args.report)
     print(
         f"attempt_ex={report.attempt_ex:.4f} always_revise_ex={report.always_revise_ex:.4f} "
         f"error_only_ex={report.error_only_ex:.4f} | revised {report.n_revised}/{report.n} "

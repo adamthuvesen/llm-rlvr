@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import sys
+from types import ModuleType, SimpleNamespace
+
+import pytest
+
+from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.env.text2sql_env import TurnRecord
 from llm_rlvr.eval.multiturn_generate import (
     MultiTurnEpisode,
     MultiTurnTranscriptSet,
+    generate_multiturn,
     parse_tool_call,
 )
 from llm_rlvr.eval.provenance import DecodingConfig, GenerationProvenance
@@ -61,3 +68,62 @@ def test_transcript_set_round_trips() -> None:
     restored = MultiTurnTranscriptSet.model_validate_json(transcripts.model_dump_json())
     assert restored == transcripts
     assert restored.provenance.backend == "vllm-multiturn"
+
+
+def test_multiturn_generation_passes_model_revision_to_tokenizer_and_vllm(
+    monkeypatch: pytest.MonkeyPatch, scoring_root
+) -> None:
+    seen: dict[str, object] = {}
+
+    class FakeTokenizer:
+        def apply_chat_template(self, messages, tools, add_generation_prompt, tokenize):
+            return "rendered prompt"
+
+    def from_pretrained(model, **kwargs):
+        seen["tokenizer_model"] = model
+        seen["tokenizer_kwargs"] = kwargs
+        return FakeTokenizer()
+
+    class FakeLLM:
+        def __init__(self, **kwargs) -> None:
+            seen["llm_kwargs"] = kwargs
+
+        def generate(self, prompts, params, **_kwargs):
+            return [
+                SimpleNamespace(
+                    outputs=[SimpleNamespace(text="<think>x</think>\n```sql\nSELECT 1\n```")]
+                )
+                for _prompt in prompts
+            ]
+
+    transformers = ModuleType("transformers")
+    transformers.AutoTokenizer = SimpleNamespace(from_pretrained=from_pretrained)
+    transformers_utils = ModuleType("transformers.utils")
+    transformers_utils.get_json_schema = lambda _fn: {"name": "run_sql"}
+    monkeypatch.setitem(sys.modules, "transformers", transformers)
+    monkeypatch.setitem(sys.modules, "transformers.utils", transformers_utils)
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm",
+        SimpleNamespace(LLM=FakeLLM, SamplingParams=lambda **kwargs: kwargs),
+    )
+    example = Example(db_id="concert", question="q", gold_sql="SELECT a FROM t", split="dev")
+    schema = DatabaseSchema(db_id="concert", tables=())
+
+    completion_set, transcripts = generate_multiturn(
+        [example],
+        {"concert": schema},
+        scoring_root,
+        model="fake",
+        model_revision="abc123",
+        decoding=DecodingConfig(max_new_tokens=16),
+        dataset="spider",
+        dataset_revision="rev",
+        split="dev",
+    )
+
+    assert seen["tokenizer_kwargs"] == {"revision": "abc123"}
+    assert seen["llm_kwargs"]["revision"] == "abc123"
+    assert seen["llm_kwargs"]["tokenizer_revision"] == "abc123"
+    assert completion_set.provenance.model_revision == "abc123"
+    assert transcripts.items[0].final_text.startswith("<think>")

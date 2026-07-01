@@ -209,7 +209,9 @@ def generate_forced_revision(
 
     policy = validate_forced_revision_policy(policy)
     env_cfg = environment or FeedbackConfig()
-    llm, chat_kwargs = make_vllm_engine(model, adapter_path=adapter_path)
+    llm, chat_kwargs = make_vllm_engine(
+        model, model_revision=model_revision, adapter_path=adapter_path
+    )
     params = vllm_sampling_params(decoding)
 
     prompts = build_prompts(examples, schemas, style="cot")

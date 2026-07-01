@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
-from llm_rlvr.data.models import Example
+from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.train.traces import (
     CandidateSet,
     TraceCandidates,
@@ -96,6 +99,53 @@ def test_train_only_guard_raises_on_dev_pool() -> None:
         sample_candidates([dev], {}, model="m", sampling=TraceSamplingConfig())
 
 
+def test_sampling_passes_model_revision_to_vllm(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    class FakeLLM:
+        def __init__(self, **kwargs) -> None:
+            seen.update(kwargs)
+
+        def chat(self, prompts, params, **_kwargs):
+            return [
+                SimpleNamespace(
+                    outputs=[SimpleNamespace(text=f"<think>{i}</think>\n```sql\nSELECT {i}\n```")]
+                )
+                for _prompt in prompts
+                for i in range(params["n"])
+            ]
+
+    class GroupingLLM(FakeLLM):
+        def chat(self, prompts, params, **_kwargs):
+            return [
+                SimpleNamespace(
+                    outputs=[
+                        SimpleNamespace(text=f"<think>{i}</think>\n```sql\nSELECT {i}\n```")
+                        for i in range(params["n"])
+                    ]
+                )
+                for _prompt in prompts
+            ]
+
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm",
+        SimpleNamespace(LLM=GroupingLLM, SamplingParams=lambda **kwargs: kwargs),
+    )
+    example = Example(db_id="concert", question="q", gold_sql="SELECT 1", split="train")
+    schema = {"concert": DatabaseSchema(db_id="concert", tables=())}
+    candidates = sample_candidates(
+        [example],
+        schema,
+        model="fake",
+        model_revision="abc123",
+        sampling=TraceSamplingConfig(n=2),
+    )
+    assert seen["revision"] == "abc123"
+    assert seen["tokenizer_revision"] == "abc123"
+    assert len(candidates[0].texts) == 2
+
+
 def _candidate_set(*texts: str, gold_sql: str = "SELECT a FROM t") -> CandidateSet:
     return CandidateSet(
         base_model="Qwen/Qwen2.5-Coder-3B-Instruct",
@@ -122,20 +172,20 @@ def test_manifest_carries_reproducibility_fields(scoring_root: Path) -> None:
 
 
 def test_candidate_set_file_round_trip(tmp_path: Path) -> None:
-    from llm_rlvr.eval.completions import write_json
+    from llm_rlvr.eval.completions import write_pydantic_json
 
     candidate_set = _candidate_set(WF_CORRECT, WF_WRONG)
-    path = write_json(candidate_set, tmp_path / "candidates.json")
+    path = write_pydantic_json(candidate_set, tmp_path / "candidates.json")
     assert read_candidate_set(path) == candidate_set
 
 
 def test_build_traces_cli_runs_the_whole_cpu_funnel(scoring_root: Path, tmp_path: Path) -> None:
     import json
 
-    from llm_rlvr.eval.cli import main
-    from llm_rlvr.eval.completions import write_json
+    from llm_rlvr.cli import main
+    from llm_rlvr.eval.completions import write_pydantic_json
 
-    candidates_path = write_json(
+    candidates_path = write_pydantic_json(
         _candidate_set(WF_CORRECT, WF_WRONG, MALFORMED_CORRECT), tmp_path / "candidates.json"
     )
     out = tmp_path / "traces.jsonl"
@@ -171,3 +221,13 @@ def test_trace_dataset_jsonl_round_trip(scoring_root: Path, tmp_path: Path) -> N
     record = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
     assert record["prompt"][0]["role"] == "system"
     assert record["completion"] == [{"role": "assistant", "content": WF_CORRECT}]
+
+
+def test_trace_dataset_rejects_empty_completion(tmp_path: Path) -> None:
+    path = tmp_path / "bad.jsonl"
+    path.write_text(
+        '{"prompt": [], "completion": [], "db_id": "concert", "question": "q"}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValidationError, match="completion"):
+        read_trace_dataset(path)

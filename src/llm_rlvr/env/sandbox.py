@@ -71,7 +71,7 @@ class SqliteSandbox:
                 message="only a single SQL statement may be executed",
             )
 
-        uri = f"file:{self.db_path}?mode=ro"
+        uri = f"{self.db_path.resolve().as_uri()}?mode=ro"
         conn = sqlite3.connect(uri, uri=True, timeout=self.timeout_s)
         # Match the vendored evaluator's decoding so denotations are byte-comparable.
         conn.text_factory = lambda b: b.decode(errors="ignore")

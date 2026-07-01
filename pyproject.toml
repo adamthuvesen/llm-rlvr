@@ -37,7 +37,7 @@ gpu = [
 ]
 # Stage-1 LoRA SFT (TRL + PEFT) on top of the GPU stack. Locked working triple (2026-06):
 # trl 1.5.1 / peft 0.19.1 / accelerate 1.13.0 against transformers 5.10.2 / vllm 0.22.1 /
-# torch 2.11.0 — resolution verified; runtime-verified by the day-1 SFT smoke.
+# torch 2.11.0 — resolution verified against the training stack.
 train = [
     "llm-rlvr[gpu]",
     "trl>=1.3",
@@ -55,7 +55,7 @@ dev = [
 ]
 
 [project.scripts]
-llm-rlvr = "llm_rlvr.eval.cli:main"
+llm-rlvr = "llm_rlvr.cli:main"
 
 [tool.ruff]
 line-length = 100
