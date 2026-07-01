@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="540" viewBox="0 0 920 540" role="img" aria-labelledby="title desc">
+  <title id="title">Training results on Spider-dev and BIRD-dev</title>
+  <desc id="desc">Grouped bar chart showing Base, SFT, and RLVR exact-match accuracy on Spider-dev and BIRD-dev.</desc>
+  <style>
+    .bg { fill: #ffffff; }
+    .panel { fill: #ffffff; stroke: #d9dde7; stroke-width: 1; }
+    .title { fill: #1f2937; font: 700 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .subtitle { fill: #6b7280; font: 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .axis { stroke: #cfd5df; stroke-width: 1; }
+    .grid { stroke: #eef1f6; stroke-width: 1; }
+    .tick { fill: #6b7280; font: 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .label { fill: #374151; font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .value { fill: #1f2937; font: 600 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .legend { fill: #374151; font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .note { fill: #6b7280; font: 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  </style>
+  <rect class="bg" width="920" height="540" rx="10"/>
+  <rect class="panel" x="28" y="24" width="864" height="488" rx="8"/>
+
+  <text class="title" x="56" y="64">Training progression</text>
+  <text class="subtitle" x="56" y="88">Execution accuracy improves after supervised fine-tuning and again after RLVR.</text>
+
+  <g transform="translate(86 124)">
+    <line class="grid" x1="0" y1="300" x2="720" y2="300"/>
+    <line class="grid" x1="0" y1="225" x2="720" y2="225"/>
+    <line class="grid" x1="0" y1="150" x2="720" y2="150"/>
+    <line class="grid" x1="0" y1="75" x2="720" y2="75"/>
+    <line class="grid" x1="0" y1="0" x2="720" y2="0"/>
+    <line class="axis" x1="0" y1="0" x2="0" y2="300"/>
+    <line class="axis" x1="0" y1="300" x2="720" y2="300"/>
+    <text class="tick" x="-38" y="304">0.0</text>
+    <text class="tick" x="-38" y="229">0.2</text>
+    <text class="tick" x="-38" y="154">0.4</text>
+    <text class="tick" x="-38" y="79">0.6</text>
+    <text class="tick" x="-38" y="4">0.8</text>
+
+    <rect x="148" y="65.6" width="46" height="234.4" fill="#636efa" rx="3"/>
+    <rect x="200" y="45.8" width="46" height="254.2" fill="#00cc96" rx="3"/>
+    <rect x="252" y="7.9" width="46" height="292.1" fill="#ef553b" rx="3"/>
+    <text class="value" x="147" y="56">0.625</text>
+    <text class="value" x="199" y="36">0.678</text>
+    <text class="value" x="251" y="-2">0.779</text>
+    <text class="label" x="184" y="328">Spider-dev</text>
+
+    <rect x="458" y="182.6" width="46" height="117.4" fill="#636efa" rx="3"/>
+    <rect x="510" y="171.0" width="46" height="129.0" fill="#00cc96" rx="3"/>
+    <rect x="562" y="147.8" width="46" height="152.2" fill="#ef553b" rx="3"/>
+    <text class="value" x="457" y="173">0.313</text>
+    <text class="value" x="509" y="161">0.344</text>
+    <text class="value" x="561" y="138">0.406</text>
+    <text class="label" x="500" y="328">BIRD-dev</text>
+  </g>
+
+  <g transform="translate(558 58)">
+    <rect x="0" y="-9" width="12" height="12" fill="#636efa" rx="2"/><text class="legend" x="18" y="2">Base</text>
+    <rect x="82" y="-9" width="12" height="12" fill="#00cc96" rx="2"/><text class="legend" x="100" y="2">SFT</text>
+    <rect x="148" y="-9" width="12" height="12" fill="#ef553b" rx="2"/><text class="legend" x="166" y="2">RLVR</text>
+  </g>
+  <text class="note" x="56" y="500">Metric: exact-match execution accuracy. RLVR values are three-seed means; see docs/internal/artifacts.md for intervals and score files.</text>
+</svg>
