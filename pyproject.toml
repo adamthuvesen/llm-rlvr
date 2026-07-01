@@ -1,0 +1,81 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llm-rlvr"
+version = "0.1.0"
+description = "Reusable RLVR library for LLM post-training, with text-to-SQL as the reference task."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Adam Thuvesen", email = "adam.thuvesen@mentimeter.com" }]
+
+# The CPU eval/verifier/data layer. Deliberately light so the whole Stage-0 foundation
+# installs and tests on a CPU box without the GPU training stack.
+dependencies = [
+    "pydantic>=2.7,<3",
+    "datasets>=3.0",
+    "huggingface-hub>=0.25",
+    # The vendored Test-Suite SQL Eval (third_party/) imports these two; everything else
+    # it needs is stdlib. nltk/process_sql.py (component match) is NOT vendored — we only
+    # use the execution-match path.
+    "sqlparse>=0.5",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+# Completion generation. transformers+torch only, so the base-model baseline can run on a
+# Mac/CPU box for a dev slice; the vLLM GPU backend is imported lazily and ships with `gpu`.
+generate = [
+    "transformers>=4.48",
+    "torch>=2.4",
+]
+gpu = [
+    "llm-rlvr[generate]",
+    "vllm",
+]
+# Stage-1 LoRA SFT (TRL + PEFT) on top of the GPU stack. Locked working triple (2026-06):
+# trl 1.5.1 / peft 0.19.1 / accelerate 1.13.0 against transformers 5.10.2 / vllm 0.22.1 /
+# torch 2.11.0 — resolution verified; runtime-verified by the day-1 SFT smoke.
+train = [
+    "llm-rlvr[gpu]",
+    "trl>=1.3",
+    "peft>=0.14",
+    "accelerate>=1.0",
+]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "pre-commit>=3.8",
+    # The Modal launch CLI. Pinned so `modal run`/`modal deploy` use the surface modal_app.py
+    # targets (modal.App, string GPU, add_local_*); it never enters the GPU image (the image
+    # exports only `--extra gpu --extra train`), so it adds no runtime weight to the box.
+    "modal==1.5.0",
+]
+
+[project.scripts]
+llm-rlvr = "llm_rlvr.eval.cli:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# The vendored evaluator is upstream code; do not lint or reformat it.
+extend-exclude = ["src/llm_rlvr/third_party"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "N", "PTH", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["llm_rlvr"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -m 'not integration'"
+markers = [
+    "integration: hits the network or HuggingFace (deselected by default)",
+    "slow: large dataset download (compose with integration)",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/llm_rlvr"]

@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+
+# Project artifacts
+/runs/
+/checkpoints/
+/exports/
+/wandb/
+/.modal/
+/results/
+# Datasets / databases are pinned + fetched, never committed
+/data/spider/
+/data/bird/
+# Built SFT trace datasets: bulk stays local/Volume; only the manifest is committed
+/data/sft/
+*.db
+*.sqlite
+*.sqlite3
+*.pt
+*.pth
+*.safetensors
+*.bin
+*.ckpt
+*.parquet
+*.arrow
+*.log
