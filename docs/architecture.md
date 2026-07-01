@@ -19,20 +19,23 @@ not on the main training path.
 
 ```
 report/        progression.py — base→SFT→RL table; seed-level CIs; single-DB caveat
-revision/      feedback.py · rollout.py · train.py · diagnostics.py · eval.py · metrics.py · probe.py —
-               forced-revision analysis utilities
+revision/      feedback.py · rollout.py · train.py · smoke.py · diagnostics.py · eval.py ·
+               metrics.py · probe.py · episode.py — forced-revision analysis utilities
 train/         traces.py (STaR sampling + execution filter) · sft.py (LoRA SFT) · grpo.py (GRPO) ·
-               multiturn.py · diagnostics.py · tooluse.py · multiturn_provenance.py · policy.py
+               multiturn.py · diagnostics.py · tooluse.py · multiturn_provenance.py ·
+               stage3_provenance.py · policy.py · lora.py · grpo_smoke.py
 rewards/       multiturn.py — trajectory credit + improvement-delta bonus over the SQL single-turn
                reward (self-correction analysis only)
 tasks/         sql.py — the text-to-SQL Task: SQL parser + verifier + execution reward (shaped /
                near-binary, empty-result guard) + prompt/row builders · __init__.py (task registry)
 eval/          completions.py (the CompletionSet artifact) · generate · score · verifier · parsing ·
-               prompt · aggregate · provenance · multiturn_generate · bestofn
+               prompt · prompts/ · messages · aggregate · provenance · runner ·
+               multiturn_generate · bestofn · vllm_backend
 env/           sandbox.py — read-only SQLite execution (the safety boundary) ·
                text2sql_env.py — the run_sql tool environment + reference-free feedback
 data/          models.py (typed Example/DatabaseSchema records) · spider.py · bird.py ·
-               schema.py (schema → prompt text) · artifacts.py (pinned revisions + checksums)
+               schema.py (schema → prompt text) · artifacts.py (pinned revisions + checksums) ·
+               paths.py · jsonl.py · splits.py
 harness/       verifier.py (Verifier / Verdict / ReferenceUnverifiable) · answer.py (AnswerParser) ·
                reward.py (RewardConfig shaping + score_answer + completion_text) · task.py (Task
                protocol) — the task-agnostic RLVR core, imports only _base
@@ -65,7 +68,7 @@ HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (local
   `make eval` after pulling the matching run artifacts — no number in a doc without a source file.
 - **Metadata chain**: every artifact embeds model+revision, dataset+revision, DB archive sha256,
   decoding/hyperparams, library versions, and git commit/dirty. The Modal image strips `.git`, so
-  local entrypoints compute git state and pass it in (`_local_git_commit()` in
+  local entrypoints compute git state and pass it in (`git_kwargs()` in
   `modal_helpers.py`).
 
 ## Key types and patterns

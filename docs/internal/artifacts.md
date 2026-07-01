@@ -30,7 +30,7 @@ checksummed artifact above (design D2/R1). BIRD's `dev.zip` is one self-hosted b
 | Stage-2 GRPO adapters (main result) | Volume → `grpo/grpo-s0`, `grpo/grpo-s1`, `grpo/grpo-s2` — LR 5e-5, shaped reward, seeds 0/1/2, warm-start `sft/sft-r32`; full config in each `provenance.json` | — |
 | Stage-2 reward ablation adapter | Volume → `grpo/grpo-nb-s0` — identical config, `near_binary` arm (1.0/0.1/0) | — |
 | Cross-family control adapters | Volume → `sft/sft-llama-r32` (trace manifest `results/sft/traces-llama.manifest.json`, 2,501/7,000 kept) and `grpo/grpo-llama-s0` (same recipe @ LR 5e-5 shaped, warm-start `sft/sft-llama-r32`) | — |
-| Reward config (shaped, the main arm) | `rewards/reward.py` `RewardConfig`: weights format 0.2 / executable 0.2 / result_match 1.0 / length 0.1; `preamble_credit=0.3` (full format credit only when `<think>` leads); `guard_trivial_empty=True` | — |
+| Reward config (shaped, the main arm) | `tasks/sql.py` `RewardConfig` (shaping fields inherited from `harness/reward.py`): weights format 0.2 / executable 0.2 / result_match 1.0 / length 0.1; `preamble_credit=0.3` (full format credit only when `<think>` leads); `guard_trivial_empty=True` | — |
 | Vendored verifier | `taoyds/test-suite-sql-eval` — execution-match path only (`exec_eval.py` + `parse.py`) | Apache 2.0 |
 
 The verifier is parity-tested against upstream (`tests/test_verifier_parity.py`); the only

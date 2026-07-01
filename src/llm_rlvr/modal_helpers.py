@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +11,7 @@ from llm_rlvr.data.artifacts import BIRD_ARCHIVE, SPIDER_DB_ARCHIVE, SPIDER_HF_R
 from llm_rlvr.data.bird import ensure_bird_dev, load_bird_examples
 from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.data.spider import ensure_spider_databases, load_examples, load_schemas
+from llm_rlvr.eval.provenance import git_commit, git_is_dirty
 
 
 @dataclass(frozen=True)
@@ -40,44 +40,14 @@ class CommitVolume(Protocol):
 
 
 def git_kwargs() -> dict[str, str | bool]:
-    commit, dirty = git_provenance()
-    return {"commit": commit or "unknown", "dirty": False if dirty is None else dirty}
-
-
-def git_provenance() -> tuple[str | None, bool | None]:
-    """Git commit and dirty flag for Modal provenance (``.git`` is stripped from the image)."""
-    return _local_git_commit(), _local_git_dirty()
+    """Git commit + dirty flag for a local entrypoint to pass through to the GPU function
+    (``.git`` is stripped from the Modal image, so the remote side cannot read them itself)."""
+    return {"commit": git_commit(), "dirty": git_is_dirty()}
 
 
 def _validate_limit(limit: int | None) -> None:
     if limit is not None and limit < 1:
         raise ValueError(f"limit must be >= 1, got {limit}")
-
-
-def _local_git_commit() -> str | None:
-    try:
-        return (
-            subprocess.check_output(
-                ["git", "rev-parse", "HEAD"],
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ).strip()
-            or None
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-
-def _local_git_dirty() -> bool | None:
-    try:
-        status = subprocess.check_output(
-            ["git", "status", "--porcelain"],
-            stderr=subprocess.DEVNULL,
-            text=True,
-        )
-        return bool(status.strip())
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
 
 
 def load_eval_context(
@@ -98,6 +68,10 @@ def load_eval_context(
         db_sha = SPIDER_DB_ARCHIVE.sha256
         database_root = dbs.database_root
     elif dataset == "bird":
+        # BIRD ships only a dev split; loading it under any other `split` label would stamp
+        # wrong provenance on the artifact.
+        if split != "dev":
+            raise ValueError(f"bird has only a 'dev' split, got {split!r}")
         bird = ensure_bird_dev(data_root / "bird")
         schemas = load_schemas(bird.tables_json)
         examples = list(load_bird_examples(bird.dev_json))

@@ -1,7 +1,7 @@
 """Single-turn GRPO LoRA training.
 
 TRL `GRPOTrainer` + PEFT LoRA, bf16, vLLM colocate rollouts scored by the execution-grounded reward
-(`llm_rlvr.rewards`). The policy is warm-started from the SFT adapter, loaded as a
+(`llm_rlvr.tasks.sql`). The policy is warm-started from the SFT adapter, loaded as a
 trainable PEFT model so the saved adapter is the SFT→GRPO continuation, evaluated as a single
 adapter over the base (the adapter-eval path needs no change). The base model is config-parametric
 (Qwen default; Llama-3.2-3B for the cross-family control).
