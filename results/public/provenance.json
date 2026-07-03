@@ -7,14 +7,14 @@
     "results/public/provenance.json",
     "results/public/reproduce.py"
   ],
-  "raw_artifact_policy": "Raw CompletionSet JSON, ScoreReport JSON, databases, adapters, and local reproduction scripts are external/local artifacts under gitignored results/ or the Modal text2sql-runs Volume, not committed.",
+  "raw_artifact_policy": "Raw CompletionSet JSON, ScoreReport JSON, databases, adapters, and local reproduction scripts are not part of the tracked public bundle.",
   "public_mode": "make eval validates this tracked summary and renders the README headline table without model, GPU, network, database, or raw completion artifacts.",
-  "full_artifact_mode": "Restore the external raw bundle under gitignored results/ and run make eval-full to re-score CompletionSet artifacts and render the full internal report.",
-  "source_volume": "Modal Volume text2sql-runs",
+  "full_artifact_mode": "Full training reruns are outside the public quickstart.",
+  "source_volume": "not exposed in the public bundle",
   "notes": [
     "Metric is single-DB execution accuracy.",
     "GRPO headline uses three seed-level runs; confidence intervals are computed over per-seed execution accuracy.",
-    "results/public/claims.json maps public README claims to committed evidence and external raw-artifact sources.",
-    "The public bundle is a compact evidence index, not the full raw result archive."
+    "results/public/claims.json maps public README claims to committed evidence.",
+    "The public bundle is a compact evidence index, not a full training reproduction package."
   ]
 }

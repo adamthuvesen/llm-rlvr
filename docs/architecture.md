@@ -2,8 +2,8 @@
 
 Core design: **the verifier that scores the baseline is the same code used as the RL training
 reward.** A bug in eval is a bug in training, and vice versa. Generated result files carry enough
-metadata to re-score external raw artifacts from disk with no model in the loop; the committed
-public bundle carries the compact headline summary.
+metadata to be scored without loading a model; the committed public bundle carries the compact
+headline summary.
 
 That verifier-as-reward idea is factored into a **task-agnostic harness** (`harness/`): a task plugs
 in by implementing two small protocols — `AnswerParser` (pull the answer out of a completion) and
@@ -42,7 +42,6 @@ harness/       verifier.py (Verifier / Verdict / ReferenceUnverifiable) · answe
                protocol) — the task-agnostic RLVR core, imports only _base
 _base.py       Frozen — pydantic base: frozen=True, extra="forbid"
 cli.py         installed CPU CLI for generation, scoring, trace/tool-use builders, and reports
-modal_helpers.py  Modal entrypoint support: provenance, dataset contexts, dispatch helpers
 third_party/   vendored Test-Suite SQL Eval (execution-match path only; Apache 2.0)
 ```
 
@@ -50,37 +49,32 @@ Dependency direction: `harness/` sits at the bottom (it imports only `_base`); `
 adapter that binds the harness protocols to the SQL pieces in `eval/` + `data/`; `rewards/` and
 `train/` build on the SQL task. Nothing under `harness/` imports SQL.
 
-`modal_app.py` (repo root) is the only direct Modal API surface; `src/llm_rlvr/modal_helpers.py`
-contains Modal-adjacent support code but does not import Modal. GPU functions import `llm_rlvr`
-lazily so the package installs and tests without the training stack.
+Training-only dependencies import lazily so the package installs and tests without the training
+stack.
 
 ## Data and result flow
 
 ```
-HF mirrors (pinned)         GPU (Modal A100-80GB)              CPU (local, model-free)
-HAL-9001/spider-databases → generate/sample/train on Volume → pull JSON → score → aggregate → report
-HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (external) → make eval-full
-                                                                  results/public/ → make eval
+Pinned datasets      generation / training       CPU scoring and reporting
+Spider + BIRD    ->  saved completions       ->   score -> aggregate -> report
+                                                results/public/ -> make eval
 ```
 
 - **CompletionSet** (`eval/completions.py`) is the boundary object: `generate` (the *only*
   model-loading step) writes one JSON per (model, dataset, decoding) cell; `score` reads it anywhere,
   deterministically, with no generation backend.
 - **Evidence split**: `results/public/` is the tracked clean-checkout summary that `make eval`
-  validates. Raw CompletionSet/ScoreReport files stay external under gitignored `results/` and
-  re-score through `make eval-full` after pulling the matching run artifacts.
+  validates. Raw CompletionSet/ScoreReport files are not part of the public quickstart.
 - **Metadata chain**: every artifact embeds model+revision, dataset+revision, DB archive sha256,
-  decoding/hyperparams, library versions, and git commit/dirty. The Modal image strips `.git`, so
-  local entrypoints compute git state and pass it in (`git_kwargs()` in
-  `modal_helpers.py`).
+  decoding/hyperparams, library versions, and git commit/dirty.
 
 ## Key types and patterns
 
 - **`Frozen`** (`_base.py`): every typed record and persisted artifact is immutable and rejects
   unknown keys — malformed artifacts are rejected at parse time, not silently downstream.
-- **Pure builder + thin GPU driver**: config assembly is pure and CPU-testable
+- **Pure builder + thin training driver**: config assembly is pure and CPU-testable
   (`grpo_config_kwargs`, `build_grpo_config`, `split_train_dev`, `filter_traces`); the `run_*`
-  functions are thin GPU drivers Modal calls. Unit tests cover the builders; GPU paths are
+  functions keep runtime work at the edge. Unit tests cover the builders; model-loading paths are
   integration-marked.
 - **Lazy imports**: CLI subcommands and GPU backends (`vllm`, `trl`, `peft`, `torch`) import inside
   the functions that use them, so the CPU eval layer installs and runs without the training stack.
@@ -112,21 +106,10 @@ completion, from a single sandbox execution:
   rollouts are never pooled across seeds. The headline success check is the RL-vs-SFT gain CI
   excluding zero. Single-seed controls are point estimates with no CI claim
   (`report/progression.py` enforces both: ≥2 seeds renders a CI, n=1 renders "point").
-- **EX is single-DB execution-match** with a disclosed ~6.5% false-positive caveat; the verifier
-  already supports test-suite multi-DB via `db_dir` if the distilled DBs are self-hosted later.
+- **EX is single-DB execution-match** with a disclosed ~6.5% false-positive caveat. Test-suite
+  multi-DB accuracy would be stricter, but it is not part of the public result.
 - Baselines report both `direct` (literature-comparable) and `<think>`-matched (before-RL anchor)
   prompts — the untrained base scores *lower* with `<think>`, and hiding that would inflate the gain.
-
-## Modal (GPU runner)
-
-- App `llm-rlvr-baseline`; Volumes `text2sql-runs` (`/runs`) + `text2sql-hf-cache`.
-- Two-layer image: the heavy CUDA/torch/vLLM layer is keyed on `pyproject.toml`+`uv.lock` only, so a
-  source edit re-runs just the fast editable relink, not the multi-GB install.
-- Image ignore patterns are **root-anchored** (`data/**`, not `**/data`) — a deep glob would strip
-  the `src/llm_rlvr/data/` package out of the image.
-- Entrypoints are thin `@app.local_entrypoint`s, each mirroring a GPU `@app.function` and taking
-  `--spawn`. The supported training path uses `main` (baseline/adapter generate), `traces`
-  (STaR sampling), `sft`, and `grpo`; additional entrypoints support analysis workflows.
 
 ## Supported Path
 

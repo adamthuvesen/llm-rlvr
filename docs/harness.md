@@ -97,16 +97,14 @@ with no SQL involved — copy it as your starting point.
    - **Seed-level CIs** — `eval/aggregate.py` works on per-seed numbers, so it is reusable as-is.
    - **Offline scoring** — the `CompletionSet` artifact + `score_completion_set` are SQL-shaped
      (they embed `data.models.Example` with `gold_sql`/`db_id` and call the SQL verifier). A new
-     task scores with `score_answer` directly, or grows its own artifact; the full raw re-score
-     path stays SQL. See below.
+     task scores with `score_answer` directly, or grows its own artifact.
 
 ## Plugging in your own model
 
 The model is already a parameter — nothing to refactor. Generation, SFT, and GRPO all take a
 `--model` / `--base-model`, and the project ships a Llama-3.2-3B cross-family control alongside the
 Qwen default, so a third base model is a config change. Your model needs to be a Hugging Face
-`AutoModelForCausalLM` that LoRA + vLLM-colocate can load. Runtime-specific launch commands are in
-`docs/internal/runbook.md`.
+`AutoModelForCausalLM` that the local generation and training backends can load.
 
 ## What stays SQL-only
 

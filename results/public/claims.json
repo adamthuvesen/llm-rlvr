@@ -63,20 +63,16 @@
     },
     {
       "id": "readme.reproduce.full-artifact-mode",
-      "description": "README keeps full raw re-scoring outside the committed public bundle.",
+      "description": "README keeps full training reruns outside the public quickstart.",
       "location": {
         "path": "README.md",
         "anchor": "Reproduce"
       },
-      "readme_text": "`make eval-full` is CPU-only and model-free once local completion artifacts are present. It is the full-artifact check, not a clean-clone public check.",
+      "readme_text": "The public reproduction path covers the CPU checks and tracked evidence bundle. Full training reruns are outside the public quickstart.",
       "public_evidence": [
         "results/public/provenance.json"
       ],
-      "full_artifact_sources": [
-        "gitignored results/ raw CompletionSet JSON",
-        "gitignored results/ ScoreReport JSON",
-        "Modal Volume text2sql-runs adapters and provenance"
-      ],
+      "full_artifact_sources": [],
       "public_check": "make eval"
     }
   ]

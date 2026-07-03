@@ -2,7 +2,7 @@
 
 This script is intentionally small: it checks the committed public summary, claim map, and
 README headline table.
-Full raw CompletionSet re-scoring stays in external/local artifact mode (`make eval-full`).
+Full training reruns are outside the public quickstart.
 """
 
 from __future__ import annotations

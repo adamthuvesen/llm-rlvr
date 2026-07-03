@@ -6,8 +6,8 @@ per-seed EX), plus the RL-vs-SFT gain and whether its CI excludes zero (the succ
 single-seed controls (cross-family, reward ablation) render as point estimates with no CI claim.
 
 Eval strictness is explicit: the project reports **single-DB** execution accuracy, so the table
-carries the documented single-DB false-positive caveat (the verifier supports test-suite multi-DB if
-the distilled databases are later self-hosted — see the design Open Questions).
+carries the documented single-DB false-positive caveat. Test-suite multi-DB accuracy would be
+stricter, but it is not part of the public result.
 """
 
 from __future__ import annotations
@@ -19,8 +19,8 @@ from llm_rlvr.eval.aggregate import SeedLevelStat, rl_vs_sft_gain, seed_level_ci
 
 SINGLE_DB_CAVEAT = (
     "EX is single-DB execution-match (the training reward's metric). Single-DB carries a "
-    "documented ~6.5% false-positive rate; test-suite (multi-DB) accuracy would be stricter and is "
-    "available if the distilled Spider DBs are self-hosted (verifier already supports `db_dir`)."
+    "documented ~6.5% false-positive rate; test-suite (multi-DB) accuracy would be stricter, "
+    "but it is not part of the public result."
 )
 
 
