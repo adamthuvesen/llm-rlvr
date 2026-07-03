@@ -56,13 +56,15 @@ execution_accuracy=0.5000 well_formed_rate=0.0000 (1/2; gold_errors=0)
 reasons={'match': 1, 'denotation_mismatch': 1}
 ```
 
-Validate the tracked public result summary:
+Validate the tracked public evidence bundle:
 
 ```bash
 make eval
 ```
 
-`make eval` is CPU-only and model-free; it uses only committed files under `results/public/`.
+`make eval` is CPU-only and model-free; it validates `results/public/claims.json`, checks that
+README headline rows are derived from `results/public/headline_summary.json`, and reads the
+reproduction policy in `results/public/provenance.json`.
 
 For a full raw re-score, restore the external result bundle under gitignored `results/`, fetch the
 pinned databases, then run:
@@ -72,7 +74,8 @@ make data
 make eval-full
 ```
 
-`make eval-full` is CPU-only and model-free once local completion artifacts are present.
+`make eval-full` is CPU-only and model-free once local completion artifacts are present. It is the
+full-artifact check, not a clean-clone public check.
 
 GPU generation and training run through [modal_app.py](modal_app.py). Those jobs are intentionally
 outside the CPU quickstart.
@@ -88,6 +91,22 @@ outside the CPU quickstart.
 
 - [docs/harness.md](docs/harness.md): the task-agnostic RLVR harness and how to add a task.
 - [docs/architecture.md](docs/architecture.md): module map, data flow, reward design.
+
+## Related Repositories
+
+These repositories are separate codebases connected by model artifacts and
+measurement questions:
+
+- [`esme-pretrain`](https://github.com/adamthuvesen/esme-pretrain): trains
+  `Esme-214M-Base` from scratch.
+- [`esme-posttrain`](https://github.com/adamthuvesen/esme-posttrain): adapts
+  the base checkpoint with SFT, DPO, and verifier-backed RLVR.
+- [`llm-infer`](https://github.com/adamthuvesen/llm-infer): loads, serves, and
+  benchmarks exported Esme checkpoints.
+- [`llm-rlvr`](https://github.com/adamthuvesen/llm-rlvr): provides a reusable
+  RLVR harness with text-to-SQL as the reference task.
+- [`grpo-decomp`](https://github.com/adamthuvesen/grpo-decomp): measures where
+  GRPO gains come from, separating reliability from new capability.
 
 ## Related Work
 

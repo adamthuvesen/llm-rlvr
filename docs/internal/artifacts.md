@@ -45,12 +45,18 @@ The committed public bundle is intentionally compact:
 
 | File | Role |
 | --- | --- |
+| `results/public/claims.json` | Maps public README claims to committed evidence and external raw-artifact sources |
 | `results/public/headline_summary.json` | Counts for the README headline table and seed-level CI check |
 | `results/public/provenance.json` | States the raw-artifact policy and public/full reproduction modes |
-| `results/public/reproduce.py` | Validates the JSON, checks the README headline rows, and renders the progression tables |
+| `results/public/reproduce.py` | Validates the claim map, JSON, README headline rows, and rendered progression tables |
 
 `make eval` runs this public check. It does not need raw completions, databases, Modal, GPU, or
 network access.
+
+Public mode is intentionally a clean-clone check: it proves the committed headline table is derived
+from committed summary/provenance, and it names the external raw inputs behind each claim. Full mode
+starts only after restoring the external `CompletionSet` and `ScoreReport` bundle under gitignored
+`results/`; `make eval-full` then re-scores those raw artifacts locally without loading a model.
 
 ## Generated evaluation artifacts
 

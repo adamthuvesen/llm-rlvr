@@ -2,6 +2,7 @@
   "schema_version": 1,
   "bundle": "public evidence summary",
   "tracked_files": [
+    "results/public/claims.json",
     "results/public/headline_summary.json",
     "results/public/provenance.json",
     "results/public/reproduce.py"
@@ -13,6 +14,7 @@
   "notes": [
     "Metric is single-DB execution accuracy.",
     "GRPO headline uses three seed-level runs; confidence intervals are computed over per-seed execution accuracy.",
+    "results/public/claims.json maps public README claims to committed evidence and external raw-artifact sources.",
     "The public bundle is a compact evidence index, not the full raw result archive."
   ]
 }

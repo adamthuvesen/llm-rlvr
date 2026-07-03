@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "claims": [
+    {
+      "id": "readme.result.spider-dev",
+      "description": "README Spider-dev headline row.",
+      "location": {
+        "path": "README.md",
+        "anchor": "Result"
+      },
+      "summary_row": "Spider-dev",
+      "readme_text": "| Spider-dev | 0.625 | 0.678 | **0.779** | **+10.2pt** | 3 seeds, 95% CI excludes zero |",
+      "public_evidence": [
+        "results/public/headline_summary.json",
+        "results/public/provenance.json"
+      ],
+      "full_artifact_sources": [
+        "external results/baseline/spider-dev-zs.json + score",
+        "external results/sft/spider-dev-zs-sft-r32.json + score",
+        "external results/grpo/spider-dev-zs-grpo-s0.json + score",
+        "external results/grpo/spider-dev-zs-grpo-s1.json + score",
+        "external results/grpo/spider-dev-zs-grpo-s2.json + score"
+      ],
+      "public_check": "make eval"
+    },
+    {
+      "id": "readme.result.bird-dev",
+      "description": "README BIRD-dev headline row.",
+      "location": {
+        "path": "README.md",
+        "anchor": "Result"
+      },
+      "summary_row": "BIRD-dev",
+      "readme_text": "| BIRD-dev | 0.313 | 0.344 | **0.406** | **+6.1pt** | 3 seeds, 95% CI excludes zero |",
+      "public_evidence": [
+        "results/public/headline_summary.json",
+        "results/public/provenance.json"
+      ],
+      "full_artifact_sources": [
+        "external results/baseline/bird-dev-zs.json + score",
+        "external results/sft/bird-dev-zs-sft-r32.json + score",
+        "external results/grpo/bird-dev-zs-grpo-s0.json + score",
+        "external results/grpo/bird-dev-zs-grpo-s1.json + score",
+        "external results/grpo/bird-dev-zs-grpo-s2.json + score"
+      ],
+      "public_check": "make eval"
+    },
+    {
+      "id": "readme.reproduce.public-mode",
+      "description": "README states the public check is compact, CPU-only, and model-free.",
+      "location": {
+        "path": "README.md",
+        "anchor": "Reproduce"
+      },
+      "readme_text": "`make eval` is CPU-only and model-free; it validates `results/public/claims.json`, checks that README headline rows are derived from `results/public/headline_summary.json`, and reads the reproduction policy in `results/public/provenance.json`.",
+      "public_evidence": [
+        "results/public/claims.json",
+        "results/public/headline_summary.json",
+        "results/public/provenance.json"
+      ],
+      "full_artifact_sources": [],
+      "public_check": "make eval"
+    },
+    {
+      "id": "readme.reproduce.full-artifact-mode",
+      "description": "README keeps full raw re-scoring outside the committed public bundle.",
+      "location": {
+        "path": "README.md",
+        "anchor": "Reproduce"
+      },
+      "readme_text": "`make eval-full` is CPU-only and model-free once local completion artifacts are present. It is the full-artifact check, not a clean-clone public check.",
+      "public_evidence": [
+        "results/public/provenance.json"
+      ],
+      "full_artifact_sources": [
+        "gitignored results/ raw CompletionSet JSON",
+        "gitignored results/ ScoreReport JSON",
+        "Modal Volume text2sql-runs adapters and provenance"
+      ],
+      "public_check": "make eval"
+    }
+  ]
+}
