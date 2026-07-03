@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: install fmt lint test test-integration check eval demo
+.PHONY: install fmt lint test test-integration check eval eval-full demo
 
 install:  ## Sync the CPU dev environment (data, env, verifier, eval — no GPU stack)
 	uv sync --extra dev
@@ -23,8 +23,11 @@ check: lint test  ## Project gate: lint + unit tests
 data:  ## Fetch + verify + extract the pinned Spider databases (HF mirror; see docs/internal/runbook.md)
 	uv run python -c "from llm_rlvr.data import ensure_spider_databases as e; print('Spider DBs at', e().database_root)"
 
-eval:  ## Re-score local result artifacts after pulling them into gitignored results/
-	@test -f results/baseline/reproduce.py || (echo "No local results/ reproduction script found. Pull or restore run artifacts first."; exit 1)
+eval:  ## Validate and render the tracked public result summary (CPU, model-free)
+	uv run python results/public/reproduce.py
+
+eval-full:  ## Re-score restored raw/local artifacts from gitignored results/
+	@test -f results/baseline/reproduce.py || (echo "No local results/ reproduction script found. Restore the external raw bundle under results/ first."; exit 1)
 	uv run python results/baseline/reproduce.py
 
 demo:  ## Run a tiny no-GPU verifier demo against a temporary SQLite database

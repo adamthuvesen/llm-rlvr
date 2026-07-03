@@ -1,8 +1,8 @@
 # llm-rlvr — agent instructions
 
 Text-to-SQL post-training project: SFT + single-turn GRPO worked; the later self-correction
-follow-up did not. Every claimed gain is backed by committed results, controls, multi-seed CIs,
-and disclosed caveats.
+follow-up did not. The public headline is backed by a tracked summary bundle, external raw
+artifacts, controls, multi-seed CIs, and disclosed caveats.
 
 Global tone, principles, and git etiquette live in the user's agent defaults; they are not
 duplicated here. This file is project-specific facts.
@@ -24,7 +24,8 @@ If a doc disagrees with code, fix the doc in the same change.
 ```bash
 make check        # the gate: ruff lint + format-check + unit tests — green before any commit
 make fmt          # auto-format + safe lint fixes
-make eval         # re-derive the committed numbers from results/ (CPU, model-free)
+make eval         # validate/render the tracked public summary (CPU, model-free)
+make eval-full    # re-score restored raw artifacts from gitignored results/ (external bundle)
 make data         # fetch + verify the pinned Spider DBs
 uv run pytest -m integration   # network/HF/model tests (deselected by default)
 ```
@@ -34,9 +35,10 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 
 ## Hard rules
 
-- **Never break artifact re-derivation**: any number in a doc or table must reproduce from a
-  committed artifact via `make eval`. New results land as CompletionSet JSON + score under
-  `results/` with full provenance.
+- **Never break public evidence**: `make eval` must pass from a clean checkout using
+  `results/public/`. Raw CompletionSet JSON, ScoreReport JSON, databases, and adapters stay
+  external under gitignored `results/` or the Modal Volume; restore them and run `make eval-full`
+  for full re-scoring.
 - **Never pool rollouts across seeds** — aggregate per-seed, then Student-t CI
   (`eval/aggregate.py`). Single-seed runs are point estimates; make no CI or significance claim.
 - **Keep `guard_trivial_empty=True`** in training rewards and trace filtering — it blocks the

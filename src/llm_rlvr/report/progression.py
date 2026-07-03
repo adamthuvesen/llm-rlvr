@@ -71,9 +71,9 @@ def render_progression(
     """Render the base → SFT → RL table for one benchmark, with the gain CIs and the caveat."""
     lines = [
         f"## {benchmark}  (execution accuracy)",
-        f"{'setting':<28}{'EX':>30}{'Δ vs SFT (95% CI)':>26}",
-        f"{'base  <think>':<28}{base_ex:>30.3f}{'':>26}",
-        f"{'SFT   <think>':<28}{sft_ex:>30.3f}{'':>26}",
+        f"{'setting':<28}  {'EX':>30}  {'Δ vs SFT (95% CI)':>26}",
+        f"{'base  <think>':<28}  {base_ex:>30.3f}  {'':>26}",
+        f"{'SFT   <think>':<28}  {sft_ex:>30.3f}  {'':>26}",
     ]
     for row in rl_rows:
         gain = (
@@ -82,7 +82,7 @@ def render_progression(
             if row.gain.ci_low is not None
             else f"{row.gain.mean:+.3f}  (n=1, point)"
         )
-        lines.append(f"{row.label:<28}{_fmt_ci(row.ex):>30}{gain:>26}")
+        lines.append(f"{row.label:<28}  {_fmt_ci(row.ex):>30}  {gain:>26}")
     if single_db:
         lines.append("")
         lines.append(f"_Caveat:_ {SINGLE_DB_CAVEAT}")

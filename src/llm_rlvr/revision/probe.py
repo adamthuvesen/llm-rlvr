@@ -103,7 +103,7 @@ def build_revision_prompts(
 ) -> tuple[tuple[RevisionPromptRow, ...], int]:
     """All wrong items + a seeded sample of right items, each with real execution feedback.
 
-    Returns (rows, n_skipped). Verdicts use the committed verifier defaults so the wrong/right
+    Returns (rows, n_skipped). Verdicts use the project verifier defaults so the wrong/right
     split re-derives the single-turn number; feedback uses the env's exact caps and
     formatter, so the probe shows the model what the training loop would.
     """

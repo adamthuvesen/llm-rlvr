@@ -10,7 +10,8 @@ followed by GRPO against an execution-verified SQL reward.
 ## Result
 
 Single-turn GRPO improves over the SFT checkpoint on both benchmarks. The raw completion and score
-artifacts are generated outside git; this README keeps the current summary.
+artifacts are generated outside git; `results/public/` keeps the compact tracked summary that
+validates this table.
 
 | Benchmark | Base | SFT | GRPO | Gain vs SFT | Evidence |
 | --- | ---: | ---: | ---: | ---: | --- |
@@ -55,14 +56,23 @@ execution_accuracy=0.5000 well_formed_rate=0.0000 (1/2; gold_errors=0)
 reasons={'match': 1, 'denotation_mismatch': 1}
 ```
 
-Re-score local artifacts after pulling them from the run volume:
+Validate the tracked public result summary:
 
 ```bash
-make data
 make eval
 ```
 
-`make eval` is CPU-only and model-free when local completion artifacts are present.
+`make eval` is CPU-only and model-free; it uses only committed files under `results/public/`.
+
+For a full raw re-score, restore the external result bundle under gitignored `results/`, fetch the
+pinned databases, then run:
+
+```bash
+make data
+make eval-full
+```
+
+`make eval-full` is CPU-only and model-free once local completion artifacts are present.
 
 GPU generation and training run through [modal_app.py](modal_app.py). Those jobs are intentionally
 outside the CPU quickstart.

@@ -32,5 +32,5 @@ Retained evidence includes:
 
 - `results/grpo-fr/*grpo-fr-pilot*.json`
 - `results/grpo-fr/*error-only*.json`
-- Forced-revision transcript JSONs needed by `make eval`
+- Forced-revision transcript JSONs needed by the external full-artifact re-score
 - Volume path `grpo-fr/grpo-fr-pilot/`

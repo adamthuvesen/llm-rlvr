@@ -4,8 +4,8 @@ Uses a greedy first attempt, runs its SQL in the read-only sandbox, appends dete
 reference-free feedback plus a revision instruction, then generates one greedy revision. The eval
 path renders the revision prompt with the chat template; training splices token ids directly.
 
-The revision is the final answer: it goes into a normal `CompletionSet` (existing scorer and
-`make eval` work unchanged), and the full episodes are persisted as a
+The revision is the final answer: it goes into a normal `CompletionSet` (the existing scorer and
+full-artifact re-score path work unchanged), and the full episodes are persisted as a
 `ForcedRevisionTranscriptSet` so fix/harm analysis re-derives on CPU.
 """
 
@@ -90,7 +90,7 @@ def replay_error_only_revision(
     The policy is: use the first attempt unless the reference-free execution feedback was an
     error; only error feedback consumes the already-recorded revision. This is model-free and
     deterministic, so it can turn the n=200 always-revise artifacts into a saved
-    CompletionSet for `make eval`.
+    CompletionSet for the full-artifact re-score path.
     """
     from llm_rlvr.eval.parsing import extract_sql
     from llm_rlvr.eval.verifier import GoldExecutionError, execution_match

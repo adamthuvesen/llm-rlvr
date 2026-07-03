@@ -2,7 +2,8 @@
 
 Core design: **the verifier that scores the baseline is the same code used as the RL training
 reward.** A bug in eval is a bug in training, and vice versa. Generated result files carry enough
-metadata to re-derive reported numbers from disk with no model in the loop.
+metadata to re-score external raw artifacts from disk with no model in the loop; the committed
+public bundle carries the compact headline summary.
 
 That verifier-as-reward idea is factored into a **task-agnostic harness** (`harness/`): a task plugs
 in by implementing two small protocols — `AnswerParser` (pull the answer out of a completion) and
@@ -58,14 +59,16 @@ lazily so the package installs and tests without the training stack.
 ```
 HF mirrors (pinned)         GPU (Modal A100-80GB)              CPU (local, model-free)
 HAL-9001/spider-databases → generate/sample/train on Volume → pull JSON → score → aggregate → report
-HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (local) → make eval
+HAL-9001/bird-dev           text2sql-runs:/runs/{data,sft,grpo}  results/ (external) → make eval-full
+                                                                  results/public/ → make eval
 ```
 
 - **CompletionSet** (`eval/completions.py`) is the boundary object: `generate` (the *only*
   model-loading step) writes one JSON per (model, dataset, decoding) cell; `score` reads it anywhere,
   deterministically, with no generation backend.
-- **Generated result files re-derive**: local files under `results/` must be reproducible via
-  `make eval` after pulling the matching run artifacts — no number in a doc without a source file.
+- **Evidence split**: `results/public/` is the tracked clean-checkout summary that `make eval`
+  validates. Raw CompletionSet/ScoreReport files stay external under gitignored `results/` and
+  re-score through `make eval-full` after pulling the matching run artifacts.
 - **Metadata chain**: every artifact embeds model+revision, dataset+revision, DB archive sha256,
   decoding/hyperparams, library versions, and git commit/dirty. The Modal image strips `.git`, so
   local entrypoints compute git state and pass it in (`git_kwargs()` in

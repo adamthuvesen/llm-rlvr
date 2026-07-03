@@ -97,7 +97,7 @@ with no SQL involved — copy it as your starting point.
    - **Seed-level CIs** — `eval/aggregate.py` works on per-seed numbers, so it is reusable as-is.
    - **Offline scoring** — the `CompletionSet` artifact + `score_completion_set` are SQL-shaped
      (they embed `data.models.Example` with `gold_sql`/`db_id` and call the SQL verifier). A new
-     task scores with `score_answer` directly, or grows its own artifact; the local re-derivation
+     task scores with `score_answer` directly, or grows its own artifact; the full raw re-score
      path stays SQL. See below.
 
 ## Plugging in your own model

@@ -12,7 +12,8 @@ Supported path:
 
 - Evaluation foundation: pinned data loaders, execution sandbox, verifier, and baseline runs.
 - Training path: SFT cold-start, then single-turn GRPO.
-- Reporting path: local `CompletionSet` artifacts re-scored by `make eval`.
+- Reporting path: tracked public summary checked by `make eval`; external raw `CompletionSet`
+  artifacts re-scored by `make eval-full` after restoring the local bundle.
 
 Self-correction utilities remain in the tree for analysis, but they are not the public training path
 or headline result.

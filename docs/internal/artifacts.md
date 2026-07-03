@@ -2,8 +2,10 @@
 
 Every external artifact this project depends on, pinned. Code pins live in
 [`src/llm_rlvr/data/artifacts.py`](../../src/llm_rlvr/data/artifacts.py); this file is the
-human-readable mirror. The main result is reproducible from local `CompletionSet` artifacts after
-pulling them from the run volume with `make data && make eval` (CPU only, no model).
+human-readable mirror. The public headline is checked from the tracked
+[`results/public/`](../../results/public/) bundle with `make eval` (CPU only, no model). Full raw
+re-scoring is external/local: restore the `CompletionSet` and `ScoreReport` bundle under
+gitignored `results/`, then run `make data && make eval-full`.
 
 ## Datasets
 
@@ -37,11 +39,25 @@ The verifier is parity-tested against upstream (`tests/test_verifier_parity.py`)
 modifications to vendored code are documented in
 [`src/llm_rlvr/third_party/test_suite_sql_eval/ATTRIBUTION.md`](../../src/llm_rlvr/third_party/test_suite_sql_eval/ATTRIBUTION.md).
 
+## Tracked public evidence
+
+The committed public bundle is intentionally compact:
+
+| File | Role |
+| --- | --- |
+| `results/public/headline_summary.json` | Counts for the README headline table and seed-level CI check |
+| `results/public/provenance.json` | States the raw-artifact policy and public/full reproduction modes |
+| `results/public/reproduce.py` | Validates the JSON, checks the README headline rows, and renders the progression tables |
+
+`make eval` runs this public check. It does not need raw completions, databases, Modal, GPU, or
+network access.
+
 ## Generated evaluation artifacts
 
-The base-model baselines (Coder-3B-Instruct, greedy, **full dev**), each a generated
-`CompletionSet` + `ScoreReport`. After local artifacts are pulled into gitignored `results/`,
-`make eval` re-derives the whole table on CPU via `results/baseline/reproduce.py`:
+Except for `results/public/`, paths under `results/` below are external/local artifacts, not
+committed files. The base-model baselines (Coder-3B-Instruct, greedy, **full dev**), each a
+generated `CompletionSet` + `ScoreReport`, re-score in full-artifact mode via `make eval-full` after
+the raw bundle is restored under gitignored `results/`:
 
 | File | Setting | EX |
 | --- | --- | --- |
@@ -60,8 +76,8 @@ generated `ScoreReport`s.
 
 ## Stage 1: SFT cold-start (`results/sft/`, adapter `sft-r32`)
 
-Same pipeline with `--adapter sft/sft-r32`; `make eval` re-derives these rows when local artifacts
-are present. Success bar
+Same pipeline with `--adapter sft/sft-r32`; `make eval-full` re-scores these rows when local
+artifacts are present. Success bar
 (D6): well-formed rate near-100% **and** no EX regression below the base `<think>` anchor — met.
 
 | File | Setting | EX | Well-formed |
@@ -77,9 +93,9 @@ bare SQL, no `<think>` block.
 
 ## Stage 2: single-turn GRPO (`results/grpo/` + `results/llama/`)
 
-Same eval pipeline with the GRPO adapters; `make eval` re-derives every row AND renders the four
-progression tables (seed-level 95% CIs for the 3-seed main result; single-seed rows labeled point
-estimates; the single-DB caveat emitted into each table). All EX is single-DB execution-match
+Same eval pipeline with the GRPO adapters; `make eval-full` re-scores every row and renders the full
+progression tables when the raw bundle is present. The tracked public bundle renders the headline
+Qwen progression from `results/public/headline_summary.json`. All EX is single-DB execution-match
 with the documented ~6.5% false-positive caveat.
 
 **Decoding disclosure:** all evals are greedy (temperature 0.0; recorded in each provenance), but

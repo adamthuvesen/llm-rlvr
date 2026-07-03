@@ -21,7 +21,9 @@ __pycache__/
 /lightning_logs/
 /mlruns/
 /.modal/
-/results/
+/results/*
+!/results/public/
+!/results/public/**
 /hf-cache/
 /huggingface/
 /text2sql-hf-cache/

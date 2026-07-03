@@ -1,7 +1,8 @@
 # Runbook: Text-to-SQL RLVR
 
-This runbook covers setup, local scoring, local-result reproduction, and the supported Modal
-entrypoints. Exact pins and result paths live in [artifacts.md](artifacts.md).
+This runbook covers setup, local scoring, public-summary reproduction, full raw-artifact
+re-scoring, and the supported Modal entrypoints. Exact pins and result paths live in
+[artifacts.md](artifacts.md).
 
 GPU generation and training can spend money. Get explicit approval for any paid run, state the rough
 cost, and start with a small `--limit` before launching a full job. Long Modal runs use
@@ -143,14 +144,23 @@ uv run llm-rlvr score --completions results/grpo/bird-dev-zs-grpo-s0.json \
 
 ## Reproduce Reported Numbers
 
-Run this before claiming a pinned number or after changing local results, the scorer, or reporting code:
+Run this before claiming the public headline or after changing reporting code:
 
 ```bash
-make data && make eval
+make eval
 ```
 
-`make eval` is CPU-only and model-free after the matching `CompletionSet` artifacts have been pulled
-into gitignored `results/`. Wall time is dominated by BIRD execution and depends on available cores.
+`make eval` is CPU-only and model-free; it validates the tracked bundle under `results/public/` and
+checks that the README headline table matches it.
+
+For full raw re-scoring, restore the external result bundle under gitignored `results/`, then run:
+
+```bash
+make data && make eval-full
+```
+
+`make eval-full` is CPU-only and model-free after the matching `CompletionSet` artifacts have been
+restored. Wall time is dominated by BIRD execution and depends on available cores.
 
 ## Verify The Verifier
 

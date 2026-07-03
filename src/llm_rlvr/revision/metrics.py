@@ -1,8 +1,8 @@
 """Forced-revision agent metrics — fix/harm decomposition of one revision pass (CPU).
 
-Re-derivable from saved eval artifacts: the CompletionSet supplies gold (and the final
-verdicts `make eval` already reproduces); the transcripts supply the attempt and feedback. Each
-episode is classified by (attempt verdict, final verdict):
+Re-derivable from saved eval artifacts: the CompletionSet supplies gold (and the final verdicts the
+full-artifact re-score reproduces); the transcripts supply the attempt and feedback. Each episode is
+classified by (attempt verdict, final verdict):
 
     fixed   = wrong  → right     (the self-correction the change exists to train)
     harmed  = right  → wrong     (the SCoRe harm channel)
