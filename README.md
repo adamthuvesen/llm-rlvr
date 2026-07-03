@@ -1,6 +1,6 @@
 # llm-rlvr
 
-A compact **RLVR harness** with a text-to-SQL reference task.
+A lightweight **RLVR library** for LLM post-training with text-to-SQL as the reference task.
 
 The reusable part is task-agnostic: implement an `AnswerParser` and a `Verifier`, then reuse the
 same reward, SFT/GRPO training path, and seed-level evaluation discipline. The reference task proves
