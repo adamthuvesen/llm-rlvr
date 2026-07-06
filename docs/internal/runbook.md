@@ -8,7 +8,7 @@ GPU generation and training can spend money. Get explicit approval for any paid 
 cost, and start with a small `--limit` before launching a full job. Long Modal runs use
 `modal run --detach ... --spawn`; a connected local run can die with the laptop session.
 
-## One-Time Setup
+## Setup
 
 ```bash
 make install            # CPU env: data, sandbox, verifier, eval
@@ -29,7 +29,7 @@ For local model generation, install the optional generation stack:
 uv sync --extra generate   # transformers + torch; add --extra gpu on a GPU host
 ```
 
-## Local Generation And Scoring
+## Local Generation and Scoring
 
 `generate` is the only model-loading step. It writes a `CompletionSet` with provenance. `score`
 reads that artifact with no model.
@@ -162,7 +162,7 @@ make data && make eval-full
 `make eval-full` is CPU-only and model-free after the matching `CompletionSet` artifacts have been
 restored. Wall time is dominated by BIRD execution and depends on available cores.
 
-## Verify The Verifier
+## Check the Verifier
 
 The execution-match verifier is parity-tested against the upstream Test-Suite SQL Eval path:
 

@@ -18,7 +18,7 @@ No findings.
 
 No findings.
 
-## Areas Reviewed & Found Clean
+## Areas Reviewed
 
 - Rename coverage: `stage3_provenance.py` was renamed to `self_correction_provenance.py`, and the shared base class/type aliases were renamed consistently. `MultiTurnProvenance` and `ForcedRevisionProvenance` now inherit from `SelfCorrectionGrpoProvenance`; no tracked stale `stage3_provenance` or `Stage3GrpoProvenance` references remain.
 - Provenance behavior: the shared fields (`grpo`, `environment`, `multiturn_reward`, `rollout`, `prompt_style`) stayed intact, and the narrower rollout literals in the multi-turn and forced-revision subclasses still preserve their existing defaults.
@@ -31,12 +31,12 @@ No findings.
 
 ## Checks Run
 
-- `uv sync --extra dev` — passed; installed/synced the declared dev environment without downloads.
-- `uv run python -m pytest tests/test_forced_revision.py tests/test_multiturn.py tests/test_multiturn_diagnostics.py tests/test_sft.py -q` — passed: 69 passed, 1 skipped.
-- `make check` — passed outside the sandbox after uv cache access was allowed: ruff check passed, format check passed, 241 passed, 1 skipped, 3 deselected.
-- `uv run llm-rlvr --help` — passed; help output shows the updated self-correction analysis wording.
-- `uv run python -c "... import SelfCorrectionGrpoProvenance ..."` — passed; both provenance subclasses resolve through the renamed base class.
-- `git diff --check main..HEAD` — passed.
+- `uv sync --extra dev`: passed; installed/synced the declared dev environment without downloads.
+- `uv run python -m pytest tests/test_forced_revision.py tests/test_multiturn.py tests/test_multiturn_diagnostics.py tests/test_sft.py -q`: passed; 69 passed, 1 skipped.
+- `make check`: passed outside the sandbox after uv cache access was allowed; ruff check passed, format check passed, 241 passed, 1 skipped, 3 deselected.
+- `uv run llm-rlvr --help`: passed; help output shows the updated self-correction analysis wording.
+- `uv run python -c "... import SelfCorrectionGrpoProvenance ..."`: passed; both provenance subclasses resolve through the renamed base class.
+- `git diff --check main..HEAD`: passed.
 
 ## Summary
 

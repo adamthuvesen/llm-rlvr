@@ -1,4 +1,4 @@
-# llm-rlvr — agent instructions
+# llm-rlvr - agent instructions
 
 Text-to-SQL post-training project: SFT + single-turn GRPO worked; the later self-correction
 follow-up did not. The public headline is backed by a tracked summary bundle, external raw
@@ -22,7 +22,7 @@ If a doc disagrees with code, fix the doc in the same change.
 ## Commands
 
 ```bash
-make check        # the gate: ruff lint + format-check + unit tests — green before any commit
+make check        # the gate: ruff lint + format-check + unit tests; green before any commit
 make fmt          # auto-format + safe lint fixes
 make eval         # validate/render the tracked public summary (CPU, model-free)
 make eval-full    # re-score restored raw artifacts from gitignored results/ (external bundle)
@@ -31,7 +31,7 @@ uv run pytest -m integration   # network/HF/model tests (deselected by default)
 ```
 
 Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work runs **only** via
-`modal_app.py` entrypoints — never locally.
+`modal_app.py` entrypoints. Never run GPU work locally.
 
 ## Hard rules
 
@@ -39,9 +39,9 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
   `results/public/`. Raw CompletionSet JSON, ScoreReport JSON, databases, and adapters stay
   external under gitignored `results/` or the Modal Volume; restore them and run `make eval-full`
   for full re-scoring.
-- **Never pool rollouts across seeds** — aggregate per-seed, then Student-t CI
+- **Never pool rollouts across seeds**: aggregate per-seed, then Student-t CI
   (`eval/aggregate.py`). Single-seed runs are point estimates; make no CI or significance claim.
-- **Keep `guard_trivial_empty=True`** in training rewards and trace filtering — it blocks the
+- **Keep `guard_trivial_empty=True`** in training rewards and trace filtering. It blocks the
   always-empty-result reward hack.
 - **Datasets are pinned + fetched, never committed** (HF mirrors under `HAL-9001/`; checksums in
   `data/artifacts.py`). Don't add data files to git.
@@ -58,7 +58,7 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 - Pure, CPU-testable builders + thin GPU drivers (see architecture doc). Unit tests must not need
   a GPU or network; mark anything that does `@pytest.mark.integration`.
 - Heavy/optional deps (`vllm`, `trl`, `peft`, `torch`) import lazily inside the functions that
-  use them — the CPU eval layer must install and run without the GPU stack.
+  use them. The CPU eval layer must install and run without the GPU stack.
 
 ## Current state
 
