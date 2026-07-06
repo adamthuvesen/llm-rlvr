@@ -1,11 +1,11 @@
 # llm-rlvr
 
-A lightweight **RLVR library** for LLM post-training with text-to-SQL as the reference task.
+A small **RLVR library** for LLM post-training, with text-to-SQL as the reference task.
 
 The reusable part is task-agnostic: implement an `AnswerParser` and a `Verifier`, then reuse the
-same reward, SFT/GRPO training path, and seed-level evaluation discipline. The reference task proves
-that path on Spider and BIRD by training `Qwen/Qwen2.5-Coder-3B-Instruct` with a LoRA SFT cold-start
-followed by GRPO against an execution-verified SQL reward.
+same reward, SFT/GRPO training path, and seed-level evaluation rules. The reference task tests that
+path on Spider and BIRD by training `Qwen/Qwen2.5-Coder-3B-Instruct` with a LoRA SFT cold-start,
+then GRPO against an execution-verified SQL reward.
 
 ## Result
 
@@ -82,8 +82,7 @@ are outside the public quickstart.
 
 ## Related Repositories
 
-These repositories are separate codebases connected by model artifacts and
-measurement questions:
+These repositories are separate codebases connected by model artifacts and measurement questions:
 
 - [`esme-pretrain`](https://github.com/adamthuvesen/esme-pretrain): trains
   `Esme-214M-Base` from scratch.

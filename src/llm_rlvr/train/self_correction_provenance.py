@@ -1,4 +1,4 @@
-"""Shared provenance contract for self-correction GRPO runs."""
+"""Shared provenance contract for self-correction GRPO analysis runs."""
 
 from __future__ import annotations
 
@@ -9,14 +9,14 @@ from llm_rlvr.env.text2sql_env import FeedbackConfig
 from llm_rlvr.rewards.multiturn import MultiTurnRewardConfig
 from llm_rlvr.train.grpo import GrpoProvenance
 
-Stage3Rollout = Literal["multiturn", "forced_revision"]
+SelfCorrectionRollout = Literal["multiturn", "forced_revision"]
 
 
-class Stage3GrpoProvenance(Frozen):
+class SelfCorrectionGrpoProvenance(Frozen):
     """Common provenance for GRPO runs that add an environment and trajectory reward."""
 
     grpo: GrpoProvenance
     environment: FeedbackConfig
     multiturn_reward: MultiTurnRewardConfig
-    rollout: Stage3Rollout
+    rollout: SelfCorrectionRollout
     prompt_style: str = "cot"

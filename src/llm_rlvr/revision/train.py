@@ -29,12 +29,12 @@ from llm_rlvr.train.grpo import (
     load_trainable_policy,
     split_train_dev,
 )
-from llm_rlvr.train.stage3_provenance import Stage3GrpoProvenance
+from llm_rlvr.train.self_correction_provenance import SelfCorrectionGrpoProvenance
 
 PROVENANCE_FILENAME = "provenance.json"
 
 
-class ForcedRevisionProvenance(Stage3GrpoProvenance):
+class ForcedRevisionProvenance(SelfCorrectionGrpoProvenance):
     rollout: Literal["forced_revision"] = "forced_revision"
     prompt_style: str = "cot"
     revise_instruction: str = REVISE_INSTRUCTION

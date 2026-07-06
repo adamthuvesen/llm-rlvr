@@ -193,7 +193,7 @@ def sample_traces(
     base_model: str = MODEL,
     model_revision: str | None = None,
 ) -> str:
-    """Sample N `<think>` completions per Spider-train question; write a CandidateSet (D2/D4).
+    """Sample N `<think>` completions per Spider-train question; write a CandidateSet.
 
     `base_model` defaults to Qwen; set the Llama base for the cross-family control so the SFT
     cold-start traces are distilled from the same family that GRPO will then train (matched recipe).
@@ -484,7 +484,7 @@ def forced_revision_train(
         commit=commit,
         dirty=dirty,
     )
-    commit_volume(runs, f"forced-revision adapter + provenance + D8 series -> {out}")
+    commit_volume(runs, f"forced-revision adapter + provenance + diagnostics -> {out}")
     return str(out)
 
 

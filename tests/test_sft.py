@@ -30,7 +30,7 @@ def test_lora_targets_all_linear_with_decided_rank() -> None:
 
 def test_sft_config_enforces_completion_only_loss() -> None:
     kwargs = sft_config_kwargs(SftHyperparams(), "out")
-    # The D3 contract: loss only over the assistant completion, prompt masked, no packing.
+    # Loss only over the assistant completion; prompt masked, no packing.
     assert kwargs["completion_only_loss"] is True
     assert kwargs["packing"] is False
     assert kwargs["bf16"] is True

@@ -291,7 +291,7 @@ def run_multiturn_smoke(
     out = write_pydantic_json(report, Path(output_dir) / SMOKE_REPORT_FILENAME)
     if failures:
         raise RuntimeError(
-            "multi-turn smoke FAILED — paid runs are blocked (design-D5 fallback ladder): "
+            "multi-turn smoke FAILED — paid runs are blocked: "
             + "; ".join(failures)
             + f" (report: {out})"
         )

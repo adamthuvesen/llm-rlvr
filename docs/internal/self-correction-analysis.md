@@ -9,9 +9,9 @@ Multi-turn tool-use helpers remain in the tree for analysis: environment tool lo
 reward and diagnostics, tool-use dataset builder, and multi-turn inference evaluation. The retained
 artifacts live under `results/grpo-mt/`.
 
-The useful lesson: this 3B setup did not adopt the `run_sql` protocol under the tested prompting and
-checkpoint variants. Future work should treat tool-use adoption as a separate capability target,
-preferably with a larger base model or a stronger supervised tool-use stage.
+This 3B setup did not adopt the `run_sql` protocol under the tested prompting and checkpoint
+variants. Future work should treat tool-use adoption as a separate capability target, preferably
+with a larger base model or a stronger supervised tool-use stage.
 
 Retained evidence includes:
 
@@ -24,9 +24,8 @@ Forced-revision helpers remain in the tree for analysis: revision rollout, feedb
 forced-revision evaluation, `select-bestofn`, and `fr-metrics`. The retained artifacts live under
 `results/grpo-fr/`.
 
-The useful lesson: error-triggered second generations can be useful as an inference policy, but the
-retained training evidence is not the shipped result. Treat those numbers as analysis artifacts, not
-as another training claim.
+Error-triggered second generations can be useful as an inference policy. The retained training
+evidence is analysis material, not another training claim.
 
 Retained evidence includes:
 

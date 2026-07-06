@@ -12,10 +12,10 @@ from typing import Literal
 from llm_rlvr.env.text2sql_env import FeedbackConfig
 from llm_rlvr.rewards.multiturn import MultiTurnRewardConfig
 from llm_rlvr.train.grpo import GrpoHyperparams, GrpoProvenance, build_grpo_provenance
-from llm_rlvr.train.stage3_provenance import Stage3GrpoProvenance
+from llm_rlvr.train.self_correction_provenance import SelfCorrectionGrpoProvenance
 
 
-class MultiTurnProvenance(Stage3GrpoProvenance):
+class MultiTurnProvenance(SelfCorrectionGrpoProvenance):
     """Everything needed to reproduce a multi-turn GRPO checkpoint."""
 
     grpo: GrpoProvenance

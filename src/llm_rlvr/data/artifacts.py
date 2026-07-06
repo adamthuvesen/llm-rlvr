@@ -1,15 +1,14 @@
 """Pinned external data artifacts (revisions + checksums) for reproducibility.
 
-Two Spider artifacts are pinned separately (design R1/D2):
-  1. the HF parquet revision — question/SQL pairs only (verified present);
-  2. the SQLite database archive — NOT shipped by `load_dataset`, fetched + checksum-gated.
+Spider's question/SQL pairs and SQLite databases are separate artifacts. The databases are not
+shipped by `load_dataset`; they are fetched separately and checksum-gated.
 """
 
 from __future__ import annotations
 
 from llm_rlvr._base import Frozen
 
-# Resolved 2026-06 from the HF API; parquet train+validation, no databases (confirms D2).
+# Resolved 2026-06 from the HF API; parquet train+validation, no databases.
 SPIDER_HF_REPO = "xlangai/spider"
 SPIDER_HF_REVISION = "0c350918f3f29ec754f1181c65cdce76cd6c133c"
 
@@ -25,10 +24,10 @@ class ArchivePin(Frozen):
     sha256: str  # computed against the canonical Yale bytes; mismatch fails loudly
 
 
-# Self-hosted (design R1): no third-party mirror ships the Spider SQLite databases, so we re-host
-# the canonical Yale `spider_data.zip` (CC-BY-SA-4.0) on our own HF dataset repo, pinned by the
-# immutable commit SHA. The SHA256 is the hard trust anchor (computed from the Yale download,
-# 2026-06). Yale Drive id 1403EGqzIDoHMdQF4c9Bkyl7dZLZ5Wt6J is the documented provenance origin.
+# Self-hosted: no third-party mirror ships the Spider SQLite databases, so we re-host the canonical
+# Yale `spider_data.zip` (CC-BY-SA-4.0) on our own HF dataset repo, pinned by the immutable commit
+# SHA. The SHA256 is the hard trust anchor (computed from the Yale download, 2026-06). Yale Drive
+# id 1403EGqzIDoHMdQF4c9Bkyl7dZLZ5Wt6J is the documented provenance origin.
 SPIDER_DB_ARCHIVE = ArchivePin(
     repo="HAL-9001/spider-databases",
     filename="spider_data.zip",

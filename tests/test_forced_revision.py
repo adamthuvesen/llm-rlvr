@@ -442,7 +442,7 @@ def test_forced_revision_provenance_records_rollout_and_instruction() -> None:
     assert provenance.grpo.warm_start_adapter == "grpo/grpo-s0"
 
 
-# --- best-of-N selection (the D6 control) ---
+# --- best-of-N selection ---
 
 
 def _completion_set(provenance, texts_and_sqls: list[tuple[str, str | None]]) -> CompletionSet:
