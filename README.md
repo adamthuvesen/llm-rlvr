@@ -1,11 +1,14 @@
 # llm-rlvr
 
-A small **RLVR library** for LLM post-training, with text-to-SQL as the reference task.
+An RLVR harness for text-to-SQL. It trains `Qwen/Qwen2.5-Coder-3B-Instruct`
+to write SQL by running the query and rewarding it when the result matches the reference answer,
+so the reward comes from running the query rather than matching strings.
 
-The reusable part is task-agnostic: implement an `AnswerParser` and a `Verifier`, then reuse the
-same reward, SFT/GRPO training path, and seed-level evaluation rules. The reference task tests that
-path on Spider and BIRD by training `Qwen/Qwen2.5-Coder-3B-Instruct` with a LoRA SFT cold-start,
-then GRPO against an execution-verified SQL reward.
+The training loop itself is [TRL](https://github.com/huggingface/trl). The code in this repo is
+the layer that makes a task verifiable and turns it into a reward: a read-only SQLite sandbox, an
+execution-match verifier, the reward shaping, and a multi-turn trajectory reward. Text-to-SQL is
+the reference task; the harness is task-agnostic, so a new task means writing an `AnswerParser` and
+a `Verifier` and reusing the same reward and training path.
 
 ## Result
 
@@ -26,11 +29,11 @@ near-binary reward ablation and a Llama-3.2-3B cross-family run.
 2. Ask the model for SQL.
 3. Execute predicted and reference SQL in a read-only SQLite sandbox.
 4. Score denotation match with the same verifier used as the training reward.
-5. Train LoRA adapters with SFT, then GRPO.
+5. Hand that reward to TRL to train LoRA adapters, SFT first, then GRPO.
 6. Re-score saved completions on CPU without loading a model.
 
-The model never sees hidden labels during reward computation. Datasets are pinned and fetched; database
-files are not committed. The module map and design notes are in
+The model never sees hidden labels during reward computation. Datasets are pinned and fetched;
+database files are not committed. The module map and design notes are in
 [docs/architecture.md](docs/architecture.md).
 
 ## Reproduce
@@ -65,8 +68,8 @@ make eval
 README headline rows are derived from `results/public/headline_summary.json`, and reads the
 reproduction policy in `results/public/provenance.json`.
 
-The public reproduction path covers the CPU checks and tracked evidence bundle. Full training reruns
-are outside the public quickstart.
+The public reproduction path covers the CPU checks and tracked evidence bundle. Training reruns need
+the GPU extras (`trl`, `peft`, `accelerate`, `vllm`) and are outside the public quickstart.
 
 ## Caveats
 
@@ -90,7 +93,7 @@ These repositories are separate codebases connected by model artifacts and measu
   the base checkpoint with SFT, DPO, and verifier-backed RLVR.
 - [`llm-infer`](https://github.com/adamthuvesen/llm-infer): loads, serves, and
   benchmarks exported Esme checkpoints.
-- [`llm-rlvr`](https://github.com/adamthuvesen/llm-rlvr): provides a reusable
+- [`llm-rlvr`](https://github.com/adamthuvesen/llm-rlvr): this repo, an
   RLVR harness with text-to-SQL as the reference task.
 - [`grpo-decomp`](https://github.com/adamthuvesen/grpo-decomp): measures where
   GRPO gains come from, separating reliability from new capability.
