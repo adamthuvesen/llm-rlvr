@@ -40,10 +40,10 @@ def main(argv: list[str] | None = None) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="llm-rlvr",
-        description="Text-to-SQL eval and Stage-3 support utilities.",
+        description="Text-to-SQL eval and self-correction analysis utilities.",
         epilog=(
-            "Core commands (Stages 0-2): generate, score, build-traces\n"
-            "Stage-3 support: build-tooluse, select-bestofn, fr-metrics, fr-error-only-replay"
+            "Core commands: generate, score, build-traces\n"
+            "Analysis utilities: build-tooluse, select-bestofn, fr-metrics, fr-error-only-replay"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -109,7 +109,7 @@ def _add_build_traces_parser(sub: argparse._SubParsersAction) -> None:
 def _add_build_tooluse_parser(sub: argparse._SubParsersAction) -> None:
     tooluse = sub.add_parser(
         "build-tooluse",
-        help="[stage-3] build the tool-use SFT dataset (CPU; executes in the sandbox)",
+        help="build the tool-use SFT dataset (CPU; executes in the sandbox)",
     )
     tooluse.add_argument("--tables-json", required=True, help="Spider tables.json for schemas")
     tooluse.add_argument("--db-root", required=True, help="extracted Spider database/ directory")
@@ -126,7 +126,7 @@ def _add_build_tooluse_parser(sub: argparse._SubParsersAction) -> None:
 def _add_select_bestofn_parser(sub: argparse._SubParsersAction) -> None:
     bestofn = sub.add_parser(
         "select-bestofn",
-        help="[stage-3] gold-free best-of-N selection over sampled CompletionSets (CPU)",
+        help="gold-free best-of-N selection over sampled CompletionSets (CPU)",
     )
     bestofn.add_argument(
         "--completions", required=True, nargs="+", help="N aligned sampled CompletionSet paths"
@@ -140,7 +140,7 @@ def _add_select_bestofn_parser(sub: argparse._SubParsersAction) -> None:
 def _add_fr_metrics_parser(sub: argparse._SubParsersAction) -> None:
     fr_metrics = sub.add_parser(
         "fr-metrics",
-        help="[stage-3] fix/harm decomposition of a forced-revision eval (CPU)",
+        help="fix/harm decomposition of a forced-revision eval (CPU)",
     )
     fr_metrics.add_argument("--completions", required=True, help="FR CompletionSet json path")
     fr_metrics.add_argument("--transcripts", required=True, help="FR transcripts json path")
@@ -152,7 +152,7 @@ def _add_fr_metrics_parser(sub: argparse._SubParsersAction) -> None:
 def _add_fr_error_only_replay_parser(sub: argparse._SubParsersAction) -> None:
     fr_error_only = sub.add_parser(
         "fr-error-only-replay",
-        help="[stage-3] replay forced-revision eval with second generation on errors only",
+        help="replay forced-revision eval with second generation on errors only",
     )
     fr_error_only.add_argument("--completions", required=True, help="FR CompletionSet json path")
     fr_error_only.add_argument("--transcripts", required=True, help="FR transcripts json path")

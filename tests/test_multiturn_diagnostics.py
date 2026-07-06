@@ -155,7 +155,7 @@ def test_is_ratio_out_of_band_or_never_logged_fails() -> None:
     assert not check_is_ratio([{"loss": 0.1}]).in_band  # silence is failure, not a pass
 
 
-# --- the D5 verdict ---
+# --- smoke validation verdict ---
 
 
 def _passing_mask() -> dict[str, object]:
@@ -214,7 +214,7 @@ def test_smoke_failures_name_every_broken_assertion() -> None:
     assert len(failures) == 6  # every assertion failed, every one is named
 
 
-# --- the multi-turn prompt style (attempt-1 smoke: no affordance => zero tool calls) ---
+# --- the multi-turn prompt style ---
 
 
 def test_mt_prompt_style_offers_the_tool_and_keeps_the_final_format() -> None:

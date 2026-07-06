@@ -69,7 +69,7 @@ def sft_config_kwargs(hyperparams: SftHyperparams, output_dir: str | Path) -> di
         "per_device_train_batch_size": hyperparams.per_device_batch_size,
         "gradient_accumulation_steps": hyperparams.gradient_accumulation_steps,
         "seed": hyperparams.seed,
-        # Per-epoch adapters so the dev-EX checkpoint selection (D3) has candidates to score.
+        # Per-epoch adapters so dev-EX checkpoint selection has candidates to score.
         "save_strategy": "epoch",
         "logging_steps": 10,
         "report_to": [],

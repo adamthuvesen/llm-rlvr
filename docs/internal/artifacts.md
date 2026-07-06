@@ -16,10 +16,8 @@ gitignored `results/`, then run `make data && make eval-full`.
 | Spider DB provenance origin | Yale (canonical) | Google Drive id `1403EGqzIDoHMdQF4c9Bkyl7dZLZ5Wt6J` | re-hosted under CC-BY-SA-4.0 |
 | BIRD-dev bundle (examples + schemas + databases) | HF `HAL-9001/bird-dev` → `dev.zip` | commit `837584317bf7e3d86a3f6d257bd5553b7e03e171` | SHA256 `cdd6d19faeb45a23970b98d3ef6c40a87987c95459c2cf12076897a60cf5a630` |
 | BIRD-dev provenance origin | bird-bench.github.io (2024-06-27 release) | `dev.zip` | re-hosted under **CC-BY-NC-4.0** (non-commercial) |
-| Distilled test-suite DBs (not used by current result) | Google Drive id `1mkCx2GOFIqNesD4y8TDAO1yX1QZORP5w` | not pinned | — |
-
 `load_dataset("xlangai/spider")` ships only the parquet; the SQLite databases are the separate,
-checksummed artifact above (design D2/R1). BIRD's `dev.zip` is one self-hosted bundle.
+checksummed artifact above. BIRD's `dev.zip` is one self-hosted bundle.
 
 ## Code / models
 
@@ -83,8 +81,8 @@ generated `ScoreReport`s.
 ## Stage 1: SFT cold-start (`results/sft/`, adapter `sft-r32`)
 
 Same pipeline with `--adapter sft/sft-r32`; `make eval-full` re-scores these rows when local
-artifacts are present. Success bar
-(D6): well-formed rate near-100% **and** no EX regression below the base `<think>` anchor — met.
+artifacts are present. The success bar was well-formed rate near-100% **and** no EX regression
+below the base `<think>` anchor — met.
 
 | File | Setting | EX | Well-formed |
 | --- | --- | --- | --- |

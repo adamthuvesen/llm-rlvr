@@ -24,7 +24,7 @@ revision/      feedback.py · rollout.py · train.py · smoke.py · diagnostics.
                metrics.py · probe.py · episode.py — forced-revision analysis utilities
 train/         traces.py (STaR sampling + execution filter) · sft.py (LoRA SFT) · grpo.py (GRPO) ·
                multiturn.py · diagnostics.py · tooluse.py · multiturn_provenance.py ·
-               stage3_provenance.py · policy.py · lora.py · grpo_smoke.py
+               self_correction_provenance.py · policy.py · lora.py · grpo_smoke.py
 rewards/       multiturn.py — trajectory credit + improvement-delta bonus over the SQL single-turn
                reward (self-correction analysis only)
 tasks/         sql.py — the text-to-SQL Task: SQL parser + verifier + execution reward (shaped /
