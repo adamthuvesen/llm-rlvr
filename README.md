@@ -1,5 +1,7 @@
 # llm-rlvr
 
+![License](https://img.shields.io/github/license/adamthuvesen/llm-rlvr) ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+
 An RLVR harness for text-to-SQL. It trains `Qwen/Qwen2.5-Coder-3B-Instruct`
 to write SQL by running the query and rewarding it when the result matches the reference answer,
 so the reward comes from running the query rather than matching strings.
