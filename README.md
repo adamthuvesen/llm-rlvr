@@ -100,6 +100,9 @@ These repositories are separate codebases connected by model artifacts and measu
 - [`grpo-decomp`](https://github.com/adamthuvesen/grpo-decomp): measures where
   GRPO gains come from, separating reliability from new capability.
 
+The [full-lifecycle retrospective](https://github.com/adamthuvesen/esme-pretrain/blob/main/docs/retrospective.md)
+walks the whole Esme chain, with every claim linked to a committed artifact.
+
 ## Related Work
 
 This is the build-and-train companion to
