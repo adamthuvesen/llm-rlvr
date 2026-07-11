@@ -17,9 +17,9 @@ The split:
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from llm_rlvr.harness.answer import AnswerParser
 from llm_rlvr.harness.reward import RewardConfig
@@ -30,7 +30,7 @@ from llm_rlvr.harness.verifier import Verifier
 RewardFn = Callable[..., list[float]]
 
 # Chat messages, as consumed by a tokenizer's chat template.
-Messages = list[dict[str, object]]
+Messages = list[dict[str, str]]
 
 
 @runtime_checkable
@@ -50,14 +50,12 @@ class Task(Protocol):
         """The GRPO training reward closure (resolves per-example context under `context_root`)."""
         ...
 
-    def build_prompts(
-        self, examples: Sequence[object], resources: Mapping[str, object], **kwargs: object
-    ) -> list[Messages]:
+    def build_prompts(self, examples: Any, resources: Any, **kwargs: object) -> list[Messages]:
         """Render chat prompts for `examples`."""
         ...
 
     def build_grpo_rows(
-        self, examples: Sequence[object], resources: Mapping[str, object], **kwargs: object
+        self, examples: Any, resources: Any, **kwargs: object
     ) -> list[dict[str, object]]:
         """One GRPO row per example: `prompt` plus the `reference` + `context` for the reward."""
         ...

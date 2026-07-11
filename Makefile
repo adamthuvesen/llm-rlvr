@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: install fmt lint test test-integration check eval eval-full demo
+.PHONY: install fmt lint typecheck test test-integration check eval eval-full demo
 
 install:  ## Sync the CPU dev environment (data, env, verifier, eval — no GPU stack)
 	uv sync --extra dev
@@ -12,13 +12,16 @@ lint:  ## Lint and format-check (no changes)
 	uv run ruff check .
 	uv run ruff format --check .
 
+typecheck:  ## Check static types
+	uv run mypy src/llm_rlvr
+
 test:  ## Run unit tests (network/integration deselected)
 	uv run python -m pytest
 
 test-integration:  ## Run the network/HuggingFace/model integration tests
 	uv run python -m pytest -m integration
 
-check: lint test  ## Project gate: lint + unit tests
+check: lint typecheck test  ## Project gate: lint + static types + unit tests
 
 data:  ## Fetch + verify + extract the pinned Spider databases (HF mirror; see docs/internal/runbook.md)
 	uv run python -c "from llm_rlvr.data import ensure_spider_databases as e; print('Spider DBs at', e().database_root)"

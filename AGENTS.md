@@ -22,7 +22,7 @@ If a doc disagrees with code, fix the doc in the same change.
 ## Commands
 
 ```bash
-make check        # the gate: ruff lint + format-check + unit tests; green before any commit
+make check        # the gate: Ruff lint + format check + mypy + unit tests; green before any commit
 make fmt          # auto-format + safe lint fixes
 make eval         # validate/render the tracked public summary (CPU, model-free)
 make eval-full    # re-score restored raw artifacts from gitignored results/ (external bundle)
