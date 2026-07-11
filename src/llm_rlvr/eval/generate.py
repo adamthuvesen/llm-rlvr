@@ -17,7 +17,7 @@ from llm_rlvr.eval.prompt import FewShotExemplar, build_messages, select_exempla
 from llm_rlvr.eval.provenance import DecodingConfig, build_generation_provenance
 from llm_rlvr.eval.vllm_backend import make_vllm_engine, sample_vllm_completions
 
-Messages = list[dict[str, object]]
+Messages = list[dict[str, str]]
 
 
 def build_prompts(

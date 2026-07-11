@@ -4,10 +4,23 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any, Protocol
 
 from llm_rlvr.eval.provenance import DecodingConfig
 
-Messages = list[dict[str, object]]
+Messages = list[dict[str, str]]
+
+
+class _VllmOutput(Protocol):
+    text: str
+
+
+class _VllmRequestOutput(Protocol):
+    outputs: Sequence[_VllmOutput]
+
+
+class VllmEngine(Protocol):
+    def chat(self, *args: Any, **kwargs: Any) -> Sequence[_VllmRequestOutput]: ...
 
 
 def make_vllm_engine(
@@ -16,7 +29,7 @@ def make_vllm_engine(
     model_revision: str | None = None,
     adapter_path: str | Path | None = None,
     max_lora_rank: int = 64,
-) -> tuple[object, dict[str, object]]:
+) -> tuple[VllmEngine, dict[str, object]]:
     """Build a vLLM ``LLM`` and optional ``lora_request`` chat kwargs."""
     from vllm import LLM  # lazy import: GPU backend only
 
@@ -48,7 +61,7 @@ def vllm_sampling_params(decoding: DecodingConfig, *, n: int = 1):
 
 
 def sample_vllm_completions(
-    llm: object,
+    llm: VllmEngine,
     prompts: Sequence[Messages],
     decoding: DecodingConfig,
     *,

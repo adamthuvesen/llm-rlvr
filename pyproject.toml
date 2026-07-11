@@ -45,6 +45,7 @@ train = [
     "accelerate>=1.0",
 ]
 dev = [
+    "mypy>=1.19",
     "pytest>=8",
     "ruff>=0.6",
     "pre-commit>=3.8",
@@ -76,6 +77,14 @@ markers = [
     "integration: hits the network or HuggingFace (deselected by default)",
     "slow: large dataset download (compose with integration)",
 ]
+
+[tool.mypy]
+python_version = "3.11"
+exclude = ["src/llm_rlvr/third_party"]
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/llm_rlvr"]

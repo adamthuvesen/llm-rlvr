@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -37,6 +37,12 @@ class SpiderTrainContext:
 
 class CommitVolume(Protocol):
     def commit(self) -> None: ...
+
+
+class RemoteFunction(Protocol):
+    def spawn(self, **kwargs: Any) -> Any: ...
+
+    def remote(self, **kwargs: Any) -> Any: ...
 
 
 def git_kwargs() -> dict[str, str | bool]:
@@ -123,7 +129,7 @@ def commit_volume(volume: CommitVolume, message: str) -> None:
 
 
 def dispatch_remote(
-    fn: Callable[..., Any],
+    fn: RemoteFunction,
     kwargs: Mapping[str, Any],
     *,
     spawn: bool,

@@ -15,11 +15,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import TypeVar, cast
 
 from pydantic import Field
 
 from llm_rlvr._base import Frozen
-from llm_rlvr.data.models import Example
 from llm_rlvr.eval.completions import write_pydantic_json
 from llm_rlvr.eval.provenance import git_commit, git_is_dirty, library_versions
 from llm_rlvr.harness import Task
@@ -28,6 +28,7 @@ from llm_rlvr.tasks.sql import RewardConfig, sql_task
 _TRAIN_LIBRARIES = ("llm-rlvr", "trl", "peft", "transformers", "torch", "accelerate", "vllm")
 
 PROVENANCE_FILENAME = "provenance.json"
+T = TypeVar("T")
 
 
 class GrpoHyperparams(Frozen):
@@ -102,9 +103,7 @@ def build_grpo_config(hyperparams: GrpoHyperparams, output_dir: str | Path):
     return build_grpo_config_from_kwargs(grpo_config_kwargs(hyperparams, output_dir))
 
 
-def split_train_dev(
-    examples: Sequence[Example], *, dev_size: int, seed: int
-) -> tuple[list[Example], list[Example]]:
+def split_train_dev(examples: Sequence[T], *, dev_size: int, seed: int) -> tuple[list[T], list[T]]:
     """Disjoint train/dev split for dev-EX checkpoint selection; the dev slice never trains.
 
     Deterministic in `seed`; `dev_size` is clamped so a small run still yields a train split.
@@ -204,7 +203,7 @@ def run_grpo(
     from transformers import AutoModelForCausalLM
     from trl import GRPOTrainer
 
-    tk = task or sql_task()
+    tk = task or cast(Task, sql_task())
     hp = hyperparams or GrpoHyperparams()
     rw = reward or RewardConfig()
 

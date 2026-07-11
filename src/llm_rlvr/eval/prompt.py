@@ -56,11 +56,11 @@ def build_messages(
     exemplars: Sequence[FewShotExemplar] = (),
     evidence: str | None = None,
     style: str = "cot",
-) -> list[dict[str, object]]:
+) -> list[dict[str, str]]:
     """Chat messages: system, few-shot user/assistant pairs, then the target question."""
     if style not in INSTRUCTIONS:
         raise ValueError(f"unknown prompt style {style!r}; expected one of {sorted(INSTRUCTIONS)}")
-    messages: list[dict[str, object]] = [{"role": "system", "content": INSTRUCTIONS[style]}]
+    messages: list[dict[str, str]] = [{"role": "system", "content": INSTRUCTIONS[style]}]
     for exemplar in exemplars:
         messages.append(
             {

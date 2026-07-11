@@ -12,7 +12,7 @@ cost, and start with a small `--limit` before launching a full job. Long Modal r
 
 ```bash
 make install            # CPU env: data, sandbox, verifier, eval
-make check              # ruff + format check + unit tests
+make check              # Ruff lint + format check + mypy + unit tests
 make data               # fetch, verify, and extract the pinned Spider databases
 ```
 
