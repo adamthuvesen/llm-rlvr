@@ -1,8 +1,8 @@
 # llm-rlvr - agent instructions
 
-Text-to-SQL post-training project: SFT + single-turn GRPO worked; the later self-correction
-follow-up did not. The public headline is backed by a tracked summary bundle, external raw
-artifacts, controls, multi-seed CIs, and disclosed caveats.
+Text-to-SQL post-training project: SFT + single-turn GRPO worked. Two later self-correction
+follow-ups did not, and their support code was removed. The public headline is backed by a tracked
+summary bundle, external raw artifacts, controls, multi-seed CIs, and disclosed caveats.
 
 Global tone, principles, and git etiquette live in the user's agent defaults; they are not
 duplicated here. This file is project-specific facts.
@@ -62,6 +62,6 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 
 ## Current state
 
-The project is complete at Stage 2 (single-turn GRPO); two self-correction sequels closed
-honestly without a full training run. Full stage-by-stage status → `docs/internal/status.md`; keep the
-README progression table in sync with it.
+The project is complete at Stage 2 (single-turn GRPO). Support for two closed self-correction
+sequels was removed. Full stage-by-stage status → `docs/internal/status.md`; keep the README
+progression table in sync with it.

@@ -63,12 +63,12 @@
     },
     {
       "id": "readme.reproduce.full-artifact-mode",
-      "description": "README keeps full training reruns outside the public quickstart.",
+      "description": "README separates public checks, raw artifact re-scoring, and training reruns.",
       "location": {
         "path": "README.md",
         "anchor": "Reproduce"
       },
-      "readme_text": "The public reproduction path covers the CPU checks and tracked evidence bundle. Full training reruns are outside the public quickstart.",
+      "readme_text": "The public reproduction path covers the CPU checks and tracked evidence bundle. Full raw re-scoring is run with `make eval-full` after the external artifacts are restored. Training reruns require the GPU extras (`trl`, `peft`, `accelerate`, `vllm`) and are outside the public quickstart.",
       "public_evidence": [
         "results/public/provenance.json"
       ],

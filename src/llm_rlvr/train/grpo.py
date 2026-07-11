@@ -19,13 +19,11 @@ from pathlib import Path
 from pydantic import Field
 
 from llm_rlvr._base import Frozen
-from llm_rlvr.data.models import DatabaseSchema, Example
+from llm_rlvr.data.models import Example
 from llm_rlvr.eval.completions import write_pydantic_json
 from llm_rlvr.eval.provenance import git_commit, git_is_dirty, library_versions
 from llm_rlvr.harness import Task
 from llm_rlvr.tasks.sql import RewardConfig, sql_task
-from llm_rlvr.train.lora import lora_kwargs as shared_lora_kwargs
-from llm_rlvr.train.policy import load_base_causal_lm, load_trainable_lora_adapter
 
 _TRAIN_LIBRARIES = ("llm-rlvr", "trl", "peft", "transformers", "torch", "accelerate", "vllm")
 
@@ -55,15 +53,6 @@ class GrpoHyperparams(Frozen):
     seed: int = 0
 
 
-def lora_kwargs(hyperparams: GrpoHyperparams) -> dict[str, object]:
-    """PEFT `LoraConfig` kwargs: all-linear targets (incl. MLP), the decided rank/alpha/dropout."""
-    return shared_lora_kwargs(
-        rank=hyperparams.lora_rank,
-        alpha=hyperparams.lora_alpha,
-        dropout=hyperparams.lora_dropout,
-    )
-
-
 def grpo_config_kwargs(hyperparams: GrpoHyperparams, output_dir: str | Path) -> dict[str, object]:
     """TRL `GRPOConfig` kwargs: bf16, G rollouts, vLLM colocate, periodic checkpoints."""
     return {
@@ -90,12 +79,6 @@ def grpo_config_kwargs(hyperparams: GrpoHyperparams, output_dir: str | Path) -> 
         "log_completions": True,
         "report_to": [],
     }
-
-
-def build_lora_config(hyperparams: GrpoHyperparams):
-    from peft import LoraConfig  # lazy import: train extra only
-
-    return LoraConfig(**lora_kwargs(hyperparams))
 
 
 def build_grpo_config_from_kwargs(desired: Mapping[str, object]):
@@ -137,18 +120,6 @@ def split_train_dev(
     dev = [examples[i] for i in sorted(dev_idx)]
     train = [examples[i] for i in range(len(examples)) if i not in dev_idx]
     return train, dev
-
-
-def build_grpo_rows(
-    examples: Sequence[Example],
-    schemas: Mapping[str, DatabaseSchema],
-    *,
-    style: str = "cot",
-) -> list[dict[str, object]]:
-    """One GRPO dataset row per example: the chat `prompt` plus the `gold_sql` + `db_id` the reward
-    needs. Pure/testable — TRL applies the chat template to `prompt` and passes the rest to the
-    reward function as aligned kwargs. Delegates to the SQL task's row builder (`tasks.sql`)."""
-    return sql_task().build_grpo_rows(examples, schemas, style=style)
 
 
 class GrpoProvenance(Frozen):
@@ -199,24 +170,6 @@ def build_grpo_provenance(
     )
 
 
-def load_trainable_policy(
-    base_model: str,
-    base_model_revision: str | None,
-    warm_start_adapter: str | Path | None,
-    *,
-    hyperparams: GrpoHyperparams | None = None,
-):
-    if warm_start_adapter is not None:
-        return load_trainable_lora_adapter(base_model, base_model_revision, warm_start_adapter)
-
-    if hyperparams is None:
-        raise ValueError("fresh trainable policy requires hyperparams for LoRA config")
-    from peft import get_peft_model
-
-    base = load_base_causal_lm(base_model, base_model_revision)
-    return get_peft_model(base, build_lora_config(hyperparams))
-
-
 def run_grpo(
     examples: Sequence[object],
     resources: Mapping[str, object],
@@ -247,6 +200,8 @@ def run_grpo(
     `output_dir`.
     """
     from datasets import Dataset  # lazy: heavy training stack, train extra only
+    from peft import PeftModel
+    from transformers import AutoModelForCausalLM
     from trl import GRPOTrainer
 
     tk = task or sql_task()
@@ -259,9 +214,9 @@ def run_grpo(
     rows = tk.build_grpo_rows(train_examples, resources)
     train_dataset = Dataset.from_list(rows)
 
-    policy = load_trainable_policy(
-        base_model, base_model_revision, warm_start_adapter, hyperparams=hp
-    )
+    revision = {"revision": base_model_revision} if base_model_revision else {}
+    base = AutoModelForCausalLM.from_pretrained(base_model, dtype="bfloat16", **revision)
+    policy = PeftModel.from_pretrained(base, str(warm_start_adapter), is_trainable=True)
 
     trainer = GRPOTrainer(
         model=policy,

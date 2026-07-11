@@ -14,16 +14,6 @@ from llm_rlvr._base import Frozen
 from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.data.schema import serialize_schema
 from llm_rlvr.data.splits import assert_train_split
-from llm_rlvr.eval.messages import user_content
-from llm_rlvr.eval.prompts import multiturn as _mt
-
-MULTITURN_INSTRUCTION = _mt.MULTITURN_INSTRUCTION
-tool_demo_messages = _mt.tool_demo_messages
-DEMO_ERROR_FEEDBACK = _mt.DEMO_ERROR_FEEDBACK
-DEMO_FIXED_SQL = _mt.DEMO_FIXED_SQL
-DEMO_SCHEMA_TEXT = _mt.DEMO_SCHEMA_TEXT
-DEMO_SUCCESS_FEEDBACK = _mt.DEMO_SUCCESS_FEEDBACK
-DEMO_WRONG_SQL = _mt.DEMO_WRONG_SQL
 
 INSTRUCTION = (
     "You are an expert data analyst. Given a SQLite database schema and a question, write a "
@@ -37,13 +27,17 @@ DIRECT_INSTRUCTION = (
     "single SQLite query that answers it. Output only the query in a ```sql ... ``` code block, "
     "with no explanation."
 )
-# Multi-turn styles — see docs/internal/status.md for current scope.
 INSTRUCTIONS = {
     "cot": INSTRUCTION,
     "direct": DIRECT_INSTRUCTION,
-    "mt": MULTITURN_INSTRUCTION,
-    "mt_demo": MULTITURN_INSTRUCTION,
 }
+
+
+def user_content(schema_text: str, question: str, evidence: str | None = None) -> str:
+    content = f"Database schema:\n{schema_text}\n\nQuestion: {question}"
+    if evidence:
+        content += f"\nEvidence: {evidence}"
+    return content
 
 
 class FewShotExemplar(Frozen):
@@ -63,13 +57,10 @@ def build_messages(
     evidence: str | None = None,
     style: str = "cot",
 ) -> list[dict[str, object]]:
-    """Chat messages: system, the tool demonstration (`mt_demo` only), few-shot user/assistant
-    pairs, then the target question."""
+    """Chat messages: system, few-shot user/assistant pairs, then the target question."""
     if style not in INSTRUCTIONS:
         raise ValueError(f"unknown prompt style {style!r}; expected one of {sorted(INSTRUCTIONS)}")
     messages: list[dict[str, object]] = [{"role": "system", "content": INSTRUCTIONS[style]}]
-    if style == "mt_demo":
-        messages.extend(tool_demo_messages())
     for exemplar in exemplars:
         messages.append(
             {

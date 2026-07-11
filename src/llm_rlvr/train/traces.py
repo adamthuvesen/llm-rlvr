@@ -12,13 +12,13 @@ completion-only loss in `SFTTrainer` without relying on the chat template's gene
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from pydantic import Field
 
 from llm_rlvr._base import Frozen
-from llm_rlvr.data.jsonl import write_jsonl
 from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.data.paths import resolve_database
 from llm_rlvr.data.splits import assert_train_split
@@ -240,7 +240,11 @@ def write_trace_dataset(traces: Sequence[SftTrace], path: str | Path) -> Path:
         }
         for trace in traces
     ]
-    return write_jsonl(records, path)
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    lines = [json.dumps(record, ensure_ascii=False) for record in records]
+    out.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+    return out
 
 
 def read_trace_dataset(path: str | Path) -> tuple[SftTrace, ...]:

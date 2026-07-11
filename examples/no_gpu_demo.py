@@ -58,7 +58,7 @@ def _completion_set() -> CompletionSet:
     items = tuple(
         ProblemCompletions(
             example=example,
-            samples=(GenerationSample(text=sql, sql=sql),),
+            samples=(GenerationSample(text=f"```sql\n{sql}\n```"),),
         )
         for example, sql in zip(examples, sqls, strict=True)
     )

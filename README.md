@@ -6,11 +6,10 @@ An RLVR harness for text-to-SQL. It trains `Qwen/Qwen2.5-Coder-3B-Instruct`
 to write SQL by running the query and rewarding it when the result matches the reference answer,
 so the reward comes from running the query rather than matching strings.
 
-The training loop itself is [TRL](https://github.com/huggingface/trl). The code in this repo is
-the layer that makes a task verifiable and turns it into a reward: a read-only SQLite sandbox, an
-execution-match verifier, the reward shaping, and a multi-turn trajectory reward. Text-to-SQL is
-the reference task; the harness is task-agnostic, so a new task means writing an `AnswerParser` and
-a `Verifier` and reusing the same reward and training path.
+Training is run by [TRL](https://github.com/huggingface/trl). Tasks are made verifiable here with a
+read-only SQLite sandbox, an execution-match verifier, and reward shaping. Text-to-SQL is included
+as the reference task. New tasks are added by implementing an `AnswerParser` and a `Verifier`, then
+reusing the same reward and training path.
 
 ## Result
 
@@ -70,15 +69,14 @@ make eval
 README headline rows are derived from `results/public/headline_summary.json`, and reads the
 reproduction policy in `results/public/provenance.json`.
 
-The public reproduction path covers the CPU checks and tracked evidence bundle. Training reruns need
-the GPU extras (`trl`, `peft`, `accelerate`, `vllm`) and are outside the public quickstart.
+The public reproduction path covers the CPU checks and tracked evidence bundle. Full raw re-scoring
+is run with `make eval-full` after the external artifacts are restored. Training reruns require the
+GPU extras (`trl`, `peft`, `accelerate`, `vllm`) and are outside the public quickstart.
 
 ## Caveats
 
 - Accuracy is single-DB execution match, not test-suite multi-DB accuracy.
 - All main evaluations are greedy.
-- Self-correction utilities remain tested analysis code, but the shipped training result is
-  single-turn GRPO.
 
 ## Docs
 

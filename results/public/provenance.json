@@ -9,7 +9,7 @@
   ],
   "raw_artifact_policy": "Raw CompletionSet JSON, ScoreReport JSON, databases, adapters, and local reproduction scripts are not part of the tracked public bundle.",
   "public_mode": "make eval validates this tracked summary and renders the README headline table without model, GPU, network, database, or raw completion artifacts.",
-  "full_artifact_mode": "Full training reruns are outside the public quickstart.",
+  "full_artifact_mode": "Restored raw artifacts are re-scored by make eval-full; full training reruns are outside the public quickstart.",
   "source_volume": "not exposed in the public bundle",
   "notes": [
     "Metric is single-DB execution accuracy.",

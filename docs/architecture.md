@@ -13,41 +13,32 @@ reward (`harness.score_answer`) is generic over those. **Text-to-SQL is the refe
 `docs/harness.md`.
 
 The shipped result is single-turn RLVR on that SQL task: SFT cold-start followed by GRPO with
-execution-verified rewards. Self-correction support code stays in the tree for analysis, but it is
-not on the main training path.
+execution-verified rewards.
 
 ## Module map (dependency direction: top imports bottom, never the reverse)
 
 ```
 report/        progression.py: base→SFT→RL table; seed-level CIs; single-DB caveat
-revision/      feedback.py · rollout.py · train.py · smoke.py · diagnostics.py · eval.py ·
-               metrics.py · probe.py · episode.py: forced-revision analysis utilities
-train/         traces.py (STaR sampling + execution filter) · sft.py (LoRA SFT) · grpo.py (GRPO) ·
-               multiturn.py · diagnostics.py · tooluse.py · multiturn_provenance.py ·
-               self_correction_provenance.py · policy.py · lora.py · grpo_smoke.py
-rewards/       multiturn.py: trajectory credit + improvement-delta bonus over the SQL single-turn
-               reward (self-correction analysis only)
+train/         traces.py (STaR sampling + execution filter) · sft.py (LoRA SFT) · grpo.py (GRPO)
 tasks/         sql.py: the text-to-SQL Task: SQL parser + verifier + execution reward (shaped /
                near-binary, empty-result guard) + prompt/row builders · __init__.py (task registry)
 eval/          completions.py (the CompletionSet artifact) · generate · score · verifier · parsing ·
-               prompt · prompts/ · messages · aggregate · provenance · runner ·
-               multiturn_generate · bestofn · vllm_backend
-env/           sandbox.py: read-only SQLite execution (the safety boundary) ·
-               text2sql_env.py: the run_sql tool environment + reference-free feedback
+               prompt · aggregate · provenance · vllm_backend
+env/           sandbox.py: read-only SQLite execution (the safety boundary)
 data/          models.py (typed Example/DatabaseSchema records) · spider.py · bird.py ·
                schema.py (schema → prompt text) · artifacts.py (pinned revisions + checksums) ·
-               paths.py · jsonl.py · splits.py
+               paths.py · splits.py
 harness/       verifier.py (Verifier / Verdict / ReferenceUnverifiable) · answer.py (AnswerParser) ·
                reward.py (RewardConfig shaping + score_answer + completion_text) · task.py (Task
                protocol): the task-agnostic RLVR core, imports only _base
 _base.py       Frozen: pydantic base, frozen=True, extra="forbid"
-cli.py         installed CPU CLI for generation, scoring, trace/tool-use builders, and reports
+cli.py         installed CPU CLI for generation, scoring, and trace building
 third_party/   vendored Test-Suite SQL Eval (execution-match path only; Apache 2.0)
 ```
 
 Dependency direction: `harness/` sits at the bottom (it imports only `_base`); `tasks/sql.py` is the
-adapter that binds the harness protocols to the SQL pieces in `eval/` + `data/`; `rewards/` and
-`train/` build on the SQL task. Nothing under `harness/` imports SQL.
+adapter that binds the harness protocols to the SQL pieces in `eval/` + `data/`; `train/` builds on
+the SQL task. Nothing under `harness/` imports SQL.
 
 Training-only dependencies import lazily so the package installs and tests without the training
 stack.
@@ -117,7 +108,3 @@ completion, from a single sandbox execution:
 - SFT cold-start: LoRA adapter that teaches the `<think>` + ```sql``` format.
 - Single-turn GRPO: the shipped result with 3-seed confidence intervals, a near-binary ablation,
   and a Llama cross-family control.
-
-Self-correction support code remains tested in the tree for analysis: env tool loop,
-forced-revision rollout + eval runner, multi-turn rewards + diagnostics, `select-bestofn`,
-and `fr-metrics`.

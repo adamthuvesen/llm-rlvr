@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
 from llm_rlvr.eval.prompt import (
     INSTRUCTION,
@@ -100,99 +98,3 @@ def test_unknown_prompt_style_raises() -> None:
 
     with pytest.raises(ValueError, match="unknown prompt style"):
         build_messages("S", "Q", style="nope")
-
-
-# --- mt_demo: the in-context tool-protocol demonstration ---
-
-
-def test_mt_demo_inserts_demo_between_system_and_target() -> None:
-    from llm_rlvr.eval.prompt import MULTITURN_INSTRUCTION, tool_demo_messages
-
-    messages = build_messages("SCHEMA-TEXT", "How many?", style="mt_demo")
-    assert messages[0] == {"role": "system", "content": MULTITURN_INSTRUCTION}
-    assert messages[1:-1] == tool_demo_messages()
-    assert messages[-1]["role"] == "user"
-    assert "SCHEMA-TEXT" in messages[-1]["content"]
-    # The other styles are byte-identical to before — no demo anywhere.
-    for style in ("cot", "direct", "mt"):
-        assert len(build_messages("S", "Q", style=style)) == 2
-
-
-def test_mt_demo_shows_two_tool_turns_then_final_answer() -> None:
-    from llm_rlvr.eval.prompt import (
-        DEMO_ERROR_FEEDBACK,
-        DEMO_FIXED_SQL,
-        DEMO_SUCCESS_FEEDBACK,
-        DEMO_WRONG_SQL,
-        tool_demo_messages,
-    )
-
-    demo = tool_demo_messages()
-    roles = [m["role"] for m in demo]
-    assert roles == ["user", "assistant", "tool", "assistant", "tool", "assistant"]
-    calls = [m["tool_calls"][0]["function"] for m in demo if "tool_calls" in m]
-    assert [c["arguments"]["query"] for c in calls] == [DEMO_WRONG_SQL, DEMO_FIXED_SQL]
-    assert [m["content"] for m in demo if m["role"] == "tool"] == [
-        DEMO_ERROR_FEEDBACK,
-        DEMO_SUCCESS_FEEDBACK,
-    ]
-    # The final message is an answer (not a tool call), in the mt final-answer format, and its
-    # SQL is the query the demonstration just checked.
-    final = demo[-1]
-    assert "tool_calls" not in final
-    assert "<think>" in final["content"] and f"```sql\n{DEMO_FIXED_SQL}\n```" in final["content"]
-
-
-def test_mt_demo_tool_calls_match_the_env_tool() -> None:
-    import inspect
-
-    from llm_rlvr.env.text2sql_env import SqliteText2SqlEnv
-    from llm_rlvr.eval.prompt import tool_demo_messages
-
-    params = set(inspect.signature(SqliteText2SqlEnv.run_sql).parameters) - {"self"}
-    for message in tool_demo_messages():
-        for call in message.get("tool_calls", []):
-            assert call["function"]["name"] == SqliteText2SqlEnv.run_sql.__name__
-            assert set(call["function"]["arguments"]) == params
-
-
-def test_mt_demo_feedback_byte_matches_real_execution(tmp_path: Path) -> None:
-    """The demonstrated feedback must be what the env would actually say — execute the demo
-    queries in the real sandbox against the demo schema and compare byte-for-byte."""
-    import sqlite3
-
-    from llm_rlvr.env.sandbox import SqliteSandbox
-    from llm_rlvr.env.text2sql_env import FeedbackConfig, format_feedback
-    from llm_rlvr.eval.prompt import (
-        DEMO_ERROR_FEEDBACK,
-        DEMO_FIXED_SQL,
-        DEMO_SUCCESS_FEEDBACK,
-        DEMO_WRONG_SQL,
-    )
-
-    db = tmp_path / "office_plants.sqlite"
-    with sqlite3.connect(db) as conn:
-        conn.execute("CREATE TABLE plants (id int PRIMARY KEY, species text, room text)")
-        conn.executemany(
-            "INSERT INTO plants VALUES (?, ?, ?)",
-            [
-                (1, "monstera", "Atrium"),
-                (2, "fern", "Atrium"),
-                (3, "ficus", "Atrium"),
-                (4, "cactus", "Lobby"),
-            ],
-        )
-    sandbox = SqliteSandbox(db)
-    config = FeedbackConfig()
-    assert format_feedback(sandbox.execute(DEMO_WRONG_SQL), config) == DEMO_ERROR_FEEDBACK
-    assert format_feedback(sandbox.execute(DEMO_FIXED_SQL), config) == DEMO_SUCCESS_FEEDBACK
-
-
-def test_mt_demo_is_gold_free_and_synthetic() -> None:
-    """The demo must never leak dataset content: synthetic db, and no verdict/gold tokens
-    (the same invariant the env's feedback tests pin)."""
-    from llm_rlvr.eval.prompt import DEMO_SCHEMA_TEXT, tool_demo_messages
-
-    assert 'CREATE TABLE "plants"' in DEMO_SCHEMA_TEXT
-    text = " ".join(str(m.get("content", "")) for m in tool_demo_messages()).lower()
-    assert "gold" not in text and "correct answer" not in text and "verdict" not in text

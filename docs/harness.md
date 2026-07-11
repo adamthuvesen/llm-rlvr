@@ -41,9 +41,9 @@ from llm_rlvr.harness import AnswerParser, Verifier, Verdict, Task, score_answer
    raise `ReferenceUnverifiable("...", reason="...")`. That's the example's fault, not the model's,
    and the reward records it without giving credit.
 
-3. **`Task`**: bundle the above plus the data→prompt glue the shared SFT/GRPO/eval drivers call:
-   `name`, `parser`, `make_verifier()`, `make_reward_fn(context_root, config=…)`,
-   `build_prompts(...)`, `build_grpo_rows(...)`. See `harness/task.py` for the exact signatures and
+3. **`Task`**: bundle the verification APIs with the data→prompt glue. `make_reward_fn` and
+   `build_grpo_rows` are called by the shared GRPO driver. `build_prompts` is exposed for
+   task-specific prompt construction. See `harness/task.py` for the exact signatures and
    `tasks/sql.py` for the reference implementation.
 
 ## The reward is already written
