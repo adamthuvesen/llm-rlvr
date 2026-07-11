@@ -142,8 +142,3 @@ The full progression (Qwen): base 0.625 → SFT 0.678 → RL **0.779** on Spider
 0.313 → 0.344 → **0.406** on BIRD-dev. RL contributed ~2× SFT's gain on both benchmarks and
 both model families, using the same training questions. The gain comes from the learning signal
 rather than new data.
-
-## Analysis artifacts
-
-Self-correction artifacts under `results/grpo-mt/` and `results/grpo-fr/` are local generated
-analysis inputs. The public claim is the single-turn GRPO result above.

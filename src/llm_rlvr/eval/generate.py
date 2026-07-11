@@ -12,13 +12,11 @@ from pathlib import Path
 
 from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.data.schema import serialize_schema
-from llm_rlvr.eval.completions import CompletionSet
+from llm_rlvr.eval.completions import CompletionSet, assemble_completion_set
 from llm_rlvr.eval.prompt import FewShotExemplar, build_messages, select_exemplars
-from llm_rlvr.eval.provenance import DecodingConfig
-from llm_rlvr.eval.runner import finish_eval_run
+from llm_rlvr.eval.provenance import DecodingConfig, build_generation_provenance
 from llm_rlvr.eval.vllm_backend import make_vllm_engine, sample_vllm_completions
 
-# Values are `object`, not `str`: the `mt_demo` style carries structured `tool_calls` entries.
 Messages = list[dict[str, object]]
 
 
@@ -76,14 +74,13 @@ def generate(
         decoding=decoding,
         adapter_path=adapter_path,
     )
-    return finish_eval_run(
-        examples,
-        raw_texts,
+    provenance = build_generation_provenance(
         model=model,
         backend=backend,
         dataset=dataset,
         dataset_revision=dataset_revision,
         split=split,
+        n_examples=len(examples),
         decoding=decoding,
         model_revision=model_revision,
         db_archive_sha256=db_archive_sha256,
@@ -91,10 +88,11 @@ def generate(
         few_shot_seed=few_shot_seed if few_shot_k else None,
         few_shot_exemplars=tuple((e.db_id, e.question) for e in exemplars),
         prompt_style=prompt_style,
-        adapter_path=adapter_path,
+        adapter=str(adapter_path) if adapter_path is not None else None,
         commit=commit,
         dirty=dirty,
     )
+    return assemble_completion_set(examples, raw_texts, provenance)
 
 
 def _run_backend(

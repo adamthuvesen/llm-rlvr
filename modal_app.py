@@ -1,4 +1,4 @@
-"""Modal app: GPU entrypoints for generation, trace sampling, SFT, GRPO, and analysis.
+"""Modal app: GPU entrypoints for generation, trace sampling, SFT, and GRPO.
 
     modal run --no-spawn modal_app.py::main --dataset spider --limit 8  # small blocking run
     modal run --detach modal_app.py::main --dataset spider             # full Spider-dev baseline
@@ -6,10 +6,8 @@
     modal run --detach modal_app.py::traces                            # Spider-train candidates
     modal run --detach modal_app.py::sft                               # LoRA SFT on the traces
 
-Long entrypoints (main, traces, sft, grpo, fr_train, fr_eval, mt_eval) spawn by default, so
-`--detach` is safe to leave without remembering `--spawn`; foreground entrypoints
-(generate_raw, fr_smoke, mt_smoke) block on `.remote()` so you get the inline result. Pass
-`--no-spawn` to force a long entrypoint to block.
+Long entrypoints (main, traces, sft, grpo) spawn by default, so `--detach` is safe to leave without
+remembering `--spawn`. Pass `--no-spawn` to force a long entrypoint to block.
 
 Generation/sampling write artifacts to a Modal Volume; pull with `modal volume get text2sql-runs
 <name> ./runs/<name>` and filter/score on CPU (`llm-rlvr build-traces` / `score` / `make
@@ -81,7 +79,7 @@ image = (
     .add_local_file(Path(__file__).parent / "uv.lock", f"{REMOTE_ROOT}/uv.lock", copy=True)
     .workdir(REMOTE_ROOT)
     .run_commands(
-        "uv export --frozen --extra gpu --extra train --no-emit-project -o /tmp/reqs.txt",
+        "uv export --frozen --extra train --no-emit-project -o /tmp/reqs.txt",
         "uv pip install --system -r /tmp/reqs.txt",
     )
     .add_local_dir(Path(__file__).parent, remote_path=REMOTE_ROOT, copy=True, ignore=_IGNORE)
@@ -234,8 +232,6 @@ def sft_train(
     run_id: str = "sft-r32",
     base_model: str = MODEL,
     model_revision: str | None = None,
-    warm_start: str | None = None,
-    render_tool_prompts: bool = False,
     epochs: int = 3,
     learning_rate: float = 1e-4,
     seed: int = 0,
@@ -245,9 +241,7 @@ def sft_train(
     """LoRA SFT on the trace dataset; adapter + provenance land under `sft/<run-id>/`.
 
     `base_model` defaults to Qwen; set the Llama base (with its own trace dataset) for the
-    cross-family control so the warm-start adapter's base matches the GRPO base. `warm_start`
-    (an adapter dir relative to the Volume, e.g. `grpo/grpo-s0`) continues that adapter instead
-    of training a fresh one.
+    cross-family control so the adapter's base matches the later GRPO base.
     """
     from llm_rlvr.train.sft import SftHyperparams, run_sft
 
@@ -256,8 +250,6 @@ def sft_train(
         runs_path("sft", run_id),
         base_model=base_model,
         base_model_revision=model_revision,
-        warm_start_adapter=adapter_path(warm_start),
-        render_tool_prompts=render_tool_prompts,
         hyperparams=SftHyperparams(epochs=epochs, learning_rate=learning_rate, seed=seed),
         commit=commit,
         dirty=dirty,
@@ -313,437 +305,6 @@ def grpo_train(
     )
     commit_volume(runs, f"GRPO adapter + provenance -> {out}")
     return str(out)
-
-
-@modal_gpu_entrypoint(timeout_hours=2)
-def multiturn_smoke(
-    run_id: str = "grpo-mt-smoke",
-    warm_start: str | None = "grpo/grpo-s0",
-    base_model: str = MODEL,
-    base_model_revision: str | None = None,
-    prompt_style: str = "mt_demo",
-    limit: int = 32,
-    dev_size: int = 8,
-    max_steps: int | None = None,
-    commit: str | None = None,
-    dirty: bool | None = None,
-) -> str:
-    """Run a small multi-turn GRPO validation job.
-
-    The run checks tool-output loss masking, the TRL #4543 IS-ratio band, and memory use. Report
-    JSON lands under `grpo-mt/<run-id>/`; failed assertions exit non-zero after writing the report.
-    """
-    from llm_rlvr.train.multiturn import MultiTurnHyperparams, run_multiturn_smoke
-
-    ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)
-
-    out = run_multiturn_smoke(
-        ctx.examples,
-        ctx.schemas,
-        ctx.database_root,
-        runs_path("grpo-mt", run_id),
-        base_model=base_model,
-        base_model_revision=base_model_revision,
-        warm_start_adapter=adapter_path(warm_start),
-        dataset="spider",
-        dataset_revision=ctx.dataset_revision,
-        # Small runs still need a dev slice so the train split is nonempty.
-        hyperparams=MultiTurnHyperparams(eval_slice_size=dev_size),
-        prompt_style=prompt_style,
-        max_steps=max_steps,
-        commit=commit,
-        dirty=dirty,
-    )
-    commit_volume(runs, f"multi-turn smoke report -> {out}")
-    return str(out)
-
-
-@modal_gpu_entrypoint(timeout_hours=4)
-def multiturn_eval(
-    dataset: str = "spider",
-    adapter: str | None = None,
-    base_model: str = MODEL,
-    model_revision: str | None = None,
-    limit: int | None = None,
-    max_new_tokens: int = 1024,
-    commit: str | None = None,
-    dirty: bool | None = None,
-) -> str:
-    """Multi-turn greedy eval (no RL): the tool loop at inference time. Writes a normal
-    CompletionSet plus the full `MultiTurnTranscriptSet` under `grpo-mt/eval/` on the Volume.
-    """
-    from llm_rlvr.eval.completions import write_completion_set, write_pydantic_json
-    from llm_rlvr.eval.multiturn_generate import generate_multiturn
-    from llm_rlvr.eval.provenance import DecodingConfig
-
-    ctx = load_eval_context(dataset=dataset, split="dev", data_root=runs_path("data"), limit=limit)
-    completion_set, transcripts = generate_multiturn(
-        ctx.examples,
-        ctx.schemas,
-        ctx.database_root,
-        model=base_model,
-        decoding=DecodingConfig(temperature=0.0, max_new_tokens=max_new_tokens),
-        dataset=ctx.dataset,
-        dataset_revision=ctx.dataset_revision,
-        split="dev",
-        model_revision=model_revision,
-        adapter_path=adapter_path(adapter),
-        db_archive_sha256=ctx.db_archive_sha256,
-        commit=commit,
-        dirty=dirty,
-    )
-    adapter_tag = f"-{Path(adapter).name}" if adapter else ""
-    name = f"{dataset}-dev-mt{adapter_tag}" + (f"-n{limit}" if limit else "")
-    out = write_completion_set(completion_set, runs_path("grpo-mt", "eval", f"{name}.json"))
-    write_pydantic_json(transcripts, runs_path("grpo-mt", "eval", f"{name}.transcripts.json"))
-    commit_volume(runs, f"wrote {len(completion_set.items)} multi-turn completions -> {out}")
-    return str(out)
-
-
-@modal_gpu_entrypoint(timeout_hours=2)
-def forced_revision_smoke(
-    run_id: str = "grpo-fr-smoke",
-    warm_start: str = "grpo/grpo-s0",
-    base_model: str = MODEL,
-    base_model_revision: str | None = None,
-    limit: int = 32,
-    dev_size: int = 8,
-    max_steps: int | None = None,
-    commit: str | None = None,
-    dirty: bool | None = None,
-) -> str:
-    """Run a small forced-revision GRPO validation job.
-
-    The run checks feedback masking, the TRL #4543 IS-ratio band, and NaN-free training. Report
-    JSON lands under `grpo-fr/<run-id>/`; failed assertions exit non-zero after writing the report.
-    """
-    from llm_rlvr.revision import run_forced_revision_smoke
-    from llm_rlvr.train.grpo import GrpoHyperparams
-
-    ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)
-
-    out = run_forced_revision_smoke(
-        ctx.examples,
-        ctx.schemas,
-        ctx.database_root,
-        runs_path("grpo-fr", run_id),
-        base_model=base_model,
-        base_model_revision=base_model_revision,
-        warm_start_adapter=runs_path(warm_start),
-        dataset="spider",
-        dataset_revision=ctx.dataset_revision,
-        hyperparams=GrpoHyperparams(eval_slice_size=dev_size),
-        max_steps=max_steps,
-        commit=commit,
-        dirty=dirty,
-    )
-    commit_volume(runs, f"forced-revision smoke report -> {out}")
-    return str(out)
-
-
-@modal_gpu_entrypoint(timeout_hours=12)
-def forced_revision_train(
-    run_id: str = "grpo-fr-s0",
-    warm_start: str = "grpo/grpo-s0",
-    base_model: str = MODEL,
-    base_model_revision: str | None = None,
-    learning_rate: float = 5e-5,
-    seed: int = 0,
-    dev_size: int | None = None,
-    limit: int | None = None,
-    max_steps: int | None = None,
-    commit: str | None = None,
-    dirty: bool | None = None,
-) -> str:
-    """Forced-revision GRPO on Spider-train, warm-started from the single-turn adapter.
-
-    `max_steps` bounds short diagnostic runs. Adapter, provenance, and diagnostics land under
-    `grpo-fr/<run-id>/`.
-    """
-    from llm_rlvr.revision import run_forced_revision_train
-    from llm_rlvr.train.grpo import GrpoHyperparams
-
-    ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)
-
-    hp_kwargs: dict[str, object] = {"learning_rate": learning_rate, "seed": seed}
-    if dev_size is not None:
-        hp_kwargs["eval_slice_size"] = dev_size
-
-    out = run_forced_revision_train(
-        ctx.examples,
-        ctx.schemas,
-        ctx.database_root,
-        runs_path("grpo-fr", run_id),
-        base_model=base_model,
-        base_model_revision=base_model_revision,
-        warm_start_adapter=runs_path(warm_start),
-        dataset="spider",
-        dataset_revision=ctx.dataset_revision,
-        hyperparams=GrpoHyperparams(**hp_kwargs),
-        max_steps=max_steps,
-        commit=commit,
-        dirty=dirty,
-    )
-    commit_volume(runs, f"forced-revision adapter + provenance + diagnostics -> {out}")
-    return str(out)
-
-
-@modal_gpu_entrypoint(timeout_hours=4)
-def forced_revision_eval(
-    dataset: str = "spider",
-    adapter: str | None = None,
-    base_model: str = MODEL,
-    model_revision: str | None = None,
-    limit: int | None = None,
-    max_new_tokens: int = 1024,
-    temperature: float = 0.0,
-    sampling_seed: int = 0,
-    policy: str = "always",
-    commit: str | None = None,
-    dirty: bool | None = None,
-) -> str:
-    """Forced-revision eval: greedy attempt, execution feedback, optional greedy revision.
-    Writes a normal CompletionSet plus the full transcripts under `grpo-fr/eval/`."""
-    from llm_rlvr.eval.completions import write_completion_set, write_pydantic_json
-    from llm_rlvr.eval.provenance import DecodingConfig
-    from llm_rlvr.revision.eval import (
-        forced_revision_artifact_stem,
-        generate_forced_revision,
-        validate_forced_revision_policy,
-    )
-    from llm_rlvr.revision.metrics import compute_forced_revision_eval_report
-
-    policy = validate_forced_revision_policy(policy)
-    ctx = load_eval_context(dataset=dataset, split="dev", data_root=runs_path("data"), limit=limit)
-    completion_set, transcripts = generate_forced_revision(
-        ctx.examples,
-        ctx.schemas,
-        ctx.database_root,
-        model=base_model,
-        decoding=DecodingConfig(
-            temperature=temperature, max_new_tokens=max_new_tokens, seed=sampling_seed
-        ),
-        dataset=ctx.dataset,
-        dataset_revision=ctx.dataset_revision,
-        split="dev",
-        model_revision=model_revision,
-        adapter_path=adapter_path(adapter),
-        db_archive_sha256=ctx.db_archive_sha256,
-        policy=policy,
-        commit=commit,
-        dirty=dirty,
-    )
-    report = compute_forced_revision_eval_report(
-        completion_set, transcripts, ctx.database_root, policy=policy
-    )
-    name = forced_revision_artifact_stem(
-        dataset=dataset,
-        adapter=adapter,
-        limit=limit,
-        temperature=temperature,
-        sampling_seed=sampling_seed,
-        policy=policy,
-    )
-    out = write_completion_set(completion_set, runs_path("grpo-fr", "eval", f"{name}.json"))
-    write_pydantic_json(transcripts, runs_path("grpo-fr", "eval", f"{name}.transcripts.json"))
-    write_pydantic_json(report, runs_path("grpo-fr", "eval", f"{name}.report.json"))
-    commit_volume(
-        runs,
-        f"wrote {len(completion_set.items)} forced-revision completions "
-        f"(policy={policy}, second_generation={report.n_second_generation}) -> {out}",
-    )
-    return str(out)
-
-
-@modal_gpu_entrypoint(timeout_hours=2)
-def prompt_completion_batch(
-    prompts: str,
-    out: str,
-    adapter: str | None = None,
-    base_model: str = MODEL,
-    max_new_tokens: int = 1024,
-) -> str:
-    """Generic prompts-in/completions-out greedy pass: reads a JSONL whose rows carry a
-    `prompt` (chat messages) column, writes an aligned JSONL of `{"completion": text}`.
-    Used by the grpo-forced-revision probe; the caller's report records the source artifact
-    + commit, so this fn carries no provenance of its own."""
-    import json
-
-    from llm_rlvr.eval.provenance import DecodingConfig
-    from llm_rlvr.eval.vllm_backend import make_vllm_engine, sample_vllm_completions
-
-    rows = [
-        json.loads(line) for line in runs_path(prompts).read_text(encoding="utf-8").splitlines()
-    ]
-    decoding = DecodingConfig(temperature=0.0, max_new_tokens=max_new_tokens)
-    llm, chat_kwargs = make_vllm_engine(base_model, adapter_path=adapter_path(adapter))
-    texts = sample_vllm_completions(
-        llm, [row["prompt"] for row in rows], decoding, chat_kwargs=chat_kwargs
-    )
-    out_path = runs_path(out)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(
-        "\n".join(json.dumps({"completion": t}, ensure_ascii=False) for t in texts) + "\n",
-        encoding="utf-8",
-    )
-    commit_volume(runs, f"wrote {len(texts)} completions -> {out_path}")
-    return str(out_path)
-
-
-@app.local_entrypoint()
-def generate_raw(
-    prompts: str,
-    out: str,
-    adapter: str | None = None,
-    base_model: str = MODEL,
-    max_new_tokens: int = 1024,
-    spawn: bool = False,
-) -> None:
-    """Launch the generic greedy pass over a prompts JSONL on the Volume."""
-    kwargs = {
-        "prompts": prompts,
-        "out": out,
-        "adapter": adapter,
-        "base_model": base_model,
-        "max_new_tokens": max_new_tokens,
-    }
-    dispatch_remote(
-        prompt_completion_batch,
-        kwargs,
-        spawn=spawn,
-        label="raw generation",
-        app_name=APP_NAME,
-    )
-
-
-@app.local_entrypoint()
-def fr_smoke(
-    run_id: str = "grpo-fr-smoke",
-    warm_start: str = "grpo/grpo-s0",
-    base_model: str = MODEL,
-    base_model_revision: str | None = None,
-    limit: int = 32,
-    dev_size: int = 8,
-    max_steps: int | None = None,
-    spawn: bool = False,
-) -> None:
-    """Launch the forced-revision validation run."""
-    kwargs = {
-        "run_id": run_id,
-        "warm_start": warm_start,
-        "base_model": base_model,
-        "base_model_revision": base_model_revision,
-        "limit": limit,
-        "dev_size": dev_size,
-        "max_steps": max_steps,
-        **git_kwargs(),
-    }
-    dispatch_remote(
-        forced_revision_smoke,
-        kwargs,
-        spawn=spawn,
-        label="forced-revision smoke",
-        app_name=APP_NAME,
-    )
-
-
-@app.local_entrypoint()
-def fr_train(
-    run_id: str = "grpo-fr-s0",
-    warm_start: str = "grpo/grpo-s0",
-    base_model: str = MODEL,
-    base_model_revision: str | None = None,
-    learning_rate: float = 5e-5,
-    seed: int = 0,
-    dev_size: int | None = None,
-    limit: int | None = None,
-    max_steps: int | None = None,
-    spawn: bool = True,
-) -> None:
-    """Launch forced-revision GRPO. Spawns by default so `modal run --detach` is safe to leave."""
-    kwargs = {
-        "run_id": run_id,
-        "warm_start": warm_start,
-        "base_model": base_model,
-        "base_model_revision": base_model_revision,
-        "learning_rate": learning_rate,
-        "seed": seed,
-        "dev_size": dev_size,
-        "limit": limit,
-        "max_steps": max_steps,
-        **git_kwargs(),
-    }
-    dispatch_remote(
-        forced_revision_train,
-        kwargs,
-        spawn=spawn,
-        label="forced-revision training",
-        app_name=APP_NAME,
-    )
-
-
-@app.local_entrypoint()
-def fr_eval(
-    dataset: str = "spider",
-    adapter: str | None = None,
-    base_model: str = MODEL,
-    model_revision: str | None = None,
-    limit: int | None = None,
-    max_new_tokens: int = 1024,
-    temperature: float = 0.0,
-    sampling_seed: int = 0,
-    policy: str = "always",
-    spawn: bool = True,
-) -> None:
-    """Launch forced-revision eval; use `--policy error_only` for error-gated revision."""
-    kwargs = {
-        "dataset": dataset,
-        "adapter": adapter,
-        "base_model": base_model,
-        "model_revision": model_revision,
-        "limit": limit,
-        "max_new_tokens": max_new_tokens,
-        "temperature": temperature,
-        "sampling_seed": sampling_seed,
-        "policy": policy,
-        **git_kwargs(),
-    }
-    dispatch_remote(
-        forced_revision_eval,
-        kwargs,
-        spawn=spawn,
-        label="forced-revision eval",
-        app_name=APP_NAME,
-    )
-
-
-@app.local_entrypoint()
-def mt_eval(
-    dataset: str = "spider",
-    adapter: str | None = None,
-    base_model: str = MODEL,
-    model_revision: str | None = None,
-    limit: int | None = None,
-    max_new_tokens: int = 1024,
-    spawn: bool = True,
-) -> None:
-    """Launch the multi-turn greedy eval (no RL)."""
-    kwargs = {
-        "dataset": dataset,
-        "adapter": adapter,
-        "base_model": base_model,
-        "model_revision": model_revision,
-        "limit": limit,
-        "max_new_tokens": max_new_tokens,
-        **git_kwargs(),
-    }
-    dispatch_remote(
-        multiturn_eval,
-        kwargs,
-        spawn=spawn,
-        label="multi-turn eval",
-        app_name=APP_NAME,
-    )
 
 
 @app.local_entrypoint()
@@ -827,8 +388,6 @@ def sft(
     run_id: str = "sft-r32",
     base_model: str = MODEL,
     model_revision: str | None = None,
-    warm_start: str | None = None,
-    render_tool_prompts: bool = False,
     epochs: int = 3,
     learning_rate: float = 1e-4,
     seed: int = 0,
@@ -841,8 +400,6 @@ def sft(
         "run_id": run_id,
         "base_model": base_model,
         "model_revision": model_revision,
-        "warm_start": warm_start,
-        "render_tool_prompts": render_tool_prompts,
         "epochs": epochs,
         "learning_rate": learning_rate,
         "seed": seed,
@@ -882,39 +439,3 @@ def grpo(
         **git_kwargs(),
     }
     dispatch_remote(grpo_train, kwargs, spawn=spawn, label="GRPO", app_name=APP_NAME)
-
-
-@app.local_entrypoint()
-def mt_smoke(
-    run_id: str = "grpo-mt-smoke",
-    warm_start: str | None = "grpo/grpo-s0",
-    base_model: str = MODEL,
-    base_model_revision: str | None = None,
-    prompt_style: str = "mt_demo",
-    limit: int = 32,
-    dev_size: int = 8,
-    max_steps: int | None = None,
-    spawn: bool = False,
-) -> None:
-    """Launch the multi-turn validation run.
-
-    modal run modal_app.py::mt_smoke
-    """
-    kwargs = {
-        "run_id": run_id,
-        "warm_start": warm_start,
-        "base_model": base_model,
-        "base_model_revision": base_model_revision,
-        "prompt_style": prompt_style,
-        "limit": limit,
-        "dev_size": dev_size,
-        "max_steps": max_steps,
-        **git_kwargs(),
-    }
-    dispatch_remote(
-        multiturn_smoke,
-        kwargs,
-        spawn=spawn,
-        label="multi-turn smoke",
-        app_name=APP_NAME,
-    )

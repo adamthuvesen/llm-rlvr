@@ -40,21 +40,13 @@ def main(argv: list[str] | None = None) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="llm-rlvr",
-        description="Text-to-SQL eval and self-correction analysis utilities.",
-        epilog=(
-            "Core commands: generate, score, build-traces\n"
-            "Analysis utilities: build-tooluse, select-bestofn, fr-metrics, fr-error-only-replay"
-        ),
+        description="Text-to-SQL generation, scoring, and training-data utilities.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="command", required=True)
     _add_generate_parser(sub)
     _add_score_parser(sub)
     _add_build_traces_parser(sub)
-    _add_build_tooluse_parser(sub)
-    _add_select_bestofn_parser(sub)
-    _add_fr_metrics_parser(sub)
-    _add_fr_error_only_replay_parser(sub)
     return parser
 
 
@@ -104,62 +96,6 @@ def _add_build_traces_parser(sub: argparse._SubParsersAction) -> None:
     traces.add_argument("--out", required=True, help="output trace-dataset JSONL path")
     traces.add_argument("--manifest", required=True, help="output manifest json path")
     traces.set_defaults(func=_cmd_build_traces)
-
-
-def _add_build_tooluse_parser(sub: argparse._SubParsersAction) -> None:
-    tooluse = sub.add_parser(
-        "build-tooluse",
-        help="build the tool-use SFT dataset (CPU; executes in the sandbox)",
-    )
-    tooluse.add_argument("--tables-json", required=True, help="Spider tables.json for schemas")
-    tooluse.add_argument("--db-root", required=True, help="extracted Spider database/ directory")
-    tooluse.add_argument("--traces", required=True, help="Stage-1 trace JSONL (direct-row source)")
-    tooluse.add_argument("--out", required=True, help="output tool-use dataset JSONL path")
-    tooluse.add_argument("--manifest", required=True, help="output manifest json path")
-    tooluse.add_argument("--n-revise", type=int, default=600)
-    tooluse.add_argument("--n-check", type=int, default=300)
-    tooluse.add_argument("--n-direct", type=int, default=200)
-    tooluse.add_argument("--seed", type=int, default=0)
-    tooluse.set_defaults(func=_cmd_build_tooluse)
-
-
-def _add_select_bestofn_parser(sub: argparse._SubParsersAction) -> None:
-    bestofn = sub.add_parser(
-        "select-bestofn",
-        help="gold-free best-of-N selection over sampled CompletionSets (CPU)",
-    )
-    bestofn.add_argument(
-        "--completions", required=True, nargs="+", help="N aligned sampled CompletionSet paths"
-    )
-    bestofn.add_argument("--db-root", required=True, help="extracted database/ directory")
-    bestofn.add_argument("--out", required=True, help="output selection CompletionSet path")
-    bestofn.add_argument("--report", required=True, help="output selection-report json path")
-    bestofn.set_defaults(func=_cmd_select_bestofn)
-
-
-def _add_fr_metrics_parser(sub: argparse._SubParsersAction) -> None:
-    fr_metrics = sub.add_parser(
-        "fr-metrics",
-        help="fix/harm decomposition of a forced-revision eval (CPU)",
-    )
-    fr_metrics.add_argument("--completions", required=True, help="FR CompletionSet json path")
-    fr_metrics.add_argument("--transcripts", required=True, help="FR transcripts json path")
-    fr_metrics.add_argument("--db-root", required=True, help="extracted database/ directory")
-    fr_metrics.add_argument("--out", default=None, help="optional FrMetricsReport json path")
-    fr_metrics.set_defaults(func=_cmd_fr_metrics)
-
-
-def _add_fr_error_only_replay_parser(sub: argparse._SubParsersAction) -> None:
-    fr_error_only = sub.add_parser(
-        "fr-error-only-replay",
-        help="replay forced-revision eval with second generation on errors only",
-    )
-    fr_error_only.add_argument("--completions", required=True, help="FR CompletionSet json path")
-    fr_error_only.add_argument("--transcripts", required=True, help="FR transcripts json path")
-    fr_error_only.add_argument("--db-root", required=True, help="extracted database/ directory")
-    fr_error_only.add_argument("--out", required=True, help="output replay CompletionSet path")
-    fr_error_only.add_argument("--report", required=True, help="output replay report json path")
-    fr_error_only.set_defaults(func=_cmd_fr_error_only_replay)
 
 
 def _cmd_score(args: argparse.Namespace) -> int:
@@ -229,110 +165,6 @@ def _cmd_build_traces(args: argparse.Namespace) -> int:
         f"kept {counts.n_kept}/{counts.n_questions} questions "
         f"({counts.n_candidates} candidates, {counts.n_eligible} eligible, "
         f"{counts.n_gold_errors} gold errors) -> {path}"
-    )
-    return 0
-
-
-def _cmd_build_tooluse(args: argparse.Namespace) -> int:
-    # Imported here so `generate`/`score` never pay for the train-layer imports.
-    from llm_rlvr.data.spider import SPIDER_HF_REVISION, load_examples, load_schemas
-    from llm_rlvr.env.text2sql_env import FeedbackConfig
-    from llm_rlvr.train.tooluse import (
-        ToolUseMix,
-        build_tooluse_manifest,
-        build_tooluse_rows,
-        write_tooluse_dataset,
-    )
-    from llm_rlvr.train.traces import read_trace_dataset
-
-    mix = ToolUseMix(
-        n_revise=args.n_revise, n_check=args.n_check, n_direct=args.n_direct, seed=args.seed
-    )
-    feedback = FeedbackConfig()
-    schemas = load_schemas(args.tables_json)
-    examples = list(load_examples("train"))
-    traces = read_trace_dataset(args.traces)
-    rows, counts = build_tooluse_rows(
-        examples, schemas, args.db_root, traces, mix=mix, feedback=feedback
-    )
-    path = write_tooluse_dataset(rows, args.out)
-    manifest = build_tooluse_manifest(
-        dataset="spider",
-        dataset_revision=SPIDER_HF_REVISION,
-        mix=mix,
-        feedback=feedback,
-        trace_dataset_path=args.traces,
-        counts=counts,
-    )
-    write_pydantic_json(manifest, args.manifest)
-    print(
-        f"built {counts.n_rows} rows ({counts.n_revise} revise / {counts.n_check} check / "
-        f"{counts.n_direct} direct; {counts.n_gold_errors} gold errors, "
-        f"{counts.n_corruption_fallbacks} corruption fallbacks) -> {path}"
-    )
-    return 0
-
-
-def _cmd_select_bestofn(args: argparse.Namespace) -> int:
-    from llm_rlvr.eval.bestofn import select_best_of_n
-
-    sets = [read_completion_set(path) for path in args.completions]
-    selection, report = select_best_of_n(sets, args.db_root)
-    path = write_completion_set(selection, args.out)
-    write_pydantic_json(report, args.report)
-    print(
-        f"selected {report.n_items} of {report.n_candidates_per_item} candidates each "
-        f"(non-empty {report.n_selected_nonempty}, executes {report.n_selected_executes}, "
-        f"fallback {report.n_fallback_first}, "
-        f"disagreeing {report.n_items_with_disagreeing_candidates}) -> {path}"
-    )
-    return 0
-
-
-def _cmd_fr_metrics(args: argparse.Namespace) -> int:
-    from pathlib import Path
-
-    from llm_rlvr.revision.eval import ForcedRevisionTranscriptSet
-    from llm_rlvr.revision.metrics import compute_fr_metrics
-
-    completion_set = read_completion_set(args.completions)
-    transcripts = ForcedRevisionTranscriptSet.model_validate_json(
-        Path(args.transcripts).read_text(encoding="utf-8")
-    )
-    report = compute_fr_metrics(completion_set, transcripts, args.db_root)
-    if args.out:
-        write_pydantic_json(report, args.out)
-    print(
-        f"attempt_ex={report.attempt_ex:.4f} final_ex={report.final_ex:.4f} "
-        f"net={report.net_delta:+.4f} | fixed {report.n_fixed}/{report.n_attempt_wrong} "
-        f"({report.fix_rate:.1%}; err-fb {report.n_fixed_from_error_feedback}, "
-        f"result-fb {report.n_fixed_from_result_feedback}) | "
-        f"harmed {report.n_harmed}/{report.n_attempt_right} ({report.harm_rate:.1%}) | "
-        f"revised {report.n_revised}/{report.n}"
-    )
-    return 0
-
-
-def _cmd_fr_error_only_replay(args: argparse.Namespace) -> int:
-    from pathlib import Path
-
-    from llm_rlvr.revision.eval import (
-        ForcedRevisionTranscriptSet,
-        replay_error_only_revision,
-    )
-
-    completion_set = read_completion_set(args.completions)
-    transcripts = ForcedRevisionTranscriptSet.model_validate_json(
-        Path(args.transcripts).read_text(encoding="utf-8")
-    )
-    replay, report = replay_error_only_revision(completion_set, transcripts, args.db_root)
-    path = write_completion_set(replay, args.out)
-    write_pydantic_json(report, args.report)
-    print(
-        f"attempt_ex={report.attempt_ex:.4f} always_revise_ex={report.always_revise_ex:.4f} "
-        f"error_only_ex={report.error_only_ex:.4f} | revised {report.n_revised}/{report.n} "
-        f"({report.revised_rate:.1%}) | fixed {report.n_fixed}, harmed {report.n_harmed} "
-        f"-> {path}"
     )
     return 0
 

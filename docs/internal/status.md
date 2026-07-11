@@ -14,6 +14,3 @@ Supported path:
 - Training path: SFT cold-start, then single-turn GRPO.
 - Reporting path: tracked public summary checked by `make eval`; external raw `CompletionSet`
   artifacts re-scored by `make eval-full` after restoring the local bundle.
-
-Self-correction utilities remain in the tree for analysis. The public training path and headline
-result are single-turn GRPO.

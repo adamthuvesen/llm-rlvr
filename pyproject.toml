@@ -50,7 +50,7 @@ dev = [
     "pre-commit>=3.8",
     # The Modal launch CLI. Pinned so `modal run`/`modal deploy` use the surface modal_app.py
     # targets (modal.App, string GPU, add_local_*); it never enters the GPU image (the image
-    # exports only `--extra gpu --extra train`), so it adds no runtime weight to the box.
+    # exports only `--extra train`, which includes `gpu`), so it adds no runtime weight to the box.
     "modal==1.5.0",
 ]
 

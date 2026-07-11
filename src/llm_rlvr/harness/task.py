@@ -1,15 +1,15 @@
-"""The `Task` protocol — the surface a concrete RLVR task implements.
+"""The `Task` protocol: the surface implemented by a concrete RLVR task.
 
-A task bundles everything the shared SFT / GRPO / eval machinery needs that is *specific* to a
-problem, so the drivers stay task-agnostic. To add a task (e.g. your own model on your own problem),
-implement these members; text-to-SQL (`llm_rlvr.tasks.sql`) is the reference implementation;
-`docs/harness.md` is the step-by-step guide.
+Problem-specific verification and GRPO inputs are defined here. The shared GRPO driver consumes
+`make_reward_fn` and `build_grpo_rows`; `build_prompts` is available to task-specific callers.
+Text-to-SQL (`llm_rlvr.tasks.sql`) is the reference implementation, and `docs/harness.md` is the
+step-by-step guide.
 
 The split:
-  - **verification** (`parser`, `make_verifier`, `make_reward_fn`) — the RLVR core: parse the
-    answer, check it, turn the check into a training reward. This makes the reward verifiable.
-  - **data → prompt** (`build_prompts`, `build_grpo_rows`) — render examples into chat prompts and
-    into GRPO rows that carry the per-example `reference` + `context` the reward needs.
+  - **verification** (`parser`, `make_verifier`, `make_reward_fn`): answers are parsed, checked, and
+    turned into training rewards.
+  - **data to prompt** (`build_prompts`, `build_grpo_rows`): examples are rendered into chat prompts
+    and GRPO rows with the per-example `reference` and `context` required by the reward.
 
 `resources` is whatever per-task lookup the prompt/reward need (for SQL: the database schemas);
 `context_root` is where the verifier resolves its context from (for SQL: the database root).

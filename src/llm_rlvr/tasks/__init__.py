@@ -1,7 +1,8 @@
 """Concrete RLVR tasks, keyed by name.
 
-Text-to-SQL is the reference task; register your own here to reuse the shared SFT/GRPO/eval
-machinery (see `docs/harness.md`). Each value is a zero-arg factory returning a `harness.Task`.
+New tasks are registered here for use with the shared GRPO driver and harness reward. Text-to-SQL
+is the reference task. Each value is a zero-argument factory that returns a `harness.Task`; see
+`docs/harness.md`.
 """
 
 from __future__ import annotations

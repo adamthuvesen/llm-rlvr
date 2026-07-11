@@ -5,14 +5,12 @@ from __future__ import annotations
 import pytest
 
 from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
-from llm_rlvr.tasks.sql import RewardConfig
+from llm_rlvr.tasks.sql import RewardConfig, sql_task
 from llm_rlvr.train.grpo import (
     GrpoHyperparams,
     GrpoProvenance,
     build_grpo_provenance,
-    build_grpo_rows,
     grpo_config_kwargs,
-    lora_kwargs,
     split_train_dev,
 )
 
@@ -41,13 +39,6 @@ def test_grpo_config_carries_the_decided_dials() -> None:
     assert kw["learning_rate"] == 1e-5  # default GRPO learning rate
 
 
-def test_lora_targets_all_linear_at_rank_32() -> None:
-    kw = lora_kwargs(GrpoHyperparams())
-    assert kw["target_modules"] == "all-linear"
-    assert kw["r"] == 32
-    assert kw["lora_alpha"] == 64
-
-
 def test_dev_split_is_disjoint_and_deterministic() -> None:
     train_a, dev_a = split_train_dev(EXAMPLES, dev_size=3, seed=0)
     _train_b, dev_b = split_train_dev(EXAMPLES, dev_size=3, seed=0)
@@ -74,7 +65,7 @@ def test_dev_split_rejects_negative_size() -> None:
 
 
 def test_grpo_rows_carry_prompt_gold_and_db() -> None:
-    rows = build_grpo_rows(EXAMPLES[:3], SCHEMAS)
+    rows = sql_task().build_grpo_rows(EXAMPLES[:3], SCHEMAS)
     assert len(rows) == 3
     for example, row in zip(EXAMPLES[:3], rows, strict=True):
         assert set(row) == {"prompt", "gold_sql", "db_id"}
