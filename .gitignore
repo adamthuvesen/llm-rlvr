@@ -10,7 +10,6 @@ __pycache__/
 .DS_Store
 
 # Project artifacts
-/openspec/
 /runs/
 /text2sql-runs/
 /checkpoints/
