@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shlex
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol, Self
@@ -149,14 +151,29 @@ def commit_volume(volume: CommitVolume, message: str) -> None:
     print(message)
 
 
+LAUNCH_APPROVAL_FLAG = "--approved"
+
+
+def approval_refusal(label: str, argv: list[str]) -> str:
+    approved_command = shlex.join(["modal", *argv[1:], LAUNCH_APPROVAL_FLAG])
+    return (
+        f"refusing to launch {label}: this run spends money on Modal GPUs.\n"
+        "Stop and ask Adam to approve this run and its rough cost.\n"
+        f"Once approved, run: {approved_command}"
+    )
+
+
 def dispatch_remote(
     fn: RemoteFunction,
     kwargs: Frozen,
     *,
+    approved: bool,
     spawn: bool,
     label: str,
     app_name: str,
 ) -> None:
+    if not approved:
+        raise SystemExit(approval_refusal(label, sys.argv))
     if spawn:
         call = fn.spawn(**kwargs.model_dump())
         print(f"{label} dispatched (spawn): function call {call.object_id}")

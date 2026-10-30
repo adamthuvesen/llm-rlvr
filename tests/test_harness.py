@@ -208,8 +208,8 @@ def test_completion_text_handles_str_dict_and_message_list() -> None:
 
 
 def test_sql_training_reward_aborts_on_unverifiable_reference(scoring_root) -> None:
-    from llm_rlvr.eval.verifier import GoldExecutionError
     from llm_rlvr.tasks.sql import make_reward_fn
+    from llm_rlvr.tasks.sql.verifier import GoldExecutionError
 
     reward = make_reward_fn(scoring_root)
     with pytest.raises(GoldExecutionError, match="reference became unverifiable"):

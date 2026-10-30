@@ -38,9 +38,8 @@ execution-verified rewards.
 Prepared SFT accepts validated conversations and a task-supplied eligibility proof. SQL SFT validates SQL trace lineage before composition.
 Import contracts in `pyproject.toml` enforce these boundaries through `make imports`.
 
-The SQL implementations live under `tasks/sql/`. The old `eval.verifier`, `eval.parsing`, and `eval.prompt` imports remain compatibility exports.
-Shared provenance lives in `artifacts/provenance.py`. `eval.provenance` remains a compatibility export.
-`artifacts/io.py` owns atomic publication. The old completion IO functions delegate to it.
+The SQL implementations live under `tasks/sql/`. Shared provenance lives in `artifacts/provenance.py`.
+`artifacts/io.py` owns atomic publication. Import each name from its defining module.
 
 Heavy dependencies import inside runtime functions. The installed CPU wheel can import every package module without the model stack.
 

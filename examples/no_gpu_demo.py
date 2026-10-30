@@ -10,13 +10,13 @@ import sqlite3
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from llm_rlvr.artifacts.provenance import DecodingConfig, GenerationProvenance
 from llm_rlvr.data.models import Example
 from llm_rlvr.eval.completions import (
     CompletionSet,
     GenerationSample,
     ProblemCompletions,
 )
-from llm_rlvr.eval.provenance import DecodingConfig, GenerationProvenance
 from llm_rlvr.eval.score import score_completion_set
 
 

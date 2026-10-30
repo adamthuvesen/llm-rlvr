@@ -20,13 +20,9 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from llm_rlvr.artifacts.io import atomic_write_text, ensure_new_output
+from llm_rlvr.artifacts.io import atomic_write_json, atomic_write_text, ensure_new_output
 from llm_rlvr.data.paths import sha256_of
-from llm_rlvr.eval.completions import (
-    read_completion_set,
-    write_completion_set,
-    write_pydantic_json,
-)
+from llm_rlvr.eval.completions import read_completion_set, write_completion_set
 from llm_rlvr.eval.score import score_completion_set
 from llm_rlvr.tasks.sql.verifier import VerifierConfig
 
@@ -143,7 +139,7 @@ def _cmd_score(args: argparse.Namespace) -> int:
     config = VerifierConfig(keep_distinct=not args.no_keep_distinct)
     report = score_completion_set(completion_set, args.db_root, config=config, workers=args.workers)
     if args.out:
-        write_pydantic_json(report, args.out)
+        atomic_write_json(report, args.out)
     if report.n_gold_errors:
         print(
             f"error: score report is unhealthy: {report.n_gold_errors} reference SQL errors. "
@@ -250,7 +246,7 @@ def _cmd_build_traces(args: argparse.Namespace) -> int:
             update={"trace_dataset_sha256": sha256_of(staged)}
         )
         path = atomic_write_text(args.out, staged.read_text(encoding="utf-8"))
-        write_pydantic_json(manifest, args.manifest)
+        atomic_write_json(manifest, args.manifest)
     print(
         f"kept {counts.n_kept}/{counts.n_questions} questions "
         f"({counts.n_candidates} candidates, {counts.n_eligible} eligible, "

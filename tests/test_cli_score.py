@@ -218,8 +218,8 @@ def test_cli_missing_optional_backend_has_actionable_error(
 def test_cli_build_traces_rejects_invalid_gold_without_outputs(
     tmp_path: Path, scoring_root: Path, capsys
 ) -> None:
+    from llm_rlvr.artifacts.io import atomic_write_json
     from llm_rlvr.data.models import Example
-    from llm_rlvr.eval.completions import write_pydantic_json
     from llm_rlvr.train.traces import CandidateSet, TraceCandidates, TraceSamplingConfig
 
     candidates = CandidateSet(
@@ -240,7 +240,7 @@ def test_cli_build_traces_rejects_invalid_gold_without_outputs(
             ),
         ),
     )
-    source = write_pydantic_json(candidates, tmp_path / "candidates.json")
+    source = atomic_write_json(candidates, tmp_path / "candidates.json")
     out, manifest = tmp_path / "traces.jsonl", tmp_path / "manifest.json"
     assert (
         main(

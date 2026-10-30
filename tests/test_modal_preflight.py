@@ -98,11 +98,14 @@ def test_invalid_training_never_dispatches(
 
 
 def test_valid_dispatch_carries_requested_values_and_source_identity(modal_module) -> None:
-    modal_module.main(max_new_tokens=777, model_revision="abc", spawn=True)
+    with pytest.raises(SystemExit, match="--approved"):
+        modal_module.main(max_new_tokens=777)
+    assert modal_module.baseline.calls == []
+    modal_module.main(max_new_tokens=777, model_revision="abc", spawn=True, approved=True)
     assert modal_module.baseline.calls[0]["max_new_tokens"] == 777
     assert modal_module.baseline.calls[0]["model_revision"] == "abc"
     assert modal_module.baseline.calls[0]["commit"] == "abc"
-    modal_module.traces(spawn=False)
+    modal_module.traces(spawn=False, approved=True)
     assert modal_module.sample_traces.calls[0]["commit"] == "abc"
 
 

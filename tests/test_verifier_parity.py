@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_rlvr.eval.verifier import VerifierConfig, execution_match
+from llm_rlvr.tasks.sql.verifier import VerifierConfig, execution_match
 from llm_rlvr.third_party.test_suite_sql_eval.exec_eval import eval_exec_match
 
 # (prediction, gold) pairs spanning match / column-order / order-by / empty / mismatch.

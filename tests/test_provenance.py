@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from llm_rlvr.eval.provenance import (
+from llm_rlvr.artifacts.provenance import (
     GenerationProvenance,
     build_generation_provenance,
     library_versions,
 )
 from llm_rlvr.eval.score import ScoreReport
-from llm_rlvr.eval.verifier import VerifierConfig
+from llm_rlvr.tasks.sql.verifier import VerifierConfig
 
 
 def test_provenance_round_trips(provenance: GenerationProvenance) -> None:
@@ -17,7 +17,7 @@ def test_provenance_round_trips(provenance: GenerationProvenance) -> None:
 
 
 def test_adapter_identity_recorded_when_present() -> None:
-    from llm_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr.artifacts.provenance import DecodingConfig
 
     prov = build_generation_provenance(
         model="m",
@@ -45,7 +45,7 @@ def test_library_versions_includes_this_package() -> None:
 
 
 def test_build_provenance_captures_git_and_libs() -> None:
-    from llm_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr.artifacts.provenance import DecodingConfig
 
     prov = build_generation_provenance(
         model="m",
@@ -61,7 +61,7 @@ def test_build_provenance_captures_git_and_libs() -> None:
 
 
 def test_provenance_records_resolved_exemplars() -> None:
-    from llm_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr.artifacts.provenance import DecodingConfig
 
     prov = build_generation_provenance(
         model="m",
@@ -102,7 +102,7 @@ def test_generation_versions_cannot_be_mutated(provenance: GenerationProvenance)
 def test_nonfinite_and_invalid_decoding_rejected() -> None:
     import pytest
 
-    from llm_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr.artifacts.provenance import DecodingConfig
 
     for updates in (
         {"temperature": float("nan")},

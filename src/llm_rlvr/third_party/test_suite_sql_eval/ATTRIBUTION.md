@@ -22,6 +22,6 @@ execution accuracy.
 The comparison core (`result_eq` and its helpers) is byte-for-byte upstream. No regex or logic
 changed.
 
-Our own wrapper (`llm_rlvr.eval.verifier`) reuses upstream `result_eq` for the comparison but
+Our own wrapper (`llm_rlvr.tasks.sql.verifier`) reuses upstream `result_eq` for the comparison but
 executes through the read-only sandbox; `tests/test_verifier_parity.py` asserts our verdicts agree
 with upstream `eval_exec_match` on a sample.

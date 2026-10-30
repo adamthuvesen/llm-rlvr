@@ -4,9 +4,6 @@ Text-to-SQL post-training project: SFT + single-turn GRPO worked. Two later self
 follow-ups did not, and their support code was removed. The public headline is backed by a tracked
 summary bundle, external raw artifacts, controls, multi-seed CIs, and disclosed caveats.
 
-Global tone, principles, and git etiquette live in the user's agent defaults; they are not
-duplicated here. This file is project-specific facts.
-
 ## Read this first, then route
 
 | When you are… | Read |
@@ -23,36 +20,40 @@ If a doc disagrees with code, fix the doc in the same change.
 ## Commands
 
 ```bash
-make check        # gate: lock, Ruff, types, imports, CPU tests, public evidence, demo
+make check        # fast gate (CI runs the same): lock, Ruff, types, imports, tests, installed wheel
 make fmt          # auto-format + safe lint fixes
 make eval         # validate/render the tracked public summary (CPU, model-free)
-make eval-full    # tracked full re-scoring, requires every external artifact pair
-make package-check # installed wheel smoke outside the checkout
+make eval-full    # full re-scoring, requires every restored external artifact pair
 make runtime-check # explicit training API check, missing dependencies fail
 make data         # fetch + verify the pinned Spider DBs
-uv run pytest -m integration   # network/HF/model tests (deselected by default)
+make help         # focused targets (check-verifier, check-evidence, check-training, ...)
 ```
 
 Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work runs **only** via
 `modal_app.py` entrypoints. Never run GPU work locally.
 
-## Hard rules
+## Enforced Rules
 
-- **Never break public evidence**: `make eval` must pass from a clean checkout using
-  `results/public/`. Raw CompletionSet JSON, ScoreReport JSON, databases, and adapters stay
-  external under gitignored `results/` or the Modal Volume; restore them and run `make eval-full`
-  for full re-scoring.
-- **Never pool rollouts across seeds**: aggregate per-seed, then Student-t CI
-  (`eval/aggregate.py`). Single-seed runs are point estimates; make no CI or significance claim.
-- **Keep `guard_trivial_empty=True`** in training rewards and trace filtering. It blocks the
-  always-empty-result reward hack.
-- **Datasets are pinned + fetched, never committed** (HF mirrors under `HAL-9001/`; checksums in
-  `data/artifacts.py`). Don't add data files to git.
-- **Long Modal runs**: `modal run --detach modal_app.py::<entrypoint> … --spawn`, or a local
-  disconnect kills the run. Stagger app creations (3 simultaneous hit a rate limit). The HF
-  "set HF_TOKEN for higher rate limits" warning is benign noise, not an error.
-- Paid GPU launches (training, full-dev evals) need explicit user approval of the run + rough
-  cost first; smokes and pilots validate the rig before any expensive run.
+| Rule | Enforced by | Added |
+|---|---|---|
+| Public evidence validates from a clean checkout and an installed wheel | `tests/test_public_evidence.py::test_tracked_public_evidence_passes_and_preserves_headline`, `scripts/verify_package.py::reproduce` | 2026-11-05 |
+| Aggregate per seed, then Student-t CI; one seed reports no interval | `src/llm_rlvr/eval/aggregate.py::class SeedLevelStat`, `tests/test_aggregate.py::test_single_seed_reports_a_point_not_an_interval`, `tests/test_public_evidence.py::test_seed_count_and_interval_claim_are_derived` | 2026-07-01 |
+| Training reward and trace filter keep `guard_trivial_empty=True` | `tests/test_harness.py::test_sql_training_reward_requires_empty_guard`, `tests/test_traces.py::test_trace_filter_cannot_disable_empty_guard` | 2026-11-05 |
+| Datasets, databases, weights, and large files are never tracked | `tests/test_repo_rules.py::test_no_data_files_are_tracked` | 2026-11-06 |
+| Harness, SQL task, artifacts, and prepared training keep their import direction | `pyproject.toml::[tool.importlinter]` | 2026-11-05 |
+| Generic training and the CPU wheel import without SQL or the model stack | `tests/test_import_architecture.py::test_generic_training_imports_without_sql_or_heavy_dependencies`, `scripts/verify_package.py::cpu_import` | 2026-11-05 |
+| Every citation in this table exists | `tests/test_repo_rules.py::test_enforced_rules_cite_existing_targets` | 2026-11-06 |
+
+## Judgment calls
+
+- Raw CompletionSet JSON, ScoreReport JSON, databases, and adapters stay external under
+  gitignored `results/` or the Modal Volume. Restore them and run `make eval-full` to re-score.
+- Single-seed runs are point estimates. Make no CI or significance claim from them.
+- Paid GPU launches (training, full-dev evals) need explicit user approval of the run and a rough
+  cost first. Smokes and pilots validate the rig before any expensive run.
+- Long Modal runs: `modal run --detach modal_app.py::<entrypoint>`. Long entrypoints spawn by
+  default, so a local disconnect does not kill them. Stagger app creations (3 simultaneous hit a
+  rate limit). The HF "set HF_TOKEN for higher rate limits" warning is benign.
 
 ## Conventions
 
@@ -61,10 +62,10 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 - Pure, CPU-testable builders + thin GPU drivers (see architecture doc). Unit tests must not need
   a GPU or network; mark anything that does `@pytest.mark.integration`.
 - Heavy/optional deps (`vllm`, `trl`, `peft`, `torch`) import lazily inside the functions that
-  use them. The CPU eval layer must install and run without the GPU stack.
-
-- SQL implementations live in `tasks/sql/`. Old `eval` SQL imports remain compatibility exports.
-- Shared provenance and atomic publication live in `artifacts/`. Keep request and completion markers consistent.
+  use them.
+- Import each name from its defining module: provenance and atomic publication from
+  `artifacts/`, SQL parsing, prompts, and verifier from `tasks/sql/<module>.py`. The SQL task and
+  reward are the one package-level surface: `llm_rlvr.tasks.sql`.
 - New outputs use fresh paths. Never publish a completion marker for an interrupted or unvalidated run.
 - Full reproduction code is tracked under `report/`. Do not depend on an external reproduction script.
 

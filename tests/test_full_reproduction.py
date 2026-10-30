@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from llm_rlvr.artifacts.provenance import GenerationProvenance
 from llm_rlvr.eval.completions import assemble_completion_set, write_completion_set
-from llm_rlvr.eval.provenance import GenerationProvenance
 from llm_rlvr.eval.score import score_completion_set
 from llm_rlvr.report.full import (
     ExpectedGeneration,

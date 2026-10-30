@@ -1,10 +1,13 @@
 """Modal app: GPU entrypoints for generation, trace sampling, SFT, and GRPO.
 
-    modal run --no-spawn modal_app.py::main --dataset spider --limit 8  # small blocking run
-    modal run --detach modal_app.py::main --dataset spider             # full Spider-dev baseline
-    modal run --no-spawn modal_app.py::traces --limit 8                # small trace-sampling run
-    modal run --detach modal_app.py::traces                            # Spider-train candidates
-    modal run --detach modal_app.py::sft                               # LoRA SFT on the traces
+    modal run modal_app.py::main --dataset spider --limit 8 --no-spawn --approved  # small smoke
+    modal run --detach modal_app.py::main --dataset spider --approved   # full Spider-dev baseline
+    modal run modal_app.py::traces --limit 8 --no-spawn --approved      # small trace sampling
+    modal run --detach modal_app.py::traces --approved                  # Spider-train candidates
+    modal run --detach modal_app.py::sft --approved                     # LoRA SFT on the traces
+
+Every entrypoint spends money on GPUs and refuses to launch without `--approved`. Pass it only
+after Adam approves the run and its rough cost.
 
 Long entrypoints (main, traces, sft, grpo) spawn by default, so `--detach` is safe to leave without
 remembering `--spawn`. Pass `--no-spawn` to force a long entrypoint to block.
@@ -228,9 +231,8 @@ def sample_traces(
     cold-start traces are distilled from the same family that GRPO will then train (matched recipe).
     """
     request = TraceRequest.model_validate(locals())
-    from llm_rlvr.artifacts.io import ensure_new_output
+    from llm_rlvr.artifacts.io import atomic_write_json, ensure_new_output
     from llm_rlvr.artifacts.runs import begin_run, publish_complete
-    from llm_rlvr.eval.completions import write_pydantic_json
     from llm_rlvr.train.configuration import resolve_model_revision
     from llm_rlvr.train.traces import CandidateSet, TraceSamplingConfig, sample_candidates
 
@@ -268,7 +270,7 @@ def sample_traces(
             sampling=sampling,
         ),
     )
-    out = write_pydantic_json(candidate_set, output_dir / "candidates.json")
+    out = atomic_write_json(candidate_set, output_dir / "candidates.json")
     CandidateSet.model_validate_json(out.read_text(encoding="utf-8"))
     publish_complete(output_dir, artifacts=[out])
     commit_volume(runs, f"wrote {len(candidate_set.items)} questions x {n} samples -> {out}")
@@ -382,6 +384,7 @@ def main(
     sampling_seed: int = 0,
     run_id: str | None = None,
     spawn: bool = True,
+    approved: bool = False,
 ) -> None:
     """Launch a baseline generation on the GPU. Spawns by default so `modal run --detach` is
     safe to leave; pass --no-spawn to block on the inline result (e.g. a tiny --limit smoke)."""
@@ -404,6 +407,7 @@ def main(
     dispatch_remote(
         baseline,
         GenerationRequest.model_validate(kwargs),
+        approved=approved,
         spawn=spawn,
         label="baseline",
         app_name=APP_NAME,
@@ -422,6 +426,7 @@ def traces(
     model_revision: str | None = None,
     run_id: str | None = None,
     spawn: bool = True,
+    approved: bool = False,
 ) -> None:
     """Launch Spider-train trace sampling. Spawns by default so `modal run --detach` is safe to
     leave; pass --no-spawn to block on the inline result (e.g. a tiny --limit smoke)."""
@@ -440,6 +445,7 @@ def traces(
     dispatch_remote(
         sample_traces,
         TraceRequest.model_validate(kwargs),
+        approved=approved,
         spawn=spawn,
         label="trace sampling",
         app_name=APP_NAME,
@@ -457,6 +463,7 @@ def sft(
     learning_rate: float = 1e-4,
     seed: int = 0,
     spawn: bool = True,
+    approved: bool = False,
 ) -> None:
     """Launch the LoRA SFT. `traces` is the dataset path relative to the runs Volume. Spawns by
     default so `modal run --detach` is safe to leave; pass --no-spawn to block on the result."""
@@ -472,7 +479,12 @@ def sft(
         **git_kwargs(),
     }
     dispatch_remote(
-        sft_train, SftRequest.model_validate(kwargs), spawn=spawn, label="SFT", app_name=APP_NAME
+        sft_train,
+        SftRequest.model_validate(kwargs),
+        approved=approved,
+        spawn=spawn,
+        label="SFT",
+        app_name=APP_NAME,
     )
 
 
@@ -488,11 +500,12 @@ def grpo(
     dev_size: int | None = None,
     limit: int | None = None,
     spawn: bool = True,
+    approved: bool = False,
 ) -> None:
     """Launch single-turn GRPO. Spawns by default so `modal run --detach` is safe to leave.
 
-    modal run --no-spawn modal_app.py::grpo --run-id grpo-small --limit 32 --dev-size 8
-    modal run --detach modal_app.py::grpo --run-id grpo-s0                               # seed
+    modal run modal_app.py::grpo --run-id grpo-small --limit 32 --dev-size 8 --no-spawn --approved
+    modal run --detach modal_app.py::grpo --run-id grpo-s0 --approved                    # seed
     """
     kwargs = {
         "run_id": run_id,
@@ -507,5 +520,10 @@ def grpo(
         **git_kwargs(),
     }
     dispatch_remote(
-        grpo_train, GrpoRequest.model_validate(kwargs), spawn=spawn, label="GRPO", app_name=APP_NAME
+        grpo_train,
+        GrpoRequest.model_validate(kwargs),
+        approved=approved,
+        spawn=spawn,
+        label="GRPO",
+        app_name=APP_NAME,
     )

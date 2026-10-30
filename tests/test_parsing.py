@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from llm_rlvr.eval.parsing import extract_sql, well_formed
+from llm_rlvr.tasks.sql.parsing import extract_sql, well_formed
 
 
 def test_sql_block() -> None:

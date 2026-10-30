@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import Field, model_validator
 
 from llm_rlvr._base import Frozen
 from llm_rlvr.artifacts.io import atomic_write_json
@@ -125,11 +125,6 @@ class CompletionSet(Frozen):
         return self
 
 
-def write_pydantic_json(model: BaseModel, path: str | Path, *, overwrite: bool = False) -> Path:
-    """Publish model JSON atomically. Existing outputs require explicit overwrite."""
-    return atomic_write_json(model, path, overwrite=overwrite)
-
-
 def assemble_completion_set(
     examples: Sequence[Example],
     raw_texts: Sequence[str],
@@ -151,7 +146,7 @@ def assemble_completion_set(
 def write_completion_set(
     completion_set: CompletionSet, path: str | Path, *, overwrite: bool = False
 ) -> Path:
-    return write_pydantic_json(completion_set, path, overwrite=overwrite)
+    return atomic_write_json(completion_set, path, overwrite=overwrite)
 
 
 def read_completion_set(path: str | Path) -> CompletionSet:

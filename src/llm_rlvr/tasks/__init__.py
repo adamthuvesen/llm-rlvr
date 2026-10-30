@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from llm_rlvr.harness import Task
-from llm_rlvr.tasks.sql import SqlTask, sql_task
+from llm_rlvr.tasks.sql import sql_task
 
 TASKS: dict[str, Callable[[], Task]] = {
     "sql": sql_task,
@@ -26,4 +26,4 @@ def get_task(name: str) -> Task:
     return factory()
 
 
-__all__ = ["TASKS", "SqlTask", "get_task", "sql_task"]
+__all__ = ["TASKS", "get_task"]

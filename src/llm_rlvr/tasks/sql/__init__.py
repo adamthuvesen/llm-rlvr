@@ -1,4 +1,4 @@
-"""Text-to-SQL task, training reward, and public compatibility imports."""
+"""Text-to-SQL task and training reward."""
 
 from llm_rlvr.tasks.sql.task import (
     NO_SQL_REASON,

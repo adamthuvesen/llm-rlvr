@@ -172,20 +172,20 @@ def test_manifest_carries_reproducibility_fields(scoring_root: Path) -> None:
 
 
 def test_candidate_set_file_round_trip(tmp_path: Path) -> None:
-    from llm_rlvr.eval.completions import write_pydantic_json
+    from llm_rlvr.artifacts.io import atomic_write_json
 
     candidate_set = _candidate_set(WF_CORRECT, WF_WRONG)
-    path = write_pydantic_json(candidate_set, tmp_path / "candidates.json")
+    path = atomic_write_json(candidate_set, tmp_path / "candidates.json")
     assert read_candidate_set(path) == candidate_set
 
 
 def test_build_traces_cli_runs_the_whole_cpu_funnel(scoring_root: Path, tmp_path: Path) -> None:
     import json
 
+    from llm_rlvr.artifacts.io import atomic_write_json
     from llm_rlvr.cli import main
-    from llm_rlvr.eval.completions import write_pydantic_json
 
-    candidates_path = write_pydantic_json(
+    candidates_path = atomic_write_json(
         _candidate_set(WF_CORRECT, WF_WRONG, MALFORMED_CORRECT), tmp_path / "candidates.json"
     )
     out = tmp_path / "traces.jsonl"
@@ -250,7 +250,7 @@ def test_filter_rejects_dev_even_for_constructed_candidates(scoring_root: Path) 
 
 
 def test_trace_filter_cannot_disable_empty_guard(scoring_root: Path) -> None:
-    from llm_rlvr.eval.verifier import VerifierConfig
+    from llm_rlvr.tasks.sql.verifier import VerifierConfig
 
     with pytest.raises(ValueError, match="guard_trivial_empty=True"):
         filter_traces(_candidates(WF_CORRECT), scoring_root, config=VerifierConfig())

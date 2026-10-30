@@ -184,7 +184,7 @@ Custom GRPO follows the same publication path after `execute_prepared_grpo` retu
 Run `make imports` after changing dependencies. Keep task-specific imports outside `harness/` and `train/prepared.py`.
 The prepared GRPO executor accepts rows and a bound reward function. Prepared SFT accepts conversations and eligibility evidence.
 SQL composition stays in the SQL-facing training entrypoints.
-Old `eval` SQL imports are compatibility exports. Add new SQL behavior in `tasks/sql/`.
+Add new SQL behavior in `tasks/sql/`.
 
 Run `make check` for the CPU gate. Use `make runtime-check` on a host with the training dependencies installed.
 The runtime check fails when a required dependency is absent. CPU checks do not prove GPU execution or provider compatibility.
