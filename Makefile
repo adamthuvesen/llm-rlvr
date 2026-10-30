@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: help install lock fmt lint typecheck imports test test-integration runtime-check check verify eval eval-full demo package-check data
+.PHONY: help install lock fix lint typecheck imports test test-integration runtime-check check verify eval eval-full demo package-check data
 
 RUN := uv run --locked
 
@@ -12,7 +12,7 @@ install:  ## Install the locked CPU development environment
 lock:  ## Check pyproject.toml agrees with uv.lock
 	uv lock --check
 
-fmt:  ## Apply Ruff formatting and safe fixes
+fix:  ## Apply Ruff formatting and safe fixes
 	$(RUN) ruff check --fix .
 	$(RUN) ruff format .
 

@@ -21,7 +21,7 @@ If a doc disagrees with code, fix the doc in the same change.
 
 ```bash
 make check        # fast gate (CI runs the same): lock, Ruff, types, imports, tests, installed wheel
-make fmt          # auto-format + safe lint fixes
+make fix          # auto-format + safe lint fixes
 make eval         # validate/render the tracked public summary (CPU, model-free)
 make eval-full    # full re-scoring, requires every restored external artifact pair
 make runtime-check # explicit training API check, missing dependencies fail

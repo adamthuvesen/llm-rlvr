@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import Field
 
@@ -229,7 +229,7 @@ def run_grpo(
     dev slice is held out for post-hoc dev-EX checkpoint selection; periodic checkpoints land under
     `output_dir`.
     """
-    tk: Task[Any, Any, Any] = task or sql_task()
+    tk = cast("Task[Any, Any, Any]", task or sql_task())
     hp = hyperparams or GrpoHyperparams()
     rw = reward or (RewardConfig() if tk.name == "sql" else ShapingConfig())
     if tk.name == "sql" and not isinstance(rw, RewardConfig):

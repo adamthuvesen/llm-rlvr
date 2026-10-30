@@ -75,6 +75,7 @@ force-exclude = true
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "N", "PTH", "RUF"]
+ignore = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["llm_rlvr"]
@@ -101,10 +102,21 @@ reportUnknownArgumentType = false
 reportUnknownVariableType = false
 reportUnknownParameterType = false
 reportUnknownLambdaType = false
+reportMissingTypeStubs = false
+
+# The GPU libraries (torch, transformers, peft, trl, vllm) are optional and absent from the CPU environment.
+[[tool.basedpyright.executionEnvironments]]
+root = "src/llm_rlvr/eval"
+reportMissingImports = false
+
+[[tool.basedpyright.executionEnvironments]]
+root = "src/llm_rlvr/train"
+reportMissingImports = false
 
 [[tool.basedpyright.executionEnvironments]]
 root = "tests"
 reportMissingParameterType = false
+reportPrivateUsage = false
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/llm_rlvr"]

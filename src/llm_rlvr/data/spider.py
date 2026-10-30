@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from llm_rlvr._base import Frozen
 from llm_rlvr.data.artifacts import (
@@ -52,7 +53,7 @@ def parse_schema(entry: dict[str, Any]) -> DatabaseSchema:
         if table_idx == -1 and name != "*":
             raise ValueError("only the wildcard column may use table index -1")
 
-    def referenced_column(index: int) -> tuple[int, str]:
+    def referenced_column(index: object) -> tuple[int, str]:
         if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(columns):
             raise ValueError(f"invalid column index {index!r}")
         table_idx, name = columns[index]
@@ -127,7 +128,7 @@ def load_examples(split: str, *, revision: str = SPIDER_HF_REVISION) -> tuple[Ex
             split=split,
             dataset="spider",
         )
-        for row in rows
+        for row in cast("Iterable[dict[str, str]]", rows)
     )
 
 
