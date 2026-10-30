@@ -26,7 +26,7 @@ def _summary() -> PublicSummary:
 
 
 def test_tracked_public_evidence_passes_and_preserves_headline(
-    capsys: pytest.CaptureFixture,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     assert main(ROOT) == 0
     output = capsys.readouterr().out
@@ -105,7 +105,7 @@ def test_claim_references_are_validated() -> None:
 
 
 def test_public_failure_has_no_partial_stdout(
-    tmp_path: Path, capsys: pytest.CaptureFixture
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert main(tmp_path) == 1
     captured = capsys.readouterr()

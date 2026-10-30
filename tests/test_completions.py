@@ -132,7 +132,7 @@ def test_future_optional_defaults_do_not_change_v1_identity() -> None:
         future_note: str = "new default"
 
     class FutureCompletionSet(CompletionSet):
-        provenance: FutureProvenance
+        provenance: FutureProvenance  # pyright: ignore[reportIncompatibleVariableOverride]  # narrowing the field on purpose
         future_note: str = "new default"
 
     fixture = Path(__file__).with_name("fixtures") / "completion_identity_v1.json"

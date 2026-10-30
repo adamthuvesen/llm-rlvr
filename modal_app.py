@@ -23,13 +23,10 @@ CUDA, torch, and vLLM versions must agree; verify the image on the target GPU be
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING
 
 import modal
 
-if TYPE_CHECKING:
-    from modal.app import _FunctionDecoratorType
-
+import llm_rlvr
 from llm_rlvr.modal_helpers import (
     GenerationRequest,
     GenerationRunRequest,
@@ -51,6 +48,12 @@ from llm_rlvr.modal_helpers import (
 APP_NAME = "llm-rlvr-baseline"
 CUDA_IMAGE = "nvidia/cuda:12.4.1-devel-ubuntu22.04"
 REMOTE_ROOT = "/root/llm-rlvr"
+# parents[2] is the project root locally and REMOTE_ROOT in the image (editable install).
+LOCAL_PYTHON = (
+    (Path(llm_rlvr.__file__).resolve().parents[2] / ".python-version")
+    .read_text(encoding="utf-8")
+    .strip()
+)
 RUNS_DIR = "/runs"
 MODEL = "Qwen/Qwen2.5-Coder-3B-Instruct"
 
@@ -77,7 +80,7 @@ _IGNORE = [
 # Two layers: the heavy GPU install (layer 1) is keyed only on pyproject.toml + uv.lock, so editing
 # source doesn't re-download the ~GBs of CUDA/torch/vLLM — only the fast editable relink re-runs.
 image = (
-    modal.Image.from_registry(CUDA_IMAGE, add_python="3.14")
+    modal.Image.from_registry(CUDA_IMAGE, add_python=LOCAL_PYTHON)
     .apt_install("git")
     .pip_install("uv")
     .add_local_file(
@@ -101,7 +104,7 @@ VOLUMES: dict[str | PurePosixPath, modal.Volume | modal.CloudBucketMount] = {
 }
 
 
-def modal_gpu_entrypoint(*, timeout_hours: int) -> _FunctionDecoratorType:
+def modal_gpu_entrypoint(*, timeout_hours: int):
     return app.function(
         image=image,
         gpu="A100-80GB",

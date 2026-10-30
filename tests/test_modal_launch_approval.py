@@ -96,7 +96,9 @@ def test_modal_calls_follow_the_gate_and_forward_approval() -> None:
         for function in ast.walk(tree):
             if not isinstance(function, ast.FunctionDef):
                 continue
-            gates = [n.lineno for n in ast.walk(function) if _is_gate(n)]
+            gates = [
+                n.lineno for n in ast.walk(function) if isinstance(n, ast.stmt) and _is_gate(n)
+            ]
             for node in ast.walk(function):
                 if not (
                     isinstance(node, ast.Call)

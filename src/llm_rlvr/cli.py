@@ -68,9 +68,17 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="command", required=True)
-    _add_generate_parser(sub)
-    _add_score_parser(sub)
-    _add_build_traces_parser(sub)
+    _configure_generate_parser(
+        sub.add_parser("generate", help="sample the model and write a CompletionSet")
+    )
+    _configure_score_parser(
+        sub.add_parser("score", help="score a CompletionSet into execution accuracy")
+    )
+    _configure_build_traces_parser(
+        sub.add_parser(
+            "build-traces", help="filter sampled candidates into the SFT trace dataset (CPU)"
+        )
+    )
     reproduce = sub.add_parser(
         "reproduce", help="validate public evidence or re-score restored raw artifacts"
     )
@@ -83,8 +91,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _add_generate_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    gen = sub.add_parser("generate", help="sample the model and write a CompletionSet")
+def _configure_generate_parser(gen: argparse.ArgumentParser) -> None:
     gen.add_argument("--model", required=True)
     gen.add_argument("--model-revision", default=None)
     # eval-only splits: never `train`, so the few-shot pool can't overlap the eval set (R2).
@@ -108,8 +115,7 @@ def _add_generate_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser
     gen.set_defaults(func=_cmd_generate)
 
 
-def _add_score_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    score = sub.add_parser("score", help="score a CompletionSet into execution accuracy")
+def _configure_score_parser(score: argparse.ArgumentParser) -> None:
     score.add_argument("--completions", required=True, help="CompletionSet json path")
     score.add_argument("--db-root", required=True, help="extracted Spider database/ directory")
     score.add_argument("--out", default=None, help="optional ScoreReport json path")
@@ -120,10 +126,7 @@ def _add_score_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) 
     score.set_defaults(func=_cmd_score)
 
 
-def _add_build_traces_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    traces = sub.add_parser(
-        "build-traces", help="filter sampled candidates into the SFT trace dataset (CPU)"
-    )
+def _configure_build_traces_parser(traces: argparse.ArgumentParser) -> None:
     traces.add_argument("--candidates", required=True, help="CandidateSet json from the GPU run")
     traces.add_argument("--db-root", required=True, help="extracted Spider database/ directory")
     traces.add_argument("--out", required=True, help="output trace-dataset JSONL path")

@@ -105,7 +105,7 @@ class SqliteSandbox:
     ) -> None:
         if isinstance(timeout_s, bool) or not isfinite(timeout_s) or timeout_s <= 0:
             raise ValueError("timeout_s must be positive and finite")
-        if isinstance(row_cap, bool) or not isinstance(row_cap, int) or row_cap <= 0:
+        if isinstance(row_cap, bool) or not isinstance(row_cap, int) or row_cap <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]  # validates untyped caller input
             raise ValueError("row_cap must be a positive integer")
         self.db_path = Path(db_path)
         self.timeout_s = timeout_s

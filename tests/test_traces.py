@@ -10,6 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from llm_rlvr.data.models import DatabaseSchema, Example
+from llm_rlvr.harness.messages import ChatMessage
 from llm_rlvr.train.traces import (
     CandidateSet,
     TraceCandidates,
@@ -23,8 +24,8 @@ from llm_rlvr.train.traces import (
 )
 
 PROMPT = (
-    {"role": "system", "content": "instruction"},
-    {"role": "user", "content": "Database schema:\n...\n\nQuestion: how many?"},
+    ChatMessage(role="system", content="instruction"),
+    ChatMessage(role="user", content="Database schema:\n...\n\nQuestion: how many?"),
 )
 
 WF_CORRECT = "<think>count rows</think>\n```sql\nSELECT a FROM t\n```"
@@ -58,7 +59,7 @@ def test_correct_well_formed_trace_is_kept_with_prompt(scoring_root: Path) -> No
     kept, counts = filter_traces(_candidates(WF_CORRECT, WF_WRONG), scoring_root)
     assert counts.n_kept == 1
     assert kept[0].completion == WF_CORRECT
-    assert tuple(message.model_dump() for message in kept[0].prompt) == PROMPT
+    assert kept[0].prompt == PROMPT
     assert kept[0].db_id == "concert"
 
 
@@ -293,13 +294,12 @@ def test_manifest_rejects_unrelated_filter_counts(scoring_root: Path) -> None:
 def test_trace_rows_reject_invalid_role_semantics(tmp_path: Path, field: str, role: str) -> None:
     import json
 
-    row = {
+    messages = {
         "prompt": [dict(message) for message in PROMPT],
         "completion": [{"role": "assistant", "content": "answer"}],
-        "db_id": "concert",
-        "question": "q",
     }
-    row[field][-1]["role"] = role
+    messages[field][-1]["role"] = role
+    row = {**messages, "db_id": "concert", "question": "q"}
     path = tmp_path / "bad.jsonl"
     path.write_text(json.dumps(row) + "\n", encoding="utf-8")
     with pytest.raises(ValidationError):

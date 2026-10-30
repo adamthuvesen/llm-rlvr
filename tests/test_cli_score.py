@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from llm_rlvr.cli import main
+from llm_rlvr.harness.messages import ChatMessage
 
 
 def test_score_cli_writes_report(tmp_path: Path, scoring_root: Path, provenance) -> None:
@@ -235,7 +236,7 @@ def test_cli_build_traces_rejects_invalid_gold_without_outputs(
                     gold_sql="SELECT missing FROM absent",
                     split="train",
                 ),
-                prompt=({"role": "user", "content": "q"},),
+                prompt=(ChatMessage(role="user", content="q"),),
                 texts=("<think>r</think>\n```sql\nSELECT 1\n```",),
             ),
         ),

@@ -127,7 +127,7 @@ def test_inventory_has_all_headline_and_documented_controls() -> None:
 
 
 def test_missing_inventory_reports_all_files_without_partial_stdout(
-    tmp_path: Path, capsys: pytest.CaptureFixture
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     source = Path(__file__).resolve().parents[1] / "results/public/headline_summary.json"
     target = tmp_path / "results/public/headline_summary.json"
@@ -239,7 +239,7 @@ def _restore_role(
     from llm_rlvr.data.models import Example
 
     identity = artifact.identity
-    metadata = {
+    metadata: dict[str, object] = {
         "model": identity.model,
         "backend": "none",
         "dataset": artifact.dataset,
@@ -300,7 +300,7 @@ def test_wrong_generation_role_is_rejected_before_any_sql(
 ) -> None:
     artifact = _role_artifact(role)
     if field.startswith("decoding."):
-        decoding = {
+        decoding: dict[str, object] = {
             "temperature": artifact.identity.temperature,
             "max_new_tokens": artifact.identity.max_new_tokens,
         }
@@ -343,7 +343,7 @@ def test_known_role_identity_accepts_legacy_unknown_pins_and_documented_mount(
 ) -> None:
     artifact = _role_artifact(role)
     adapter = artifact.identity.adapter
-    updates = {"adapter": f"/runs/{adapter}"} if modal_path and adapter else {}
+    updates: dict[str, object] = {"adapter": f"/runs/{adapter}"} if modal_path and adapter else {}
     _restore_role(artifact, tmp_path, scoring_root, updates)
     (result,) = reproduce(
         FullManifest(artifacts=(artifact,)),

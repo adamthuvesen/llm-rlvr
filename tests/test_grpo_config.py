@@ -19,7 +19,7 @@ class _FakeGrpoConfig:
 
 def test_build_grpo_config_rejects_unknown_fields(monkeypatch) -> None:
     fake_trl = types.ModuleType("trl")
-    fake_trl.GRPOConfig = _FakeGrpoConfig
+    monkeypatch.setattr(fake_trl, "GRPOConfig", _FakeGrpoConfig, raising=False)
     monkeypatch.setitem(sys.modules, "trl", fake_trl)
 
     with pytest.raises(ValueError, match="removed_field") as exc:

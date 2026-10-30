@@ -200,7 +200,9 @@ def test_modal_adapter_generation_pins_original_base_and_records_effective_reque
     assert result.provenance.adapter_sha256 == identity.sha256
     assert result.provenance.adapter_provenance_sha256 == sha256_of(adapter / "provenance.json")
     request = RunRequestManifest.model_validate_json((out.parent / "request.json").read_text())
-    assert request.request["generation"]["model_revision"] == requested_revision
+    generation = request.request["generation"]
+    assert isinstance(generation, dict)
+    assert generation["model_revision"] == requested_revision
     assert request.request["resolved_model_revision"] == pinned
     assert request.request["adapter_sha256"] == identity.sha256
     assert request.request["selection_policy"] == "prefix"
