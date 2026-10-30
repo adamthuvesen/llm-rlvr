@@ -3,8 +3,9 @@
 Use the CPU gate for code changes. Use full reproduction after restoring the external evidence bundle.
 Artifact pins and historical result paths live in [artifacts.md](artifacts.md).
 
-Paid GPU generation and training require approval and a rough cost estimate. Start with a smoke before a full run.
-Long Modal runs use `modal run --detach ... --spawn`. A connected run can die with the local session.
+Every `modal_app.py` entrypoint spends money on Modal GPUs and refuses to launch without `--approved`.
+Pass `--approved` only after Adam approves the run and its rough cost. Start with a smoke before a full run.
+Long Modal runs use `modal run --detach`. Long entrypoints spawn by default, so a local disconnect does not kill them.
 
 ## Setup
 
@@ -15,18 +16,9 @@ make help
 ```
 
 `make install` installs the locked CPU development environment.
-`make check` checks the lockfile, Ruff, types, import contracts, unit tests, public evidence, and the SQLite demo.
-Use these focused targets while changing one owner:
-
-| Change | Focused check |
-| --- | --- |
-| SQLite execution, SQL parsing, comparison, or rewards | `make check-verifier` |
-| Completion identity, scores, aggregation, or public claims | `make check-evidence` |
-| Training builders, traces, preflight, or run lifecycle | `make check-training` |
-| Dependency direction | `make imports` |
-| Package installation | `make package-check` |
-
-Run `make check` after the focused target passes.
+`make check` checks the lockfile, Ruff, types, import contracts, unit tests, and the installed wheel.
+It runs in seconds, so run it after every change. To iterate on one owner, run its test files
+with `uv run --locked pytest tests/<file>.py`.
 
 Fetch the pinned Spider database archive:
 
@@ -90,11 +82,11 @@ A missing run ID uses a model tag and request digest. Existing run directories f
 Choose a fresh run ID when repeating a run.
 
 ```bash
-modal run modal_app.py::main --dataset spider --limit 8 --run-id spider-dev-smoke
-modal run --detach modal_app.py::main --dataset spider --spawn
-modal run --detach modal_app.py::main --dataset spider --few-shot-k 3 --spawn
-modal run --detach modal_app.py::main --dataset spider --prompt-style direct --spawn
-modal run --detach modal_app.py::main --dataset bird --spawn
+modal run modal_app.py::main --dataset spider --limit 8 --run-id spider-dev-smoke --approved
+modal run --detach modal_app.py::main --dataset spider --approved
+modal run --detach modal_app.py::main --dataset spider --few-shot-k 3 --approved
+modal run --detach modal_app.py::main --dataset spider --prompt-style direct --approved
+modal run --detach modal_app.py::main --dataset bird --approved
 ```
 
 Managed directories publish `request.json` before execution and `complete.json` after output validation.
@@ -118,8 +110,8 @@ Legacy unmanaged artifact files remain readable.
 Sample Spider-train, filter execution-correct well-formed traces, then train the LoRA adapter.
 
 ```bash
-modal run modal_app.py::traces --limit 8 --run-id trace-smoke
-modal run --detach modal_app.py::traces --spawn
+modal run modal_app.py::traces --limit 8 --run-id trace-smoke --approved
+modal run --detach modal_app.py::traces --approved
 
 mkdir -p runs/trace-smoke
 modal volume get text2sql-runs traces/trace-smoke/request.json runs/trace-smoke/request.json
@@ -132,7 +124,7 @@ uv run --locked llm-rlvr build-traces --candidates runs/trace-smoke/candidates.j
 modal volume put text2sql-runs data/sft/traces.jsonl sft/traces.jsonl
 modal volume put text2sql-runs results/sft/traces.manifest.json sft/traces.manifest.json
 modal run --detach modal_app.py::sft --run-id sft-r32 --model-revision <pinned-commit> \
-  --trace-manifest sft/traces.manifest.json --spawn
+  --trace-manifest sft/traces.manifest.json --approved
 ```
 
 Trace filtering rejects source metadata mismatches. New traces retain typed source examples.
@@ -145,8 +137,8 @@ An interrupted checkpoint remains incomplete even when its parent directory has 
 Evaluate an adapter with the generation entrypoint:
 
 ```bash
-modal run --detach modal_app.py::main --dataset spider --adapter sft/sft-r32 --spawn
-modal run --detach modal_app.py::main --dataset bird --adapter sft/sft-r32 --spawn
+modal run --detach modal_app.py::main --dataset spider --adapter sft/sft-r32 --approved
+modal run --detach modal_app.py::main --dataset bird --adapter sft/sft-r32 --approved
 ```
 
 ## GRPO Training
@@ -157,11 +149,11 @@ Training configuration rejects unsupported TRL fields before training and record
 Warm-start LoRA settings come from the inspected adapter.
 
 ```bash
-modal run modal_app.py::grpo --run-id grpo-small --limit 32 --dev-size 8
+modal run modal_app.py::grpo --run-id grpo-small --limit 32 --dev-size 8 --approved
 
 for SEED in 0 1 2; do
   modal run --detach modal_app.py::grpo --run-id grpo-s$SEED --learning-rate 5e-5 \
-    --seed $SEED --spawn
+    --seed $SEED --approved
   sleep 45
 done
 ```
@@ -173,14 +165,14 @@ Controls use the same entrypoint:
 
 ```bash
 modal run --detach modal_app.py::grpo --run-id grpo-nb-s0 --learning-rate 5e-5 \
-  --reward-arm near_binary --spawn
+  --reward-arm near_binary --approved
 
 LB=unsloth/Llama-3.2-3B-Instruct
-modal run --detach modal_app.py::traces --base-model $LB --spawn
+modal run --detach modal_app.py::traces --base-model $LB --approved
 modal run --detach modal_app.py::sft --traces sft/traces-llama.jsonl \
-  --trace-manifest sft/traces-llama.manifest.json --run-id sft-llama-r32 --base-model $LB --spawn
+  --trace-manifest sft/traces-llama.manifest.json --run-id sft-llama-r32 --base-model $LB --approved
 modal run --detach modal_app.py::grpo --run-id grpo-llama-s0 --warm-start sft/sft-llama-r32 \
-  --base-model $LB --learning-rate 5e-5 --spawn
+  --base-model $LB --learning-rate 5e-5 --approved
 ```
 
 Create and upload each family's filtered trace dataset and manifest before its SFT run.

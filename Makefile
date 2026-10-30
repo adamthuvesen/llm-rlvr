@@ -1,10 +1,7 @@
 .DEFAULT_GOAL := check
-.PHONY: help install lock fmt lint typecheck imports test test-integration runtime-check check eval eval-full demo package-check data check-verifier check-evidence check-training
+.PHONY: help install lock fmt lint typecheck imports test test-integration runtime-check check eval eval-full demo package-check data
 
 RUN := uv run --locked
-VERIFIER_TESTS := tests/test_sandbox.py tests/test_verifier.py tests/test_verifier_parity.py tests/test_parsing.py tests/test_harness.py
-EVIDENCE_TESTS := tests/test_score.py tests/test_aggregate.py tests/test_provenance.py tests/test_completions.py tests/test_report.py tests/test_public_evidence.py tests/test_full_reproduction.py
-TRAINING_TESTS := tests/test_sft.py tests/test_grpo.py tests/test_grpo_config.py tests/test_traces.py tests/test_training_runtime.py tests/test_modal_preflight.py tests/test_run_lifecycle.py tests/test_checkpoints.py tests/test_import_architecture.py tests/test_models.py
 
 help:  ## List supported commands
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -31,15 +28,6 @@ imports:  ## Check architecture import contracts
 
 test:  ## Run CPU unit tests in parallel without network or training dependencies
 	$(RUN) pytest -n auto
-
-check-verifier:  ## Check SQLite safety, SQL parsing, comparison, and rewards
-	$(RUN) pytest $(VERIFIER_TESTS)
-
-check-evidence:  ## Check completion identity, scores, aggregation, and reproduction
-	$(RUN) pytest $(EVIDENCE_TESTS)
-
-check-training:  ## Check CPU training builders, preflight, traces, and run lifecycle
-	$(RUN) pytest $(TRAINING_TESTS)
 
 test-integration:  ## Run dataset and network checks explicitly
 	$(RUN) pytest -m integration

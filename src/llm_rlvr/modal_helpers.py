@@ -154,13 +154,20 @@ def commit_volume(volume: CommitVolume, message: str) -> None:
 LAUNCH_APPROVAL_FLAG = "--approved"
 
 
-def approval_refusal(label: str, argv: list[str]) -> str:
-    approved_command = shlex.join(["modal", *argv[1:], LAUNCH_APPROVAL_FLAG])
-    return (
-        f"refusing to launch {label}: this run spends money on Modal GPUs.\n"
-        "Stop and ask Adam to approve this run and its rough cost.\n"
-        f"Once approved, run: {approved_command}"
-    )
+def require_approval(approved: bool, *, label: str, command: str) -> None:
+    """Refuse a paid Modal launch until Adam approves it and the caller passes `--approved`."""
+    if not approved:
+        raise SystemExit(
+            f"refusing to launch {label}: this run spends money on Modal GPUs.\n"
+            "Stop and ask Adam to approve this run and its rough cost.\n"
+            f"Once approved, run: {command}"
+        )
+
+
+def gpu_function_command(function: str) -> str:
+    # A direct `modal run modal_app.py::<function>` skips the local entrypoint, and the remote
+    # container cannot see the caller's argv, so the GPU function names the command shape.
+    return f"modal run --detach modal_app.py::{function} <same arguments> {LAUNCH_APPROVAL_FLAG}"
 
 
 def dispatch_remote(
@@ -172,14 +179,15 @@ def dispatch_remote(
     label: str,
     app_name: str,
 ) -> None:
-    if not approved:
-        raise SystemExit(approval_refusal(label, sys.argv))
+    require_approval(
+        approved, label=label, command=shlex.join(["modal", *sys.argv[1:], LAUNCH_APPROVAL_FLAG])
+    )
     if spawn:
-        call = fn.spawn(**kwargs.model_dump())
+        call = fn.spawn(**kwargs.model_dump(), approved=True)
         print(f"{label} dispatched (spawn): function call {call.object_id}")
         print(f"monitor: modal app logs {app_name}  (artifacts land on the text2sql-runs Volume)")
     else:
-        print(f"{label} complete: {fn.remote(**kwargs.model_dump())}")
+        print(f"{label} complete: {fn.remote(**kwargs.model_dump(), approved=True)}")
 
 
 def validate_volume_relative(value: str) -> str:

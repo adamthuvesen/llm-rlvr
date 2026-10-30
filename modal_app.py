@@ -36,9 +36,11 @@ from llm_rlvr.modal_helpers import (
     commit_volume,
     dispatch_remote,
     git_kwargs,
+    gpu_function_command,
     load_eval_context,
     load_spider_train_context,
     managed_run_path,
+    require_approval,
     volume_path,
 )
 
@@ -129,6 +131,7 @@ def baseline(
     run_id: str | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
+    approved: bool = False,
 ) -> str:
     """Generate base or base+adapter completions for one dataset on the GPU; persist to Volume.
 
@@ -136,6 +139,8 @@ def baseline(
     how the SFT/GRPO checkpoint is evaluated with the identical pipeline. `base_model` defaults to
     Qwen; set it to the Llama base for the cross-family control (the adapter's base must match).
     """
+    require_approval(approved, label="baseline", command=gpu_function_command("baseline"))
+    del approved  # locals() below feeds the request model, which forbids extra fields
     request = GenerationRequest.model_validate(locals())
     from llm_rlvr.artifacts.io import ensure_new_output
     from llm_rlvr.artifacts.provenance import DecodingConfig
@@ -224,12 +229,15 @@ def sample_traces(
     run_id: str | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
+    approved: bool = False,
 ) -> str:
     """Sample N `<think>` completions per Spider-train question; write a CandidateSet.
 
     `base_model` defaults to Qwen; set the Llama base for the cross-family control so the SFT
     cold-start traces are distilled from the same family that GRPO will then train (matched recipe).
     """
+    require_approval(approved, label="sample_traces", command=gpu_function_command("sample_traces"))
+    del approved  # locals() below feeds the request model, which forbids extra fields
     request = TraceRequest.model_validate(locals())
     from llm_rlvr.artifacts.io import atomic_write_json, ensure_new_output
     from llm_rlvr.artifacts.runs import begin_run, publish_complete
@@ -289,12 +297,15 @@ def sft_train(
     seed: int = 0,
     commit: str | None = None,
     dirty: bool | None = None,
+    approved: bool = False,
 ) -> str:
     """LoRA SFT on the trace dataset; adapter + provenance land under `sft/<run-id>/`.
 
     `base_model` defaults to Qwen; set the Llama base (with its own trace dataset) for the
     cross-family control so the adapter's base matches the later GRPO base.
     """
+    require_approval(approved, label="sft_train", command=gpu_function_command("sft_train"))
+    del approved  # locals() below feeds the request model, which forbids extra fields
     SftRequest.model_validate(locals())
     from llm_rlvr.artifacts.io import ensure_new_output
     from llm_rlvr.train.sft import SftHyperparams, run_sft
@@ -328,6 +339,7 @@ def grpo_train(
     limit: int | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
+    approved: bool = False,
 ) -> str:
     """Single-turn GRPO LoRA on Spider-train, warm-started from the SFT adapter.
 
@@ -336,6 +348,8 @@ def grpo_train(
     `reward_arm` is `shaped` (headline) or `near_binary` (the ablation). Adapter + provenance land
     under `grpo/<run-id>/`.
     """
+    require_approval(approved, label="grpo_train", command=gpu_function_command("grpo_train"))
+    del approved  # locals() below feeds the request model, which forbids extra fields
     request = GrpoRequest.model_validate(locals())
     from llm_rlvr.artifacts.io import ensure_new_output
     from llm_rlvr.tasks.sql import RewardConfig

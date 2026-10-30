@@ -122,12 +122,18 @@ def test_existing_remote_generation_run_rejected_before_context_and_model(
         lambda *_: pytest.fail("model inspected"),
     )
     with pytest.raises(FileExistsError, match="already exists"):
-        modal_module.baseline.local(run_id="existing")
+        modal_module.baseline.local(run_id="existing", approved=True)
+
+
+@pytest.mark.parametrize("function", ["baseline", "sample_traces", "sft_train", "grpo_train"])
+def test_direct_gpu_function_call_refuses_without_approval(modal_module, function: str) -> None:
+    with pytest.raises(SystemExit, match=f"modal_app.py::{function} <same arguments> --approved"):
+        getattr(modal_module, function).local()
 
 
 def test_remote_request_validation_also_rejects_invalid_paths(modal_module) -> None:
     with pytest.raises(ValueError, match="relative Volume path"):
-        modal_module.baseline.local(adapter="../outside")
+        modal_module.baseline.local(adapter="../outside", approved=True)
 
 
 @pytest.mark.parametrize("requested_revision", [None, "matching-tag"])
@@ -185,6 +191,7 @@ def test_modal_adapter_generation_pins_original_base_and_records_effective_reque
             base_model="org/model",
             model_revision=requested_revision,
             limit=1,
+            approved=True,
         )
     )
     assert None not in calls
@@ -228,6 +235,9 @@ def test_modal_adapter_revision_mismatch_rejected_before_context_or_backend(
     )
     with pytest.raises(ValueError, match="base revision"):
         modal_module.baseline.local(
-            adapter="sft/checkpoint", base_model="org/model", model_revision="different"
+            adapter="sft/checkpoint",
+            base_model="org/model",
+            model_revision="different",
+            approved=True,
         )
     assert not (tmp_path / "generation").exists()

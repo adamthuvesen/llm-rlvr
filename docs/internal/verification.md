@@ -40,15 +40,7 @@ The override keeps installation, checks, and wheel verification on Python 3.11.
 
 ## Failure tests
 
-Run the focused target for the owner before the whole gate:
-
-```bash
-make check-verifier
-make check-evidence
-make check-training
-```
-
-For a smaller question, select the relevant files:
+`make check` runs every unit test in parallel. To iterate on one owner, select its files:
 
 ```bash
 uv run --locked pytest tests/test_score.py tests/test_aggregate.py tests/test_report.py
