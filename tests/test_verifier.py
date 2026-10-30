@@ -83,3 +83,67 @@ def test_test_suite_catches_spurious_single_db_match(tiny_db: Path, test_suite_d
 def test_gold_failure_raises(tiny_db: Path) -> None:
     with pytest.raises(GoldExecutionError, match="gold query failed"):
         execution_match("SELECT a FROM t", "SELECT bad FROM nope", tiny_db)
+
+
+def test_gold_failure_includes_database_and_error(tiny_db: Path) -> None:
+    with pytest.raises(GoldExecutionError) as exc:
+        execution_match("SELECT a FROM t", "SELECT bad FROM nope", tiny_db)
+    assert str(tiny_db) in str(exc.value)
+    assert "syntax: no such table: nope" in str(exc.value)
+
+
+def test_truncated_prediction_cannot_match_complete_reference(tiny_db: Path) -> None:
+    result = execution_match(
+        "SELECT a FROM t", "SELECT a FROM t LIMIT 2", tiny_db, config=VerifierConfig(row_cap=2)
+    )
+    assert result.matched is False
+    assert result.reason == "pred_truncated"
+
+
+def test_truncated_reference_is_unverifiable(tiny_db: Path) -> None:
+    with pytest.raises(GoldExecutionError, match="gold query result truncated") as exc:
+        execution_match(
+            "SELECT a FROM t LIMIT 2", "SELECT a FROM t", tiny_db, config=VerifierConfig(row_cap=2)
+        )
+    assert "row_cap=2" in str(exc.value)
+    assert str(tiny_db) in str(exc.value)
+    assert "Increase VerifierConfig.row_cap" in str(exc.value)
+
+
+@pytest.mark.parametrize("directory", ["missing", "empty"])
+def test_explicit_empty_test_suite_rejected(tiny_db: Path, tmp_path: Path, directory: str) -> None:
+    db_dir = tmp_path / directory
+    if directory == "empty":
+        db_dir.mkdir()
+    with pytest.raises(ValueError, match=r"contains no \*.sqlite databases"):
+        execution_match("SELECT a FROM t", "SELECT a FROM t", tiny_db, db_dir=db_dir)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("timeout_s", 0),
+        ("timeout_s", -1),
+        ("timeout_s", float("inf")),
+        ("timeout_s", float("nan")),
+        ("timeout_s", True),
+        ("row_cap", 0),
+        ("row_cap", 1.5),
+        ("max_permutation_cols", 0),
+        ("max_permutation_cols", 1.5),
+    ],
+)
+def test_invalid_verifier_limits_rejected(field: str, value: object) -> None:
+    with pytest.raises(ValueError):
+        VerifierConfig.model_validate({field: value})
+
+
+def test_truncated_prediction_is_invalid_for_reward(tiny_db: Path) -> None:
+    from llm_rlvr.tasks.sql import SqlVerifier
+
+    verdict = SqlVerifier(VerifierConfig(row_cap=2)).verify(
+        "SELECT a FROM t", "SELECT a FROM t LIMIT 2", tiny_db
+    )
+    assert not verdict.matched
+    assert not verdict.valid
+    assert verdict.reason == "pred_truncated"

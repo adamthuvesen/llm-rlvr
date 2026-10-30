@@ -13,8 +13,12 @@ the confidence level is fixed at 95% to match that table.
 
 from __future__ import annotations
 
+import math
 import statistics
 from collections.abc import Sequence
+from typing import Self
+
+from pydantic import Field, model_validator
 
 from llm_rlvr._base import Frozen
 
@@ -58,19 +62,37 @@ _Z_95 = 1.96
 class SeedLevelStat(Frozen):
     """A seed-level mean with a 95% Student-t CI over `n` seeds. `n=1` reports no interval."""
 
-    mean: float
-    std: float
-    n: int
-    ci_low: float | None
-    ci_high: float | None
-    confidence: float = 0.95
+    mean: float = Field(allow_inf_nan=False)
+    std: float = Field(ge=0, allow_inf_nan=False)
+    n: int = Field(ge=1, strict=True)
+    ci_low: float | None = Field(allow_inf_nan=False)
+    ci_high: float | None = Field(allow_inf_nan=False)
+    confidence: float = Field(default=0.95, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def interval_matches_dispersion(self) -> Self:
+        if self.confidence != 0.95:
+            raise ValueError("only the 95% confidence interval is supported")
+        if self.n == 1:
+            if self.std != 0 or self.ci_low is not None or self.ci_high is not None:
+                raise ValueError("one seed must have zero std and no confidence interval")
+        else:
+            half = _t_crit_95(self.n - 1) * self.std / (self.n**0.5)
+            if self.ci_low != self.mean - half or self.ci_high != self.mean + half:
+                raise ValueError("confidence interval must match mean, std, and seed count")
+        return self
 
     @property
     def excludes_zero(self) -> bool:
-        """True iff the CI is defined and lies entirely above or below zero (the gain bar)."""
+        """True iff the CI lies entirely above or below zero."""
         if self.ci_low is None or self.ci_high is None:
             return False
         return self.ci_low > 0.0 or self.ci_high < 0.0
+
+    @property
+    def above_zero(self) -> bool:
+        """True only when the whole confidence interval supports a positive gain."""
+        return self.ci_low is not None and self.ci_low > 0.0
 
 
 def _t_crit_95(df: int) -> float:
@@ -81,6 +103,8 @@ def seed_level_ci(values: Sequence[float]) -> SeedLevelStat:
     """Mean + 95% Student-t CI over per-seed values. A single seed reports a point (no interval)."""
     if not values:
         raise ValueError("seed_level_ci needs at least one per-seed value")
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("seed_level_ci values must be finite")
     n = len(values)
     mean = statistics.fmean(values)
     if n == 1:
@@ -96,4 +120,6 @@ def rl_vs_sft_gain(rl_per_seed: Sequence[float], sft_anchor: float) -> SeedLevel
     The anchor is the deterministic (greedy) SFT EX — one number — so the gain's dispersion is the
     RL seeds' dispersion, centered at `mean(RL) - anchor`. `excludes_zero` is the headline bar.
     """
+    if not math.isfinite(sft_anchor):
+        raise ValueError("SFT anchor must be finite")
     return seed_level_ci([rl - sft_anchor for rl in rl_per_seed])

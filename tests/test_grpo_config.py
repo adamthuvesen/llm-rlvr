@@ -1,11 +1,12 @@
-"""Tests for GRPOConfig kwargs filtering against TRL drift."""
+"""Requested training settings must survive TRL version drift."""
 
 from __future__ import annotations
 
 import dataclasses
-import logging
 import sys
 import types
+
+import pytest
 
 from llm_rlvr.train.grpo import build_grpo_config_from_kwargs
 
@@ -16,17 +17,19 @@ class _FakeGrpoConfig:
     seed: int = 0
 
 
-def test_build_grpo_config_from_kwargs_drops_unknown_and_warns(monkeypatch, caplog) -> None:
+def test_build_grpo_config_rejects_unknown_fields(monkeypatch) -> None:
     fake_trl = types.ModuleType("trl")
     fake_trl.GRPOConfig = _FakeGrpoConfig
     monkeypatch.setitem(sys.modules, "trl", fake_trl)
 
-    with caplog.at_level(logging.WARNING):
-        cfg = build_grpo_config_from_kwargs(
-            {"learning_rate": 2e-5, "seed": 1, "removed_field": True}
-        )
+    with pytest.raises(ValueError, match="removed_field") as exc:
+        build_grpo_config_from_kwargs({"learning_rate": 2e-5, "seed": 1, "removed_field": True})
+    assert "trl=" in str(exc.value)
+    assert "Install" in str(exc.value)
+    assert "No fields were dropped" in str(exc.value)
 
-    assert isinstance(cfg, _FakeGrpoConfig)
-    assert cfg.learning_rate == 2e-5
-    assert cfg.seed == 1
-    assert any("removed_field" in record.message for record in caplog.records)
+
+def test_build_grpo_config_preserves_supported_fields(monkeypatch) -> None:
+    monkeypatch.setitem(sys.modules, "trl", types.SimpleNamespace(GRPOConfig=_FakeGrpoConfig))
+    config = build_grpo_config_from_kwargs({"learning_rate": 2e-5, "seed": 1})
+    assert config == _FakeGrpoConfig(learning_rate=2e-5, seed=1)

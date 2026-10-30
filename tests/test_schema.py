@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from llm_rlvr.data import (
     Column,
     DatabaseSchema,
@@ -51,3 +53,24 @@ def test_serialization_includes_tables_columns_pk_fk() -> None:
 def test_tables_appear_in_declared_order() -> None:
     text = serialize_schema(SCHEMA)
     assert text.index('"stadium"') < text.index('"singer"')
+
+
+def test_schema_rejects_duplicate_table_names() -> None:
+    with pytest.raises(ValueError, match="duplicate table names"):
+        DatabaseSchema(db_id="db", tables=(SCHEMA.tables[0], SCHEMA.tables[0]))
+
+
+def test_schema_rejects_duplicate_column_names() -> None:
+    column = Column(name="id", type="int")
+    with pytest.raises(ValueError, match="duplicate column names"):
+        Table(name="t", columns=(column, column))
+
+
+def test_schema_rejects_missing_primary_key_column() -> None:
+    with pytest.raises(ValueError, match="invalid primary-key"):
+        Table(name="t", columns=(), primary_key=("missing",))
+
+
+def test_schema_rejects_missing_foreign_key_target() -> None:
+    with pytest.raises(ValueError, match="invalid foreign-key"):
+        DatabaseSchema(db_id="db", tables=(SCHEMA.tables[1],), foreign_keys=SCHEMA.foreign_keys)

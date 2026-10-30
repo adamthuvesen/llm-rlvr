@@ -9,34 +9,40 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING, Literal, NotRequired, Protocol, TypedDict, cast
 
+if TYPE_CHECKING:
+    import torch
+
+from llm_rlvr.artifacts.provenance import DecodingConfig, build_generation_provenance
 from llm_rlvr.data.models import DatabaseSchema, Example
-from llm_rlvr.data.schema import serialize_schema
 from llm_rlvr.eval.completions import CompletionSet, assemble_completion_set
-from llm_rlvr.eval.prompt import FewShotExemplar, build_messages, select_exemplars
-from llm_rlvr.eval.provenance import DecodingConfig, build_generation_provenance
 from llm_rlvr.eval.vllm_backend import make_vllm_engine, sample_vllm_completions
+from llm_rlvr.tasks.sql.prompt import Messages as Messages
+from llm_rlvr.tasks.sql.prompt import build_prompts as build_prompts
+from llm_rlvr.tasks.sql.prompt import select_exemplars
 
-Messages = list[dict[str, str]]
+
+class _GenerationModel(Protocol):
+    @property
+    def device(self) -> torch.device: ...
+
+    def generate(
+        self,
+        *,
+        max_new_tokens: int,
+        do_sample: bool,
+        temperature: float = ...,
+        top_p: float = ...,
+        **model_inputs: torch.Tensor,
+    ) -> torch.Tensor: ...
 
 
-def build_prompts(
-    examples: Sequence[Example],
-    schemas: Mapping[str, DatabaseSchema],
-    exemplars: Sequence[FewShotExemplar] = (),
-    style: str = "cot",
-) -> list[Messages]:
-    """Render chat messages for every example with the shared few-shot exemplars. Pure/testable."""
-    return [
-        build_messages(
-            serialize_schema(schemas[example.db_id]),
-            example.question,
-            exemplars,
-            evidence=example.evidence,
-            style=style,
-        )
-        for example in examples
-    ]
+class _GenerationKwargs(TypedDict):
+    max_new_tokens: int
+    do_sample: bool
+    temperature: NotRequired[float]
+    top_p: NotRequired[float]
 
 
 def generate(
@@ -55,7 +61,11 @@ def generate(
     few_shot_k: int = 0,
     few_shot_seed: int = 0,
     prompt_style: str = "cot",
+    selection_policy: Literal["all", "prefix", "seeded"] | None = None,
+    selection_seed: int | None = None,
     adapter_path: str | Path | None = None,
+    adapter_sha256: str | None = None,
+    adapter_provenance_sha256: str | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> CompletionSet:
@@ -88,7 +98,11 @@ def generate(
         few_shot_seed=few_shot_seed if few_shot_k else None,
         few_shot_exemplars=tuple((e.db_id, e.question) for e in exemplars),
         prompt_style=prompt_style,
+        selection_policy=selection_policy,
+        selection_seed=selection_seed,
         adapter=str(adapter_path) if adapter_path is not None else None,
+        adapter_sha256=adapter_sha256,
+        adapter_provenance_sha256=adapter_provenance_sha256,
         commit=commit,
         dirty=dirty,
     )
@@ -134,7 +148,7 @@ def _run_transformers(
 ) -> list[str]:
     # Lazy imports: the GPU/CPU model stack is only needed at generation time.
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BatchEncoding, set_seed
 
     set_seed(decoding.seed)  # match the vllm path: the recorded seed must actually apply
     device = (
@@ -146,17 +160,19 @@ def _run_transformers(
     )
     revision_kwargs = {"revision": model_revision} if model_revision else {}
     tokenizer = AutoTokenizer.from_pretrained(model, **revision_kwargs)
-    lm = AutoModelForCausalLM.from_pretrained(model, torch_dtype="auto", **revision_kwargs).to(
-        device
+    lm: torch.nn.Module = AutoModelForCausalLM.from_pretrained(
+        model, torch_dtype="auto", **revision_kwargs
     )
+    lm.to(device=device)
     if adapter_path is not None:
         from peft import PeftModel  # lazy import: train extra only
 
         lm = PeftModel.from_pretrained(lm, str(adapter_path))
     lm.eval()
+    generation_model = cast(_GenerationModel, lm)
 
     sampling = decoding.temperature > 0
-    gen_kwargs: dict[str, object] = {
+    gen_kwargs: _GenerationKwargs = {
         "max_new_tokens": decoding.max_new_tokens,
         "do_sample": sampling,
     }
@@ -168,11 +184,17 @@ def _run_transformers(
     for messages in prompts:
         inputs = tokenizer.apply_chat_template(
             messages, add_generation_prompt=True, return_dict=True, return_tensors="pt"
-        ).to(lm.device)
+        )
+        if not isinstance(inputs, BatchEncoding):
+            raise ValueError("tokenizer must return BatchEncoding when return_dict=True")
+        inputs = inputs.to(generation_model.device)
         with torch.no_grad():
-            generated = lm.generate(**inputs, **gen_kwargs)
+            generated = generation_model.generate(**inputs, **gen_kwargs)
         prompt_len = inputs["input_ids"].shape[1]
-        outputs.append(tokenizer.decode(generated[0, prompt_len:], skip_special_tokens=True))
+        text = tokenizer.decode(generated[0, prompt_len:], skip_special_tokens=True)
+        if not isinstance(text, str):
+            raise ValueError("tokenizer.decode must return one string per completion")
+        outputs.append(text)
     return outputs
 
 

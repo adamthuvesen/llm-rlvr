@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import json
 import os
-import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from llm_rlvr._base import Frozen
 from llm_rlvr.data.artifacts import (
@@ -20,8 +19,8 @@ from llm_rlvr.data.artifacts import (
     SPIDER_HF_REPO,
     SPIDER_HF_REVISION,
 )
+from llm_rlvr.data.installation import install_archive
 from llm_rlvr.data.models import Column, DatabaseSchema, Example, ForeignKey, Table
-from llm_rlvr.data.paths import verify_sha256
 
 # Spider's parquet "dev" split is named `validation`.
 _SPLIT_ALIASES = {"dev": "validation", "validation": "validation", "train": "train"}
@@ -42,6 +41,25 @@ def parse_schema(entry: dict[str, Any]) -> DatabaseSchema:
     columns = entry["column_names_original"]  # [[table_idx, name], ...]
     column_types = entry["column_types"]
 
+    for table_idx, name in columns:
+        if (
+            not isinstance(table_idx, int)
+            or isinstance(table_idx, bool)
+            or table_idx < -1
+            or table_idx >= len(table_names)
+        ):
+            raise ValueError(f"invalid table index {table_idx!r} for column {name!r}")
+        if table_idx == -1 and name != "*":
+            raise ValueError("only the wildcard column may use table index -1")
+
+    def referenced_column(index: int) -> tuple[int, str]:
+        if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(columns):
+            raise ValueError(f"invalid column index {index!r}")
+        table_idx, name = columns[index]
+        if table_idx == -1:
+            raise ValueError("keys cannot reference the wildcard column")
+        return table_idx, name
+
     per_table: list[list[Column]] = [[] for _ in table_names]
     for (table_idx, name), col_type in zip(columns, column_types, strict=True):
         if table_idx < 0:  # the "*" column
@@ -51,7 +69,7 @@ def parse_schema(entry: dict[str, Any]) -> DatabaseSchema:
     pk_by_table: dict[int, list[str]] = {}
     for pk in entry.get("primary_keys", []):
         for col_idx in pk if isinstance(pk, list) else [pk]:
-            table_idx, name = columns[col_idx]
+            table_idx, name = referenced_column(col_idx)
             pk_by_table.setdefault(table_idx, []).append(name)
 
     tables = tuple(
@@ -65,8 +83,8 @@ def parse_schema(entry: dict[str, Any]) -> DatabaseSchema:
 
     foreign_keys = []
     for from_idx, to_idx in entry.get("foreign_keys", []):
-        from_table_idx, from_col = columns[from_idx]
-        to_table_idx, to_col = columns[to_idx]
+        from_table_idx, from_col = referenced_column(from_idx)
+        to_table_idx, to_col = referenced_column(to_idx)
         foreign_keys.append(
             ForeignKey(
                 from_table=table_names[from_table_idx],
@@ -82,7 +100,13 @@ def parse_schema(entry: dict[str, Any]) -> DatabaseSchema:
 def load_schemas(tables_json: str | Path) -> dict[str, DatabaseSchema]:
     """Parse a Spider `tables.json` file into `{db_id: DatabaseSchema}`."""
     entries = json.loads(Path(tables_json).read_text(encoding="utf-8"))
-    return {entry["db_id"]: parse_schema(entry) for entry in entries}
+    schemas = {}
+    for entry in entries:
+        schema = parse_schema(entry)
+        if schema.db_id in schemas:
+            raise ValueError(f"duplicate database id {schema.db_id!r}")
+        schemas[schema.db_id] = schema
+    return schemas
 
 
 def load_examples(split: str, *, revision: str = SPIDER_HF_REVISION) -> tuple[Example, ...]:
@@ -113,6 +137,8 @@ class SpiderDatabases(Frozen):
     root: Path
     database_root: Path
     tables_json: Path
+    source: Literal["archive", "override", "legacy"] = "override"
+    archive_sha256: str | None = None
 
 
 def ensure_spider_databases(cache_dir: str | Path | None = None) -> SpiderDatabases:
@@ -127,21 +153,20 @@ def ensure_spider_databases(cache_dir: str | Path | None = None) -> SpiderDataba
         return _spider_databases_at(Path(override))
 
     cache = Path(cache_dir) if cache_dir is not None else _DEFAULT_CACHE
-    extracted = cache / "spider_data"
-    if not extracted.exists():
-        from huggingface_hub import hf_hub_download
-
-        archive = hf_hub_download(
-            repo_id=SPIDER_DB_ARCHIVE.repo,
-            filename=SPIDER_DB_ARCHIVE.filename,
-            revision=SPIDER_DB_ARCHIVE.revision,
-            repo_type="dataset",
-        )
-        verify_sha256(archive, SPIDER_DB_ARCHIVE.sha256)
-        cache.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(archive) as bundle:
-            bundle.extractall(cache)
-    return _spider_databases_at(extracted)
+    installed = install_archive(
+        cache,
+        SPIDER_DB_ARCHIVE,
+        prepare=lambda _root: None,
+        validate=_spider_databases_at,
+        tree_name="spider_data",
+    )
+    verified = (installed / ".archive.sha256").is_file()
+    return _spider_databases_at(installed).model_copy(
+        update={
+            "source": "archive" if verified else "legacy",
+            "archive_sha256": SPIDER_DB_ARCHIVE.sha256 if verified else None,
+        }
+    )
 
 
 def _spider_databases_at(root: Path) -> SpiderDatabases:
@@ -151,4 +176,9 @@ def _spider_databases_at(root: Path) -> SpiderDatabases:
         raise FileNotFoundError(
             f"expected a spider_data layout at {root} (database/ + tables.json)"
         )
+    from llm_rlvr.data.paths import resolve_database
+
+    schemas = load_schemas(tables_json)
+    for db_id in schemas:
+        resolve_database(db_id, database_root)
     return SpiderDatabases(root=root, database_root=database_root, tables_json=tables_json)

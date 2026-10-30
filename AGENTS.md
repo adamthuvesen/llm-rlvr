@@ -16,16 +16,19 @@ duplicated here. This file is project-specific facts.
 | Running baselines, training, or Modal commands | `docs/internal/runbook.md` |
 | Citing a number, or pinning/locating an artifact | `docs/internal/artifacts.md` |
 | Checking the current stage / what's done | `docs/internal/status.md` |
+| Choosing checks or assessing change quality | `docs/internal/verification.md` |
 
 If a doc disagrees with code, fix the doc in the same change.
 
 ## Commands
 
 ```bash
-make check        # the gate: Ruff lint + format check + mypy + unit tests; green before any commit
+make check        # gate: lock, Ruff, types, imports, CPU tests, public evidence, demo
 make fmt          # auto-format + safe lint fixes
 make eval         # validate/render the tracked public summary (CPU, model-free)
-make eval-full    # re-score restored raw artifacts from gitignored results/ (external bundle)
+make eval-full    # tracked full re-scoring, requires every external artifact pair
+make package-check # installed wheel smoke outside the checkout
+make runtime-check # explicit training API check, missing dependencies fail
 make data         # fetch + verify the pinned Spider DBs
 uv run pytest -m integration   # network/HF/model tests (deselected by default)
 ```
@@ -59,6 +62,11 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
   a GPU or network; mark anything that does `@pytest.mark.integration`.
 - Heavy/optional deps (`vllm`, `trl`, `peft`, `torch`) import lazily inside the functions that
   use them. The CPU eval layer must install and run without the GPU stack.
+
+- SQL implementations live in `tasks/sql/`. Old `eval` SQL imports remain compatibility exports.
+- Shared provenance and atomic publication live in `artifacts/`. Keep request and completion markers consistent.
+- New outputs use fresh paths. Never publish a completion marker for an interrupted or unvalidated run.
+- Full reproduction code is tracked under `report/`. Do not depend on an external reproduction script.
 
 ## Current state
 

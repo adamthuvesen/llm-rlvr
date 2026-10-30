@@ -1,0 +1,21 @@
+{
+  "provenance": {
+    "model": "fixture-model",
+    "backend": "none",
+    "dataset": "spider",
+    "dataset_revision": "fixture-revision",
+    "split": "dev",
+    "n_examples": 1
+  },
+  "items": [
+    {
+      "example": {
+        "db_id": "fixture",
+        "question": "What is one?",
+        "gold_sql": "SELECT 1",
+        "split": "dev"
+      },
+      "samples": [{"text": "```sql\nSELECT 1\n```"}]
+    }
+  ]
+}

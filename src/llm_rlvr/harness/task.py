@@ -17,9 +17,9 @@ The split:
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, TypeVar, runtime_checkable
 
 from llm_rlvr.harness.answer import AnswerParser
 from llm_rlvr.harness.reward import RewardConfig
@@ -31,31 +31,49 @@ RewardFn = Callable[..., list[float]]
 
 # Chat messages, as consumed by a tokenizer's chat template.
 Messages = list[dict[str, str]]
+ExampleT = TypeVar("ExampleT", contravariant=True)
+ResourceT = TypeVar("ResourceT", contravariant=True)
+RewardT = TypeVar("RewardT", bound=RewardConfig, contravariant=True)
 
 
 @runtime_checkable
-class Task(Protocol):
+class Task(Protocol[ExampleT, ResourceT, RewardT]):
     """The full extension surface for one verifiable task."""
 
-    name: str
-    parser: AnswerParser
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def parser(self) -> AnswerParser: ...
 
     def make_verifier(self) -> Verifier:
         """The evaluation verifier (official, unguarded semantics)."""
         ...
 
     def make_reward_fn(
-        self, context_root: str | Path, *, config: RewardConfig | None = None
+        self, context_root: str | Path, *, config: RewardT | None = None
     ) -> RewardFn:
         """The GRPO training reward closure (resolves per-example context under `context_root`)."""
         ...
 
-    def build_prompts(self, examples: Any, resources: Any, **kwargs: object) -> list[Messages]:
+    def build_prompts(
+        self,
+        examples: Sequence[ExampleT],
+        resources: Mapping[str, ResourceT],
+        *,
+        style: str = "cot",
+        **kwargs: object,
+    ) -> list[Messages]:
         """Render chat prompts for `examples`."""
         ...
 
     def build_grpo_rows(
-        self, examples: Any, resources: Any, **kwargs: object
+        self,
+        examples: Sequence[ExampleT],
+        resources: Mapping[str, ResourceT],
+        *,
+        style: str = "cot",
+        **kwargs: object,
     ) -> list[dict[str, object]]:
         """One GRPO row per example: `prompt` plus the `reference` + `context` for the reward."""
         ...

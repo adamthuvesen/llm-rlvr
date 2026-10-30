@@ -81,3 +81,29 @@ def test_resolve_database_present_and_missing(tmp_path: Path) -> None:
     assert resolve_database("concert", db_root) == db_path
     with pytest.raises(FileNotFoundError, match=r"not found"):
         resolve_database("nonexistent", db_root)
+
+
+@pytest.mark.parametrize(
+    "field,value,error",
+    [
+        ("column_names_original", [[-2, "bad"]], "invalid table index"),
+        ("column_names_original", [[2, "bad"]], "invalid table index"),
+        ("column_names_original", [[-1, "bad"]], "wildcard"),
+        ("primary_keys", [-1], "invalid column index"),
+        ("primary_keys", [99], "invalid column index"),
+        ("primary_keys", [0], "wildcard"),
+        ("foreign_keys", [[4, -1]], "invalid column index"),
+        ("foreign_keys", [[4, 0]], "wildcard"),
+    ],
+)
+def test_schema_rejects_invalid_indexes(field: str, value: object, error: str) -> None:
+    entry = TABLES_ENTRY | {field: value}
+    with pytest.raises(ValueError, match=error):
+        parse_schema(entry)
+
+
+def test_load_schemas_rejects_duplicate_database_ids(tmp_path: Path) -> None:
+    tables = tmp_path / "tables.json"
+    tables.write_text(json.dumps([TABLES_ENTRY, TABLES_ENTRY]), encoding="utf-8")
+    with pytest.raises(ValueError, match="duplicate database id"):
+        load_schemas(tables)

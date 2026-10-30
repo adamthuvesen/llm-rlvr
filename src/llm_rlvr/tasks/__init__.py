@@ -8,13 +8,12 @@ is the reference task. Each value is a zero-argument factory that returns a `har
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
 
 from llm_rlvr.harness import Task
 from llm_rlvr.tasks.sql import SqlTask, sql_task
 
 TASKS: dict[str, Callable[[], Task]] = {
-    "sql": cast(Callable[[], Task], sql_task),
+    "sql": sql_task,
 }
 
 

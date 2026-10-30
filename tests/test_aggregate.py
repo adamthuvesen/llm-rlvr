@@ -28,17 +28,6 @@ def test_three_seed_ci_is_student_t_over_the_seeds() -> None:
     assert stat.ci_high == pytest.approx(0.72 + expected_half)
 
 
-def test_ci_is_seed_level_not_pooled() -> None:
-    # The CI must come from the 3 per-seed numbers, NOT from a pooled count of correct/total.
-    # Two pools with identical per-seed EX but very different rollout counts must give the SAME CI.
-    per_seed = [0.60, 0.62, 0.64]
-    a = seed_level_ci(per_seed)
-    b = seed_level_ci(per_seed)
-    assert (a.ci_low, a.ci_high) == (b.ci_low, b.ci_high)
-    # width depends only on the seed dispersion + n, not on any per-seed sample size
-    assert a.std == statistics.stdev(per_seed)
-
-
 def test_gain_excludes_zero_when_all_seeds_beat_the_anchor() -> None:
     gain = rl_vs_sft_gain([0.70, 0.71, 0.72], sft_anchor=0.65)
     assert gain.mean == pytest.approx(0.06)
@@ -54,3 +43,19 @@ def test_gain_does_not_exclude_zero_when_seeds_straddle_the_anchor() -> None:
 def test_empty_values_rejected_loudly() -> None:
     with pytest.raises(ValueError, match="at least one"):
         seed_level_ci([])
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_nonfinite_seed_values_fail_loudly(value: float) -> None:
+    with pytest.raises(ValueError, match="finite"):
+        seed_level_ci([0.5, value])
+
+
+def test_derived_stat_rejects_forged_or_unsupported_intervals() -> None:
+    from llm_rlvr.eval.aggregate import SeedLevelStat
+
+    data = seed_level_ci([0.6, 0.7, 0.8]).model_dump()
+    with pytest.raises(ValueError, match="interval must match"):
+        SeedLevelStat.model_validate({**data, "ci_low": 0.7})
+    with pytest.raises(ValueError, match="95%"):
+        SeedLevelStat.model_validate({**data, "confidence": 0.9})

@@ -1,5 +1,10 @@
 """Evaluation layer: execution-match verifier, generation, scoring, provenance."""
 
+from llm_rlvr.artifacts.provenance import (
+    DecodingConfig,
+    GenerationProvenance,
+    build_generation_provenance,
+)
 from llm_rlvr.eval.aggregate import SeedLevelStat, rl_vs_sft_gain, seed_level_ci
 from llm_rlvr.eval.completions import (
     CompletionSet,
@@ -9,15 +14,10 @@ from llm_rlvr.eval.completions import (
     read_completion_set,
     write_completion_set,
 )
-from llm_rlvr.eval.parsing import extract_sql, well_formed
-from llm_rlvr.eval.prompt import FewShotExemplar, build_messages, select_exemplars
-from llm_rlvr.eval.provenance import (
-    DecodingConfig,
-    GenerationProvenance,
-    build_generation_provenance,
-)
 from llm_rlvr.eval.score import ScoreReport, score_completion_set
-from llm_rlvr.eval.verifier import VerifierConfig, execution_match
+from llm_rlvr.tasks.sql.parsing import extract_sql, well_formed
+from llm_rlvr.tasks.sql.prompt import FewShotExemplar, build_messages, select_exemplars
+from llm_rlvr.tasks.sql.verifier import VerifierConfig, execution_match
 
 __all__ = [
     "CompletionSet",

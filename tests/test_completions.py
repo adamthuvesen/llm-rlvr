@@ -71,3 +71,73 @@ def test_completion_set_count_must_match_provenance(provenance: GenerationProven
     )
     with pytest.raises(ValueError, match=r"provenance\.n_examples"):
         CompletionSet(provenance=_provenance(provenance, n_examples=2), items=(item,))
+
+
+@pytest.mark.parametrize("field,value", [("dataset", "bird"), ("split", "train")])
+def test_completion_metadata_must_match_examples(
+    provenance: GenerationProvenance, field: str, value: str
+) -> None:
+    item = ProblemCompletions(
+        example=EXAMPLE.model_copy(update={field: value}),
+        samples=(GenerationSample(text=""),),
+    )
+    with pytest.raises(ValueError, match=field):
+        CompletionSet(provenance=_provenance(provenance), items=(item,))
+
+
+def test_existing_completion_output_requires_explicit_overwrite(
+    provenance: GenerationProvenance, tmp_path: Path
+) -> None:
+    original = assemble_completion_set([EXAMPLE], [""], _provenance(provenance))
+    changed = assemble_completion_set([EXAMPLE], ["different"], _provenance(provenance))
+    path = write_completion_set(original, tmp_path / "completions.json")
+    with pytest.raises(FileExistsError, match="already exists"):
+        write_completion_set(changed, path)
+    assert read_completion_set(path) == original
+    write_completion_set(changed, path, overwrite=True)
+    assert read_completion_set(path) == changed
+
+
+def test_managed_completion_input_requires_publication_and_intact_hashes(
+    provenance: GenerationProvenance, tmp_path: Path
+) -> None:
+    from llm_rlvr.artifacts.runs import begin_run, publish_complete
+
+    root = tmp_path / "run"
+    begin_run(root, kind="generation", request=provenance)
+    completion_set = assemble_completion_set([EXAMPLE], [""], _provenance(provenance))
+    path = write_completion_set(completion_set, root / "completions.json")
+    with pytest.raises(ValueError, match="incomplete"):
+        read_completion_set(path)
+    publish_complete(root, artifacts=["completions.json"])
+    assert read_completion_set(path) == completion_set
+    path.write_text("tampered")
+    with pytest.raises(ValueError, match="digest mismatch"):
+        read_completion_set(path)
+
+
+def test_v1_identity_matches_fixed_legacy_fixture_and_round_trip() -> None:
+    fixture = Path(__file__).with_name("fixtures") / "completion_identity_v1.json"
+    restored = CompletionSet.model_validate_json(fixture.read_text())
+    expected = "ccb5f51045cbc7952f060db64a56c71a1d405388204cdf75c0bbb97d0e01524e"
+    assert restored.schema_version == 1
+    assert restored.canonical_sha256 == expected
+    assert (
+        CompletionSet.model_validate_json(restored.model_dump_json()).canonical_sha256 == expected
+    )
+
+
+def test_future_optional_defaults_do_not_change_v1_identity() -> None:
+    class FutureProvenance(GenerationProvenance):
+        future_note: str = "new default"
+
+    class FutureCompletionSet(CompletionSet):
+        provenance: FutureProvenance
+        future_note: str = "new default"
+
+    fixture = Path(__file__).with_name("fixtures") / "completion_identity_v1.json"
+    original = CompletionSet.model_validate_json(fixture.read_text())
+    future = FutureCompletionSet.model_validate_json(fixture.read_text())
+    assert future.canonical_sha256 == original.canonical_sha256
+    with pytest.raises(ValueError, match="schema_version"):
+        CompletionSet.model_validate({**original.model_dump(), "schema_version": 2})

@@ -19,16 +19,23 @@ CUDA, torch, and vLLM versions must agree; verify the image on the target GPU be
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import modal
 
 from llm_rlvr.modal_helpers import (
+    GenerationRequest,
+    GenerationRunRequest,
+    GrpoRequest,
+    SftRequest,
+    TraceRequest,
+    TraceRunRequest,
     commit_volume,
     dispatch_remote,
     git_kwargs,
     load_eval_context,
     load_spider_train_context,
+    managed_run_path,
     volume_path,
 )
 
@@ -37,15 +44,6 @@ CUDA_IMAGE = "nvidia/cuda:12.4.1-devel-ubuntu22.04"
 REMOTE_ROOT = "/root/llm-rlvr"
 RUNS_DIR = "/runs"
 MODEL = "Qwen/Qwen2.5-Coder-3B-Instruct"
-
-
-def _model_tag(model_id: str) -> str:
-    """A short, filesystem-safe family tag from a HF model id (the repo name, lowercased).
-
-    Used to namespace per-family intermediate artifacts (e.g. SFT candidate sets) so the Qwen and
-    Llama runs of the same recipe never collide on the Volume.
-    """
-    return model_id.rsplit("/", 1)[-1].lower()
 
 
 app = modal.App(APP_NAME)
@@ -88,7 +86,10 @@ image = (
 
 runs = modal.Volume.from_name("text2sql-runs", create_if_missing=True)
 hf_cache = modal.Volume.from_name("text2sql-hf-cache", create_if_missing=True)
-VOLUMES = {RUNS_DIR: runs, "/root/.cache/huggingface": hf_cache}
+VOLUMES: dict[str | PurePosixPath, modal.Volume | modal.CloudBucketMount] = {
+    RUNS_DIR: runs,
+    "/root/.cache/huggingface": hf_cache,
+}
 
 
 def modal_gpu_entrypoint(*, timeout_hours: int):
@@ -122,6 +123,7 @@ def baseline(
     max_new_tokens: int = 512,
     temperature: float = 0.0,
     sampling_seed: int = 0,
+    run_id: str | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
 ) -> str:
@@ -131,12 +133,25 @@ def baseline(
     how the SFT/GRPO checkpoint is evaluated with the identical pipeline. `base_model` defaults to
     Qwen; set it to the Llama base for the cross-family control (the adapter's base must match).
     """
-    from pathlib import Path
-
-    from llm_rlvr.eval.completions import write_completion_set
+    request = GenerationRequest.model_validate(locals())
+    from llm_rlvr.artifacts.io import ensure_new_output
+    from llm_rlvr.artifacts.provenance import DecodingConfig
+    from llm_rlvr.artifacts.runs import begin_run, publish_complete, require_complete
+    from llm_rlvr.eval.completions import read_completion_set, write_completion_set
     from llm_rlvr.eval.generate import generate
-    from llm_rlvr.eval.provenance import DecodingConfig
+    from llm_rlvr.train.configuration import resolve_adapter_base, resolve_model_revision
 
+    output_dir = managed_run_path(RUNS_DIR, "generation", request)
+    ensure_new_output(output_dir)
+    adapter_root = adapter_path(adapter)
+    adapter_identity = None
+    if adapter_root is not None:
+        require_complete(adapter_root)
+        resolved_revision, adapter_identity = resolve_adapter_base(
+            adapter_root, base_model=base_model, requested_revision=model_revision
+        )
+    else:
+        resolved_revision = resolve_model_revision(base_model, model_revision)
     ctx = load_eval_context(
         dataset=dataset,
         split=split,
@@ -144,6 +159,22 @@ def baseline(
         few_shot_k=few_shot_k,
         limit=limit,
     )
+    begin_run(
+        output_dir,
+        kind="generation",
+        request=GenerationRunRequest(
+            generation=request,
+            resolved_model_revision=resolved_revision,
+            adapter_provenance_sha256=adapter_identity.provenance_sha256
+            if adapter_identity
+            else None,
+            adapter_sha256=adapter_identity.sha256 if adapter_identity else None,
+            selection_policy="prefix" if limit is not None else "all",
+            data_source=ctx.data_source,
+            db_archive_sha256=ctx.db_archive_sha256,
+        ),
+    )
+    runs.commit()
     completion_set = generate(
         ctx.examples,
         ctx.schemas,
@@ -155,27 +186,24 @@ def baseline(
         dataset=ctx.dataset,
         dataset_revision=ctx.dataset_revision,
         split=split,
-        model_revision=model_revision,
+        model_revision=resolved_revision,
         db_archive_sha256=ctx.db_archive_sha256,
         train_pool=ctx.train_pool,
-        few_shot_k=few_shot_k if ctx.dataset == "spider" else 0,
+        few_shot_k=few_shot_k,
         few_shot_seed=few_shot_seed,
         prompt_style=prompt_style,
-        adapter_path=adapter_path(adapter),
+        adapter_path=adapter_root,
+        adapter_sha256=adapter_identity.sha256 if adapter_identity else None,
+        adapter_provenance_sha256=adapter_identity.provenance_sha256 if adapter_identity else None,
         commit=commit,
         dirty=dirty,
+        selection_policy="prefix" if limit is not None else "all",
     )
-    shot = f"fs{few_shot_k}" if few_shot_k else "zs"
-    style_tag = "" if prompt_style == "cot" else f"-{prompt_style}"
-    adapter_tag = f"-{Path(adapter).name}" if adapter else ""
-    # Non-default bases get a family tag so a Llama eval can't overwrite the Qwen artifact.
-    base_tag = "" if base_model == MODEL else f"-{_model_tag(base_model)}"
-    # Sampled (temperature > 0) runs get a sampling tag so they can't overwrite greedy artifacts.
-    sample_tag = f"-t{temperature}-seed{sampling_seed}" if temperature > 0 else ""
-    name = f"{dataset}-{split}-{shot}{style_tag}{base_tag}{adapter_tag}{sample_tag}" + (
-        f"-n{limit}" if limit else ""
-    )
-    out = write_completion_set(completion_set, runs_path(f"{name}.json"))
+    out = write_completion_set(completion_set, output_dir / "completions.json")
+    # Validate the saved payload before publishing completion. Managed readers require the marker.
+    type(completion_set).model_validate_json(out.read_text(encoding="utf-8"))
+    publish_complete(output_dir, artifacts=[out])
+    read_completion_set(out)
     commit_volume(runs, f"wrote {len(completion_set.items)} completions -> {out}")
     return str(out)
 
@@ -190,23 +218,44 @@ def sample_traces(
     limit: int | None = None,
     base_model: str = MODEL,
     model_revision: str | None = None,
+    run_id: str | None = None,
+    commit: str | None = None,
+    dirty: bool | None = None,
 ) -> str:
     """Sample N `<think>` completions per Spider-train question; write a CandidateSet.
 
     `base_model` defaults to Qwen; set the Llama base for the cross-family control so the SFT
     cold-start traces are distilled from the same family that GRPO will then train (matched recipe).
     """
+    request = TraceRequest.model_validate(locals())
+    from llm_rlvr.artifacts.io import ensure_new_output
+    from llm_rlvr.artifacts.runs import begin_run, publish_complete
     from llm_rlvr.eval.completions import write_pydantic_json
+    from llm_rlvr.train.configuration import resolve_model_revision
     from llm_rlvr.train.traces import CandidateSet, TraceSamplingConfig, sample_candidates
 
+    output_dir = managed_run_path(RUNS_DIR, "traces", request)
+    ensure_new_output(output_dir)
+    resolved_revision = resolve_model_revision(base_model, model_revision)
     ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)
-
+    begin_run(
+        output_dir,
+        kind="traces",
+        request=TraceRunRequest(
+            sampling=request,
+            resolved_model_revision=resolved_revision,
+            selection_policy="prefix" if limit is not None else "all",
+            data_source=ctx.data_source,
+            db_archive_sha256=ctx.db_archive_sha256,
+        ),
+    )
+    runs.commit()
     sampling = TraceSamplingConfig(
         n=n, temperature=temperature, top_p=top_p, seed=seed, max_new_tokens=max_new_tokens
     )
     candidate_set = CandidateSet(
         base_model=base_model,
-        base_model_revision=model_revision,
+        base_model_revision=resolved_revision,
         sampling=sampling,
         dataset="spider",
         dataset_revision=ctx.dataset_revision,
@@ -215,13 +264,13 @@ def sample_traces(
             ctx.examples,
             ctx.schemas,
             model=base_model,
-            model_revision=model_revision,
+            model_revision=resolved_revision,
             sampling=sampling,
         ),
     )
-    tag = _model_tag(base_model)
-    name = f"candidates-{tag}-n{n}-seed{seed}" + (f"-limit{limit}" if limit else "") + ".json"
-    out = write_pydantic_json(candidate_set, runs_path("sft", name))
+    out = write_pydantic_json(candidate_set, output_dir / "candidates.json")
+    CandidateSet.model_validate_json(out.read_text(encoding="utf-8"))
+    publish_complete(output_dir, artifacts=[out])
     commit_volume(runs, f"wrote {len(candidate_set.items)} questions x {n} samples -> {out}")
     return str(out)
 
@@ -229,6 +278,7 @@ def sample_traces(
 @modal_gpu_entrypoint(timeout_hours=6)
 def sft_train(
     traces: str = "sft/traces.jsonl",
+    trace_manifest: str = "sft/traces.manifest.json",
     run_id: str = "sft-r32",
     base_model: str = MODEL,
     model_revision: str | None = None,
@@ -243,13 +293,18 @@ def sft_train(
     `base_model` defaults to Qwen; set the Llama base (with its own trace dataset) for the
     cross-family control so the adapter's base matches the later GRPO base.
     """
+    SftRequest.model_validate(locals())
+    from llm_rlvr.artifacts.io import ensure_new_output
     from llm_rlvr.train.sft import SftHyperparams, run_sft
 
+    ensure_new_output(runs_path("sft", run_id))
     out = run_sft(
         runs_path(traces),
         runs_path("sft", run_id),
         base_model=base_model,
         base_model_revision=model_revision,
+        trace_manifest_path=runs_path(trace_manifest),
+        on_begin=runs.commit,
         hyperparams=SftHyperparams(epochs=epochs, learning_rate=learning_rate, seed=seed),
         commit=commit,
         dirty=dirty,
@@ -279,9 +334,12 @@ def grpo_train(
     `reward_arm` is `shaped` (headline) or `near_binary` (the ablation). Adapter + provenance land
     under `grpo/<run-id>/`.
     """
+    request = GrpoRequest.model_validate(locals())
+    from llm_rlvr.artifacts.io import ensure_new_output
     from llm_rlvr.tasks.sql import RewardConfig
     from llm_rlvr.train.grpo import GrpoHyperparams, run_grpo
 
+    ensure_new_output(runs_path("grpo", run_id))
     ctx = load_spider_train_context(data_root=runs_path("data"), limit=limit)
 
     hp_kwargs: dict[str, object] = {"learning_rate": learning_rate, "seed": seed}
@@ -295,11 +353,12 @@ def grpo_train(
         runs_path("grpo", run_id),
         base_model=base_model,
         base_model_revision=base_model_revision,
-        warm_start_adapter=adapter_path(warm_start),
+        warm_start_adapter=runs_path(request.warm_start),
         dataset="spider",
         dataset_revision=ctx.dataset_revision,
-        hyperparams=GrpoHyperparams(**hp_kwargs),
-        reward=RewardConfig(arm=reward_arm),
+        hyperparams=GrpoHyperparams.model_validate(hp_kwargs),
+        reward=RewardConfig(arm=request.reward_arm),
+        on_begin=runs.commit,
         commit=commit,
         dirty=dirty,
     )
@@ -321,6 +380,7 @@ def main(
     max_new_tokens: int = 512,
     temperature: float = 0.0,
     sampling_seed: int = 0,
+    run_id: str | None = None,
     spawn: bool = True,
 ) -> None:
     """Launch a baseline generation on the GPU. Spawns by default so `modal run --detach` is
@@ -338,11 +398,12 @@ def main(
         "max_new_tokens": max_new_tokens,
         "temperature": temperature,
         "sampling_seed": sampling_seed,
+        "run_id": run_id,
         **git_kwargs(),
     }
     dispatch_remote(
         baseline,
-        kwargs,
+        GenerationRequest.model_validate(kwargs),
         spawn=spawn,
         label="baseline",
         app_name=APP_NAME,
@@ -359,6 +420,7 @@ def traces(
     limit: int | None = None,
     base_model: str = MODEL,
     model_revision: str | None = None,
+    run_id: str | None = None,
     spawn: bool = True,
 ) -> None:
     """Launch Spider-train trace sampling. Spawns by default so `modal run --detach` is safe to
@@ -372,10 +434,12 @@ def traces(
         "limit": limit,
         "base_model": base_model,
         "model_revision": model_revision,
+        "run_id": run_id,
+        **git_kwargs(),
     }
     dispatch_remote(
         sample_traces,
-        kwargs,
+        TraceRequest.model_validate(kwargs),
         spawn=spawn,
         label="trace sampling",
         app_name=APP_NAME,
@@ -385,6 +449,7 @@ def traces(
 @app.local_entrypoint()
 def sft(
     traces: str = "sft/traces.jsonl",
+    trace_manifest: str = "sft/traces.manifest.json",
     run_id: str = "sft-r32",
     base_model: str = MODEL,
     model_revision: str | None = None,
@@ -397,6 +462,7 @@ def sft(
     default so `modal run --detach` is safe to leave; pass --no-spawn to block on the result."""
     kwargs = {
         "traces": traces,
+        "trace_manifest": trace_manifest,
         "run_id": run_id,
         "base_model": base_model,
         "model_revision": model_revision,
@@ -405,7 +471,9 @@ def sft(
         "seed": seed,
         **git_kwargs(),
     }
-    dispatch_remote(sft_train, kwargs, spawn=spawn, label="SFT", app_name=APP_NAME)
+    dispatch_remote(
+        sft_train, SftRequest.model_validate(kwargs), spawn=spawn, label="SFT", app_name=APP_NAME
+    )
 
 
 @app.local_entrypoint()
@@ -438,4 +506,6 @@ def grpo(
         "limit": limit,
         **git_kwargs(),
     }
-    dispatch_remote(grpo_train, kwargs, spawn=spawn, label="GRPO", app_name=APP_NAME)
+    dispatch_remote(
+        grpo_train, GrpoRequest.model_validate(kwargs), spawn=spawn, label="GRPO", app_name=APP_NAME
+    )

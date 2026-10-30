@@ -1,37 +1,65 @@
 .DEFAULT_GOAL := check
-.PHONY: install fmt lint typecheck test test-integration check eval eval-full demo
+.PHONY: help install lock fmt lint typecheck imports test test-integration runtime-check check eval eval-full demo package-check data check-verifier check-evidence check-training
 
-install:  ## Sync the CPU dev environment (data, env, verifier, eval — no GPU stack)
-	uv sync --extra dev
+RUN := uv run --locked
+VERIFIER_TESTS := tests/test_sandbox.py tests/test_verifier.py tests/test_verifier_parity.py tests/test_parsing.py tests/test_harness.py
+EVIDENCE_TESTS := tests/test_score.py tests/test_aggregate.py tests/test_provenance.py tests/test_completions.py tests/test_report.py tests/test_public_evidence.py tests/test_full_reproduction.py
+TRAINING_TESTS := tests/test_sft.py tests/test_grpo.py tests/test_grpo_config.py tests/test_traces.py tests/test_training_runtime.py tests/test_modal_preflight.py tests/test_run_lifecycle.py tests/test_checkpoints.py tests/test_import_architecture.py tests/test_models.py
 
-fmt:  ## Auto-format and apply safe lint fixes
-	uv run ruff format .
-	uv run ruff check --fix .
+help:  ## List supported commands
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-lint:  ## Lint and format-check (no changes)
-	uv run ruff check .
-	uv run ruff format --check .
+install:  ## Install the locked CPU development environment
+	uv sync --locked --extra dev
 
-typecheck:  ## Check static types
-	uv run mypy src/llm_rlvr
+lock:  ## Check pyproject.toml agrees with uv.lock
+	uv lock --check
 
-test:  ## Run unit tests (network/integration deselected)
-	uv run python -m pytest
+fmt:  ## Apply Ruff formatting and safe fixes
+	$(RUN) ruff check --fix .
+	$(RUN) ruff format .
 
-test-integration:  ## Run the network/HuggingFace/model integration tests
-	uv run python -m pytest -m integration
+lint:  ## Check Ruff lint and formatting
+	$(RUN) ruff check .
+	$(RUN) ruff format --check .
 
-check: lint typecheck test  ## Project gate: lint + static types + unit tests
+typecheck:  ## Check package, Modal registration, demo, and maintained scripts
+	$(RUN) mypy src/llm_rlvr scripts modal_app.py examples
 
-data:  ## Fetch + verify + extract the pinned Spider databases (HF mirror; see docs/internal/runbook.md)
-	uv run python -c "from llm_rlvr.data import ensure_spider_databases as e; print('Spider DBs at', e().database_root)"
+imports:  ## Check architecture import contracts
+	$(RUN) lint-imports
 
-eval:  ## Validate and render the tracked public result summary (CPU, model-free)
-	uv run python results/public/reproduce.py
+test:  ## Run CPU unit tests in parallel without network or training dependencies
+	$(RUN) pytest -n auto
 
-eval-full:  ## Re-score restored raw/local artifacts from gitignored results/
-	@test -f results/baseline/reproduce.py || (echo "No local results/ reproduction script found. Restore the external raw bundle under results/ first."; exit 1)
-	uv run python results/baseline/reproduce.py
+check-verifier:  ## Check SQLite safety, SQL parsing, comparison, and rewards
+	$(RUN) pytest $(VERIFIER_TESTS)
 
-demo:  ## Run a tiny no-GPU verifier demo against a temporary SQLite database
-	uv run python examples/no_gpu_demo.py
+check-evidence:  ## Check completion identity, scores, aggregation, and reproduction
+	$(RUN) pytest $(EVIDENCE_TESTS)
+
+check-training:  ## Check CPU training builders, preflight, traces, and run lifecycle
+	$(RUN) pytest $(TRAINING_TESTS)
+
+test-integration:  ## Run dataset and network checks explicitly
+	$(RUN) pytest -m integration
+
+runtime-check:  ## Validate installed training APIs, failing when dependencies are absent
+	$(RUN) pytest -m runtime
+
+check: lock lint typecheck imports test package-check  ## Fast gate; package-check also runs public evidence and the demo from the wheel
+
+eval:  ## Validate and render tracked public evidence
+	$(RUN) llm-rlvr reproduce --mode public
+
+eval-full:  ## Re-score the complete restored external artifact bundle
+	$(RUN) llm-rlvr reproduce --mode full
+
+package-check:  ## Install and verify a wheel outside the source checkout
+	$(RUN) python scripts/verify_package.py
+
+data:  ## Fetch and verify the pinned Spider databases
+	$(RUN) python -c "from llm_rlvr.data import ensure_spider_databases as e; print('Spider DBs at', e().database_root)"
+
+demo:  ## Score a tiny temporary SQLite database without a model
+	$(RUN) python examples/no_gpu_demo.py

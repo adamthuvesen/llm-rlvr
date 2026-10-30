@@ -90,3 +90,56 @@ def test_score_report_round_trips(provenance: GenerationProvenance) -> None:
         provenance=provenance,
     )
     assert ScoreReport.model_validate_json(report.model_dump_json()) == report
+
+
+def test_generation_versions_cannot_be_mutated(provenance: GenerationProvenance) -> None:
+    import pytest
+
+    with pytest.raises(TypeError):
+        provenance.library_versions["torch"] = "changed"  # type: ignore[index]
+
+
+def test_nonfinite_and_invalid_decoding_rejected() -> None:
+    import pytest
+
+    from llm_rlvr.eval.provenance import DecodingConfig
+
+    for updates in (
+        {"temperature": float("nan")},
+        {"temperature": -1.0},
+        {"top_p": float("inf")},
+        {"top_p": 0},
+        {"max_new_tokens": 0},
+    ):
+        with pytest.raises(ValueError):
+            DecodingConfig.model_validate(updates)
+
+
+def test_exemplar_count_rejected_but_legacy_recipe_reads(
+    provenance: GenerationProvenance,
+) -> None:
+    import pytest
+
+    data = provenance.model_dump()
+    data["few_shot_k"] = 2
+    assert GenerationProvenance.model_validate(data).few_shot_k == 2
+    data["few_shot_exemplars"] = [["db", "question"]]
+    with pytest.raises(ValueError, match="few_shot_exemplars"):
+        GenerationProvenance.model_validate(data)
+
+
+def test_git_identity_belongs_to_source_checkout_not_caller(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    from llm_rlvr.artifacts import provenance as module
+
+    expected = module.git_commit()
+    assert expected != "unknown"
+    monkeypatch.chdir(tmp_path)
+    assert module.git_commit() == expected
+    monkeypatch.setattr(
+        module, "__file__", str(tmp_path / "site-packages/llm_rlvr/eval/provenance.py")
+    )
+    assert module.git_commit() == "unknown"
+    assert module.git_is_dirty() is False

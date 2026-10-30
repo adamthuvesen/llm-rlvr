@@ -46,6 +46,9 @@ make install
 make check
 ```
 
+`make check` checks the lockfile, Ruff, types, import contracts, unit tests, public evidence, and the SQLite demo.
+Use `make help` for focused checks. `make package-check` verifies a wheel outside the source checkout.
+
 Run a tiny no-GPU demo:
 
 ```bash
@@ -73,6 +76,10 @@ The public reproduction path covers the CPU checks and tracked evidence bundle. 
 is run with `make eval-full` after the external artifacts are restored. Training reruns require the
 GPU extras (`trl`, `peft`, `accelerate`, `vllm`) and are outside the public quickstart.
 
+Full reproduction ships in `llm_rlvr.report.full`. It checks every required artifact before scoring, then reports score and reference-error deltas.
+Historical reports stay unchanged. Legacy artifacts without stored hashes or per-item outcomes retain those limits.
+See [the runbook](docs/internal/runbook.md#reproduce-reported-numbers) for explicit database roots.
+
 ## Caveats
 
 - Accuracy is single-DB execution match, not test-suite multi-DB accuracy.
@@ -81,7 +88,10 @@ GPU extras (`trl`, `peft`, `accelerate`, `vllm`) and are outside the public quic
 ## Docs
 
 - [docs/harness.md](docs/harness.md): the task-agnostic RLVR harness and how to add a task.
-- [docs/architecture.md](docs/architecture.md): module map, data flow, reward design.
+- [docs/architecture.md](docs/architecture.md): module owners, dependency boundaries, and artifact states.
+- [docs/internal/runbook.md](docs/internal/runbook.md): commands, input requirements, and failure recovery.
+- [docs/internal/artifacts.md](docs/internal/artifacts.md): public claims and external artifact inventory.
+- [docs/internal/verification.md](docs/internal/verification.md): verification scope and change-quality rubric.
 
 ## Related Repositories
 

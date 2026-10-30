@@ -1,0 +1,12 @@
+{
+  "policy": "sql-example-v1",
+  "example": {
+    "dataset": "spider",
+    "split": "train",
+    "db_id": "concert",
+    "question": "How many?",
+    "gold_sql": "SELECT count(*) FROM t",
+    "evidence": null
+  },
+  "sha256": "0910c8cf5d9b9ed1af1d18c5664293fd641a945a1553578769f290e191cf2784"
+}

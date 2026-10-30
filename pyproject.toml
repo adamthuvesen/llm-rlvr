@@ -53,6 +53,13 @@ dev = [
     # targets (modal.App, string GPU, add_local_*); it never enters the GPU image (the image
     # exports only `--extra train`, which includes `gpu`), so it adds no runtime weight to the box.
     "modal==1.5.0",
+    "import-linter>=2.15",
+    "hatchling>=1.33.0",
+    "pytest-xdist>=3.6",
+]
+adapters = [
+    "llm-rlvr[generate]",
+    "peft>=0.14",
 ]
 
 [project.scripts]
@@ -63,6 +70,7 @@ line-length = 100
 target-version = "py311"
 # The vendored evaluator is upstream code; do not lint or reformat it.
 extend-exclude = ["src/llm_rlvr/third_party"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "N", "PTH", "RUF"]
@@ -72,10 +80,11 @@ known-first-party = ["llm_rlvr"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q -m 'not integration'"
+addopts = "-q -m 'not integration and not runtime'"
 markers = [
     "integration: hits the network or HuggingFace (deselected by default)",
     "slow: large dataset download (compose with integration)",
+    "runtime: requires installed optional training dependencies and never silently skips",
 ]
 
 [tool.mypy]
@@ -88,3 +97,33 @@ warn_unused_ignores = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/llm_rlvr"]
+
+[tool.uv.sources]
+llm-rlvr = { workspace = true }
+
+[tool.importlinter]
+root_package = "llm_rlvr"
+
+[[tool.importlinter.contracts]]
+name = "Harness stays independent of tasks and execution"
+type = "forbidden"
+source_modules = ["llm_rlvr.harness"]
+forbidden_modules = ["llm_rlvr.data", "llm_rlvr.env", "llm_rlvr.tasks", "llm_rlvr.eval", "llm_rlvr.train", "llm_rlvr.report"]
+
+[[tool.importlinter.contracts]]
+name = "SQL task stays independent of evaluation and training"
+type = "forbidden"
+source_modules = ["llm_rlvr.tasks.sql"]
+forbidden_modules = ["llm_rlvr.eval", "llm_rlvr.train", "llm_rlvr.report"]
+
+[[tool.importlinter.contracts]]
+name = "Shared artifacts stay independent of task and data owners"
+type = "forbidden"
+source_modules = ["llm_rlvr.artifacts"]
+forbidden_modules = ["llm_rlvr.data", "llm_rlvr.env", "llm_rlvr.tasks", "llm_rlvr.eval", "llm_rlvr.train", "llm_rlvr.report"]
+
+[[tool.importlinter.contracts]]
+name = "Prepared training stays independent of SQL composition"
+type = "forbidden"
+source_modules = ["llm_rlvr.train.prepared", "llm_rlvr.train.configuration", "llm_rlvr.train.checkpoints"]
+forbidden_modules = ["llm_rlvr.data", "llm_rlvr.env", "llm_rlvr.tasks", "llm_rlvr.eval", "llm_rlvr.report", "llm_rlvr.train.sft", "llm_rlvr.train.grpo", "llm_rlvr.train.traces"]

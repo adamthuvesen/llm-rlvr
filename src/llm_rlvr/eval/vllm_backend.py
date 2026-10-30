@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
-from llm_rlvr.eval.provenance import DecodingConfig
+from llm_rlvr.artifacts.provenance import DecodingConfig
 
 Messages = list[dict[str, str]]
 

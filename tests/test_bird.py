@@ -44,3 +44,10 @@ def test_bird_dev_layout_resolves(tmp_path: Path) -> None:
 def test_bird_dev_missing_layout_raises(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="BIRD dev layout"):
         _bird_dev_at(tmp_path)
+
+
+def test_bird_rejects_duplicate_question_ids(tmp_path: Path) -> None:
+    dev = tmp_path / "dev.json"
+    dev.write_text(json.dumps([BIRD_ROWS[0], BIRD_ROWS[0]]), encoding="utf-8")
+    with pytest.raises(ValueError, match="duplicate BIRD question_id"):
+        load_bird_examples(dev)

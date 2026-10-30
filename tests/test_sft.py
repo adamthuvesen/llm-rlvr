@@ -41,33 +41,17 @@ def test_sft_config_enforces_completion_only_loss() -> None:
     assert kwargs["num_train_epochs"] == 3
 
 
-def test_real_configs_build_when_train_extra_installed() -> None:
-    # Auto-skips on the CPU box; runs wherever the train extra is synced (Modal image, GPU box).
-    peft = pytest.importorskip("peft")
-    trl = pytest.importorskip("trl")
-
-    from llm_rlvr.train.sft import build_lora_config, build_sft_config
-
-    lora = build_lora_config(SftHyperparams())
-    assert isinstance(lora, peft.LoraConfig)
-    assert lora.target_modules == "all-linear"
-
-    config = build_sft_config(SftHyperparams(), "out")
-    assert isinstance(config, trl.SFTConfig)
-    assert config.completion_only_loss is True
-
-
-def test_sft_config_builder_drops_unsupported_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sft_config_builder_rejects_unsupported_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
     @dataclass
     class FakeSFTConfig:
         output_dir: str
         bf16: bool
 
     monkeypatch.setitem(sys.modules, "trl", SimpleNamespace(SFTConfig=FakeSFTConfig))
-    config = build_sft_config_from_kwargs(
-        {"output_dir": "out", "bf16": True, "removed_in_this_trl": "x"}
-    )
-    assert config == FakeSFTConfig(output_dir="out", bf16=True)
+    with pytest.raises(ValueError, match="removed_in_this_trl"):
+        build_sft_config_from_kwargs(
+            {"output_dir": "out", "bf16": True, "removed_in_this_trl": "x"}
+        )
 
 
 def test_adapter_provenance_hashes_dataset_and_records_versions(tmp_path: Path) -> None:

@@ -5,16 +5,20 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
 from llm_rlvr._base import Frozen
+from llm_rlvr.artifacts.io import atomic_write_json
+from llm_rlvr.artifacts.provenance import GenerationProvenance
+from llm_rlvr.artifacts.runs import require_complete
 from llm_rlvr.data.models import Example
-from llm_rlvr.eval.parsing import extract_sql
-from llm_rlvr.eval.provenance import GenerationProvenance
+from llm_rlvr.tasks.sql.parsing import extract_sql
 
 
 class GenerationSample(Frozen):
@@ -53,8 +57,58 @@ class ProblemCompletions(Frozen):
 
 
 class CompletionSet(Frozen):
+    schema_version: Literal[1] = 1
     provenance: GenerationProvenance
     items: tuple[ProblemCompletions, ...]
+
+    @property
+    def canonical_sha256(self) -> str:
+        """SHA256 of the fixed v1 identity projection, including v1 defaults."""
+        # Keep this projection fixed. New identity fields require a new schema version.
+        payload = self.model_dump(
+            mode="json",
+            include={
+                "schema_version": True,
+                "provenance": {
+                    "model": True,
+                    "backend": True,
+                    "dataset": True,
+                    "dataset_revision": True,
+                    "split": True,
+                    "n_examples": True,
+                    "model_revision": True,
+                    "db_archive_sha256": True,
+                    "adapter": True,
+                    "adapter_sha256": True,
+                    "adapter_provenance_sha256": True,
+                    "prompt_style": True,
+                    "selection_policy": True,
+                    "selection_seed": True,
+                    "few_shot_k": True,
+                    "few_shot_seed": True,
+                    "few_shot_exemplars": True,
+                    "git_commit": True,
+                    "git_dirty": True,
+                    "library_versions": True,
+                    "decoding": {"temperature", "top_p", "max_new_tokens", "seed"},
+                },
+                "items": {
+                    "__all__": {
+                        "example": {
+                            "db_id",
+                            "question",
+                            "gold_sql",
+                            "split",
+                            "dataset",
+                            "evidence",
+                        },
+                        "samples": {"__all__": {"text", "sql"}},
+                    }
+                },
+            },
+        )
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     @model_validator(mode="after")
     def item_count_matches_provenance(self) -> Self:
@@ -63,15 +117,17 @@ class CompletionSet(Frozen):
                 "CompletionSet item count does not match provenance.n_examples: "
                 f"{len(self.items)} != {self.provenance.n_examples}"
             )
+        for item in self.items:
+            if item.example.dataset != self.provenance.dataset:
+                raise ValueError("CompletionSet example dataset does not match provenance.dataset")
+            if item.example.split != self.provenance.split:
+                raise ValueError("CompletionSet example split does not match provenance.split")
         return self
 
 
-def write_pydantic_json(model: BaseModel, path: str | Path) -> Path:
-    """Write any Pydantic model to a JSON file, creating parent directories. Returns the path."""
-    out = Path(path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(model.model_dump_json(indent=2), encoding="utf-8")
-    return out
+def write_pydantic_json(model: BaseModel, path: str | Path, *, overwrite: bool = False) -> Path:
+    """Publish model JSON atomically. Existing outputs require explicit overwrite."""
+    return atomic_write_json(model, path, overwrite=overwrite)
 
 
 def assemble_completion_set(
@@ -92,9 +148,12 @@ def assemble_completion_set(
     return CompletionSet(provenance=provenance, items=items)
 
 
-def write_completion_set(completion_set: CompletionSet, path: str | Path) -> Path:
-    return write_pydantic_json(completion_set, path)
+def write_completion_set(
+    completion_set: CompletionSet, path: str | Path, *, overwrite: bool = False
+) -> Path:
+    return write_pydantic_json(completion_set, path, overwrite=overwrite)
 
 
 def read_completion_set(path: str | Path) -> CompletionSet:
+    require_complete(path)
     return CompletionSet.model_validate_json(Path(path).read_text(encoding="utf-8"))

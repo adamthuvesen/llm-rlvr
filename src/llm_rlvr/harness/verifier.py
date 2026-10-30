@@ -14,7 +14,9 @@ distinctly from a wrong answer.
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Protocol, Self, runtime_checkable
+
+from pydantic import model_validator
 
 from llm_rlvr._base import Frozen
 
@@ -32,6 +34,12 @@ class Verdict(Frozen):
     matched: bool
     valid: bool
     reason: str
+
+    @model_validator(mode="after")
+    def matched_requires_valid(self) -> Self:
+        if self.matched and not self.valid:
+            raise ValueError("a matched verdict must be valid")
+        return self
 
 
 class ReferenceUnverifiable(RuntimeError):  # noqa: N818  — deliberate API name (not an *Error)

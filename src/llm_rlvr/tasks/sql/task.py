@@ -1,7 +1,6 @@
 """Text-to-SQL: the reference `Task` for the RLVR harness.
 
-This wires the SQL pieces — the answer parser (`eval.parsing`), the execution-match verifier
-(`eval.verifier`), and the schema-aware prompt/row builders (`eval.generate`) — into the
+This wires the SQL parser, execution-match verifier, and schema-aware prompt builders into the
 task-agnostic `harness` protocols, and supplies the SQL execution-grounded GRPO reward on top of
 the harness shaping core.
 
@@ -20,11 +19,12 @@ from pathlib import Path
 
 from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.data.paths import resolve_database
-from llm_rlvr.eval.generate import Messages, build_prompts
-from llm_rlvr.eval.parsing import extract_sql, well_formed
-from llm_rlvr.eval.verifier import VerifierConfig, execution_match
+from llm_rlvr.data.splits import assert_train_split
 from llm_rlvr.harness import RewardBreakdown, Verdict, Verifier, completion_text, score_answer
 from llm_rlvr.harness import RewardConfig as _ShapingConfig
+from llm_rlvr.tasks.sql.parsing import extract_sql, well_formed
+from llm_rlvr.tasks.sql.prompt import Messages, build_prompts
+from llm_rlvr.tasks.sql.verifier import GoldExecutionError, VerifierConfig, execution_match
 
 # The reason tag for a completion that contains no SQL.
 NO_SQL_REASON = "no_sql"
@@ -68,7 +68,7 @@ class SqlVerifier:
         result = execution_match(answer, str(reference), context, config=self._config)  # type: ignore[arg-type]
         return Verdict(
             matched=result.matched,
-            valid=result.reason != "pred_error",
+            valid=result.reason not in {"pred_error", "pred_truncated"},
             reason=result.reason,
         )
 
@@ -111,12 +111,18 @@ def make_reward_fn(
     `db_id` under `db_root`.
     """
     cfg = config or RewardConfig()
+    if not cfg.guard_trivial_empty:
+        raise ValueError("SQL training reward requires guard_trivial_empty=True")
 
     def reward(completions, gold_sql, db_id, **_kwargs) -> list[float]:
         rewards: list[float] = []
         for completion, gold, dbid in zip(completions, gold_sql, db_id, strict=True):
             db_path = resolver(dbid, db_root)
             breakdown = score_completion(completion_text(completion), gold, db_path, config=cfg)
+            if breakdown.reason == "gold_error":
+                raise GoldExecutionError(
+                    f"training reference became unverifiable for db_id={dbid!r}"
+                )
             rewards.append(breakdown.total)
         return rewards
 
@@ -161,6 +167,7 @@ class SqlTask:
         **_kwargs: object,
     ) -> list[dict[str, object]]:
         """One row per example: the chat `prompt` plus the `gold_sql` + `db_id` the reward needs."""
+        assert_train_split(examples, context="SQL GRPO rows")
         prompts = build_prompts(examples, resources, style=style)
         return [
             {"prompt": prompt, "gold_sql": example.gold_sql, "db_id": example.db_id}

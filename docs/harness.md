@@ -44,7 +44,9 @@ from llm_rlvr.harness import AnswerParser, Verifier, Verdict, Task, score_answer
 3. **`Task`**: bundle the verification APIs with the data→prompt glue. `make_reward_fn` and
    `build_grpo_rows` are called by the shared GRPO driver. `build_prompts` is exposed for
    task-specific prompt construction. See `harness/task.py` for the exact signatures and
-   `tasks/sql.py` for the reference implementation.
+   `tasks/sql/task.py` for the reference implementation.
+   `Task[ExampleT, ResourceT, RewardT]` types the example, resource, and reward configuration inputs.
+   A matched `Verdict` must also be valid. Malformed completion messages raise a clear error.
 
 ## The reward is already written
 
@@ -92,8 +94,8 @@ with no SQL involved. Copy it as your starting point.
    - **GRPO**: `run_grpo(..., task=your_task)` trains through your task: it builds rows via
      `task.build_grpo_rows` and scores rollouts via `task.make_reward_fn`. The config builders and
      the disjoint dev split are task-agnostic.
-   - **SFT**: the LoRA trainer (`train/sft.py`) is task-agnostic; the STaR trace *dataset* is
-     filtered by the verifier (`train/traces.py`), so you supply your own filtered traces.
+   - **SFT**: use `train.prepared.execute_prepared_sft` with validated conversations and your task's eligibility proof.
+     `train.sft.run_sft` composes SQL trace validation with that executor. It requires SQL source lineage and a matching manifest.
    - **Seed-level CIs**: `eval/aggregate.py` works on per-seed numbers, so it is reusable as-is.
    - **Offline scoring**: the `CompletionSet` artifact + `score_completion_set` are SQL-shaped
      (they embed `data.models.Example` with `gold_sql`/`db_id` and call the SQL verifier). A new
@@ -108,11 +110,81 @@ Qwen default, so a third base model is a config change. Your model needs to be a
 
 ## What stays SQL-only
 
-SQL-specific: `eval/verifier.py` + `env/sandbox.py` + `third_party/` (execution-match against
-SQLite), the Spider/BIRD loaders in `data/`, `tasks/sql.py`, **and the `CompletionSet` artifact +
+SQL-specific: `tasks/sql/verifier.py` + `env/sandbox.py` + `third_party/` (execution-match against
+SQLite), the Spider/BIRD loaders in `data/`, `tasks/sql/task.py`, **and the `CompletionSet` artifact +
 `score_completion_set`** (`eval/completions.py`, `eval/score.py`). They embed `Example` and call
 the SQL verifier, and saved result JSON serializes that shape, so they can't generalize without
 breaking re-derivation.
 
 Task-agnostic: everything in `harness/`, the SFT/GRPO config builders + `run_grpo` (parametrized by
-`task`), and the seed-level CI aggregation (`eval/aggregate.py`). That is where the refactor stops.
+`task`), the prepared training executors, and the seed-level CI aggregation (`eval/aggregate.py`).
+
+## Prepare, train, and publish a different SFT task
+
+This function prepares an integer-doubling dataset, verifies every answer, trains, and publishes a complete adapter.
+Call it from an approved Modal GPU entrypoint. Pass a pinned model revision and a fresh output directory.
+The task owns its source identities and verification proof. The generic executor validates conversations and records that evidence.
+
+```python
+import hashlib
+import json
+from pathlib import Path
+
+from peft import LoraConfig
+from llm_rlvr.artifacts.io import atomic_write_text, sha256_of
+from llm_rlvr.train.prepared import (
+    PreparedSftRow, TrainingEligibility, execute_prepared_sft, publish_training_run,
+)
+
+def train_integer_sft(base_model: str, revision: str, output: Path) -> Path:
+    corpus = ((2, 4), (3, 6))
+    if any(answer != 2 * number for number, answer in corpus):
+        raise ValueError("integer-doubling reference verification failed")
+    rows = [PreparedSftRow.model_validate({
+        "prompt": [{"role": "user", "content": str(number)}],
+        "completion": [{"role": "assistant", "content": str(answer)}],
+    }) for number, answer in corpus]
+    source_ids = tuple(hashlib.sha256(json.dumps(
+        ["integer-doubling-example-v1", number, answer]
+    ).encode()).hexdigest() for number, answer in corpus)
+    source = output.with_suffix(".traces.jsonl")
+    atomic_write_text(source, "\n".join(row.model_dump_json() for row in rows) + "\n")
+    proof = output.with_suffix(".proof.json")
+    atomic_write_text(proof, json.dumps({
+        "policy": "integer-doubling-v1", "reference_errors": 0,
+        "source_sha256": sha256_of(source), "source_ids": source_ids,
+    }))
+    lora_kwargs = {"r": 8, "lora_alpha": 16, "lora_dropout": 0.0,
+                   "target_modules": "all-linear", "task_type": "CAUSAL_LM"}
+    execution = execute_prepared_sft(
+        rows, output, base_model=base_model, base_model_revision=revision,
+        requested_config={"output_dir": str(output), "completion_only_loss": True,
+                          "packing": False, "max_length": 512, "report_to": []},
+        lora_config=LoraConfig(**lora_kwargs), requested_lora=lora_kwargs,
+        eligibility=TrainingEligibility(
+            verification_policy="integer-doubling-v1",
+            source_artifact_sha256=sha256_of(source), proof_sha256=sha256_of(proof),
+            source_ids=source_ids,
+        ),
+    )
+    return publish_training_run(
+        output, execution, base_model=base_model,
+        base_model_revision=execution.base_model_revision,
+        training_population_ids=source_ids,
+    )
+```
+
+Both prepared executors return typed execution metadata after saving the adapter.
+`publish_training_run` validates provenance, publishes periodic checkpoints, and writes `complete.json` last.
+Use the returned execution metadata directly, or provide task provenance with matching `base_model` and explicit `base_model_revision`.
+Custom GRPO follows the same publication path after `execute_prepared_grpo` returns.
+
+## Changing a boundary
+
+Run `make imports` after changing dependencies. Keep task-specific imports outside `harness/` and `train/prepared.py`.
+The prepared GRPO executor accepts rows and a bound reward function. Prepared SFT accepts conversations and eligibility evidence.
+SQL composition stays in the SQL-facing training entrypoints.
+Old `eval` SQL imports are compatibility exports. Add new SQL behavior in `tasks/sql/`.
+
+Run `make check` for the CPU gate. Use `make runtime-check` on a host with the training dependencies installed.
+The runtime check fails when a required dependency is absent. CPU checks do not prove GPU execution or provider compatibility.

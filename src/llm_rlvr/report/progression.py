@@ -13,6 +13,9 @@ stricter, but it is not part of the public result.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Annotated, Self
+
+from pydantic import Field, TypeAdapter, model_validator
 
 from llm_rlvr._base import Frozen
 from llm_rlvr.eval.aggregate import SeedLevelStat, rl_vs_sft_gain, seed_level_ci
@@ -23,16 +26,26 @@ SINGLE_DB_CAVEAT = (
     "but it is not part of the public result."
 )
 
+Accuracy = Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
+
 
 class RlRow(Frozen):
     """One RL variant on one benchmark: its per-seed EX and the gain over the SFT anchor."""
 
     label: str
     benchmark: str
-    sft_anchor: float
-    per_seed_ex: tuple[float, ...]
+    sft_anchor: Accuracy
+    per_seed_ex: tuple[Accuracy, ...] = Field(min_length=1)
     ex: SeedLevelStat
     gain: SeedLevelStat
+
+    @model_validator(mode="after")
+    def aggregates_match_seeds(self) -> Self:
+        if self.ex != seed_level_ci(self.per_seed_ex):
+            raise ValueError("RL execution aggregate must match per_seed_ex")
+        if self.gain != rl_vs_sft_gain(self.per_seed_ex, self.sft_anchor):
+            raise ValueError("RL gain aggregate must match per_seed_ex and sft_anchor")
+        return self
 
     @property
     def is_headline(self) -> bool:
@@ -69,6 +82,11 @@ def render_progression(
     single_db: bool = True,
 ) -> str:
     """Render the base → SFT → RL table for one benchmark, with the gain CIs and the caveat."""
+    TypeAdapter(Accuracy).validate_python(base_ex)
+    TypeAdapter(Accuracy).validate_python(sft_ex)
+    for row in rl_rows:
+        if row.benchmark != benchmark or row.sft_anchor != sft_ex:
+            raise ValueError("RL row benchmark and SFT anchor must match the progression table")
     lines = [
         f"## {benchmark}  (execution accuracy)",
         f"{'setting':<28}  {'EX':>30}  {'Δ vs SFT (95% CI)':>26}",
@@ -76,9 +94,15 @@ def render_progression(
         f"{'SFT   <think>':<28}  {sft_ex:>30.3f}  {'':>26}",
     ]
     for row in rl_rows:
+        direction = (
+            "  ✓>0"
+            if row.gain.above_zero
+            else "  (<0)"
+            if row.gain.excludes_zero
+            else "  (incl. 0)"
+        )
         gain = (
-            f"{row.gain.mean:+.3f} [{row.gain.ci_low:+.3f},{row.gain.ci_high:+.3f}]"
-            f"{'  ✓>0' if row.gain.excludes_zero else '  (incl. 0)'}"
+            f"{row.gain.mean:+.3f} [{row.gain.ci_low:+.3f},{row.gain.ci_high:+.3f}]{direction}"
             if row.gain.ci_low is not None
             else f"{row.gain.mean:+.3f}  (n=1, point)"
         )

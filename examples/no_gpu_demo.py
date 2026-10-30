@@ -43,12 +43,14 @@ def _completion_set() -> CompletionSet:
             question="Which artist sold 120 tickets?",
             gold_sql="SELECT artist FROM shows WHERE tickets_sold = 120",
             split="demo",
+            dataset="local-demo",
         ),
         Example(
             db_id="concert",
             question="How many shows sold at least 80 tickets?",
             gold_sql="SELECT COUNT(*) FROM shows WHERE tickets_sold >= 80",
             split="demo",
+            dataset="local-demo",
         ),
     )
     sqls = (

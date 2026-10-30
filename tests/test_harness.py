@@ -205,3 +205,60 @@ def test_completion_text_handles_str_dict_and_message_list() -> None:
     assert completion_text("hello") == "hello"
     assert completion_text({"role": "assistant", "content": "hi"}) == "hi"
     assert completion_text([{"role": "assistant", "content": "answer"}]) == "answer"
+
+
+def test_sql_training_reward_aborts_on_unverifiable_reference(scoring_root) -> None:
+    from llm_rlvr.eval.verifier import GoldExecutionError
+    from llm_rlvr.tasks.sql import make_reward_fn
+
+    reward = make_reward_fn(scoring_root)
+    with pytest.raises(GoldExecutionError, match="reference became unverifiable"):
+        reward(
+            completions=["<think>x</think>\n```sql\nSELECT a FROM t\n```"],
+            gold_sql=["SELECT bad FROM t"],
+            db_id=["concert"],
+        )
+
+
+def test_sql_training_reward_requires_empty_guard() -> None:
+    from llm_rlvr.tasks.sql import RewardConfig as SqlRewardConfig
+    from llm_rlvr.tasks.sql import make_reward_fn
+
+    with pytest.raises(ValueError, match="guard_trivial_empty=True"):
+        make_reward_fn("unused", config=SqlRewardConfig(guard_trivial_empty=False))
+
+
+@pytest.mark.parametrize(
+    "completion",
+    [
+        None,
+        42,
+        b"answer",
+        [],
+        {"role": "assistant"},
+        {"role": "assistant", "content": None},
+        {"role": "assistant", "content": ["answer"]},
+        {"role": "user", "content": "question"},
+        [{"role": "assistant", "content": 42}],
+        [{"role": "user", "content": "question"}],
+        ["answer"],
+    ],
+)
+def test_completion_text_rejects_malformed_values(completion) -> None:
+    with pytest.raises(ValueError, match="completion"):
+        completion_text(completion)
+
+
+def test_completion_text_preserves_last_assistant_text_in_valid_conversation() -> None:
+    messages = [
+        {"role": "user", "content": "question"},
+        {"role": "assistant", "content": "answer"},
+        {"role": "user", "content": "follow-up"},
+        {"role": "assistant", "content": "final answer"},
+    ]
+    assert completion_text(messages) == "final answer"
+
+
+def test_matched_verdict_must_also_be_valid() -> None:
+    with pytest.raises(ValueError, match="matched verdict must be valid"):
+        Verdict(matched=True, valid=False, reason="match")

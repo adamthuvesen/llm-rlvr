@@ -20,7 +20,7 @@ passes in, not here. This keeps the shaping reusable across tasks.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Literal
 
 from llm_rlvr._base import Frozen
@@ -38,14 +38,25 @@ def completion_text(completion: object) -> str:
     """
     if isinstance(completion, str):
         return completion
-    if isinstance(completion, dict):
-        return str(completion.get("content", ""))
-    if isinstance(completion, Sequence):
+    if isinstance(completion, Mapping):
+        if completion.get("role") != "assistant" or not isinstance(completion.get("content"), str):
+            raise ValueError("completion message must have role='assistant' and string content")
+        return completion["content"]
+    if isinstance(completion, Sequence) and not isinstance(completion, (bytes, bytearray)):
+        if not completion:
+            raise ValueError("completion message list must not be empty")
+        for message in completion:
+            if (
+                not isinstance(message, Mapping)
+                or message.get("role") not in ("system", "user", "assistant")
+                or not isinstance(message.get("content"), str)
+            ):
+                raise ValueError("completion messages must have a role and string content")
         for message in reversed(completion):
-            if isinstance(message, dict) and message.get("role") == "assistant":
-                return str(message.get("content", ""))
-        return completion_text(completion[-1]) if completion else ""
-    return str(completion)
+            if message["role"] == "assistant":
+                return message["content"]
+        raise ValueError("completion message list must include an assistant message")
+    raise ValueError("completion must be text, an assistant message, or a message list")
 
 
 class RewardConfig(Frozen):
