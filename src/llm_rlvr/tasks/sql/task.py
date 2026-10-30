@@ -114,7 +114,12 @@ def make_reward_fn(
     if not cfg.guard_trivial_empty:
         raise ValueError("SQL training reward requires guard_trivial_empty=True")
 
-    def reward(completions, gold_sql, db_id, **_kwargs) -> list[float]:
+    def reward(
+        completions: Sequence[object],
+        gold_sql: Sequence[str],
+        db_id: Sequence[str],
+        **_kwargs: object,
+    ) -> list[float]:
         rewards: list[float] = []
         for completion, gold, dbid in zip(completions, gold_sql, db_id, strict=True):
             db_path = resolver(dbid, db_root)

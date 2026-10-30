@@ -31,7 +31,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     try:
-        return args.func(args)
+        exit_code: int = args.func(args)
+        return exit_code
     except ModuleNotFoundError as exc:
         module = (exc.name or "").split(".")[0]
         extras = {
@@ -82,7 +83,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _add_generate_parser(sub: argparse._SubParsersAction) -> None:
+def _add_generate_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     gen = sub.add_parser("generate", help="sample the model and write a CompletionSet")
     gen.add_argument("--model", required=True)
     gen.add_argument("--model-revision", default=None)
@@ -107,7 +108,7 @@ def _add_generate_parser(sub: argparse._SubParsersAction) -> None:
     gen.set_defaults(func=_cmd_generate)
 
 
-def _add_score_parser(sub: argparse._SubParsersAction) -> None:
+def _add_score_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     score = sub.add_parser("score", help="score a CompletionSet into execution accuracy")
     score.add_argument("--completions", required=True, help="CompletionSet json path")
     score.add_argument("--db-root", required=True, help="extracted Spider database/ directory")
@@ -119,7 +120,7 @@ def _add_score_parser(sub: argparse._SubParsersAction) -> None:
     score.set_defaults(func=_cmd_score)
 
 
-def _add_build_traces_parser(sub: argparse._SubParsersAction) -> None:
+def _add_build_traces_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     traces = sub.add_parser(
         "build-traces", help="filter sampled candidates into the SFT trace dataset (CPU)"
     )
@@ -158,7 +159,8 @@ def _cmd_score(args: argparse.Namespace) -> int:
 def _cmd_generate(args: argparse.Namespace) -> int:
     # Imported here so `score` never pays for (or requires) the data/generation imports.
     from llm_rlvr.artifacts.provenance import DecodingConfig
-    from llm_rlvr.data.spider import SPIDER_HF_REVISION, load_examples, load_schemas
+    from llm_rlvr.data.artifacts import SPIDER_HF_REVISION
+    from llm_rlvr.data.spider import load_examples, load_schemas
     from llm_rlvr.eval.generate import generate
     from llm_rlvr.modal_helpers import GenerationRequest
     from llm_rlvr.train.configuration import resolve_adapter_base, resolve_model_revision
@@ -276,7 +278,7 @@ def _cmd_reproduce(args: argparse.Namespace) -> int:
     )
 
 
-def _deterministic_slice(examples: list, limit: int, seed: int) -> list:
+def _deterministic_slice[T](examples: list[T], limit: int, seed: int) -> list[T]:
     if limit < 1:
         raise ValueError(f"--limit must be >= 1, got {limit}")
     if limit >= len(examples):

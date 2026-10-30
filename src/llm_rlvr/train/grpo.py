@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import TypeVar
+from typing import Any
 
 from pydantic import Field
 
@@ -35,7 +35,6 @@ from llm_rlvr.train.prepared import execute_prepared_grpo, publish_training_run
 _TRAIN_LIBRARIES = ("llm-rlvr", "trl", "peft", "transformers", "torch", "accelerate", "vllm")
 
 PROVENANCE_FILENAME = "provenance.json"
-T = TypeVar("T")
 
 
 class GrpoHyperparams(Frozen):
@@ -90,17 +89,19 @@ def grpo_config_kwargs(hyperparams: GrpoHyperparams, output_dir: str | Path) -> 
     }
 
 
-def build_grpo_config_from_kwargs(desired: Mapping[str, object]):
+def build_grpo_config_from_kwargs(desired: Mapping[str, object]) -> Any:
     from trl import GRPOConfig  # lazy import: train extra only
 
     return build_training_config(GRPOConfig, desired)
 
 
-def build_grpo_config(hyperparams: GrpoHyperparams, output_dir: str | Path):
+def build_grpo_config(hyperparams: GrpoHyperparams, output_dir: str | Path) -> Any:
     return build_grpo_config_from_kwargs(grpo_config_kwargs(hyperparams, output_dir))
 
 
-def split_train_dev(examples: Sequence[T], *, dev_size: int, seed: int) -> tuple[list[T], list[T]]:
+def split_train_dev[T](
+    examples: Sequence[T], *, dev_size: int, seed: int
+) -> tuple[list[T], list[T]]:
     """Disjoint train/dev split for dev-EX checkpoint selection; the dev slice never trains.
 
     Deterministic in `seed`; `dev_size` is clamped so a small run still yields a train split.
@@ -204,7 +205,7 @@ def run_grpo(
     context_root: str | Path,
     output_dir: str | Path,
     *,
-    task: Task | None = None,
+    task: Task[Any, Any, Any] | None = None,
     base_model: str,
     warm_start_adapter: str | Path,
     dataset: str,
@@ -228,7 +229,7 @@ def run_grpo(
     dev slice is held out for post-hoc dev-EX checkpoint selection; periodic checkpoints land under
     `output_dir`.
     """
-    tk: Task = task or sql_task()
+    tk: Task[Any, Any, Any] = task or sql_task()
     hp = hyperparams or GrpoHyperparams()
     rw = reward or (RewardConfig() if tk.name == "sql" else ShapingConfig())
     if tk.name == "sql" and not isinstance(rw, RewardConfig):

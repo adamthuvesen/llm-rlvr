@@ -27,16 +27,7 @@ make check
 The wheel check (`make package-check`) installs locked CPU dependencies in a temporary environment outside the checkout.
 It imports package modules with model dependencies blocked, then runs CLI help, public evidence, and the SQLite demo.
 
-CI configures these checks on Python 3.11 and 3.14. A local pass does not establish a hosted-CI pass.
-
-Run the local Python 3.11 gate in a separate environment:
-
-```bash
-UV_PYTHON=3.11 UV_PROJECT_ENVIRONMENT=/tmp/llm-rlvr-py311 make install check
-```
-
-Set `UV_PYTHON` for every target. An existing Python 3.11 environment does not override a `.python-version` selection of Python 3.14.
-The override keeps installation, checks, and wheel verification on Python 3.11.
+CI configures these checks on Python 3.14. A local pass does not establish a hosted-CI pass.
 
 ## Failure tests
 

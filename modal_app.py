@@ -1,13 +1,13 @@
 """Modal app: GPU entrypoints for generation, trace sampling, SFT, and GRPO.
 
-    modal run modal_app.py::main --dataset spider --limit 8 --no-spawn --approved  # small smoke
-    modal run --detach modal_app.py::main --dataset spider --approved   # full Spider-dev baseline
-    modal run modal_app.py::traces --limit 8 --no-spawn --approved      # small trace sampling
-    modal run --detach modal_app.py::traces --approved                  # Spider-train candidates
-    modal run --detach modal_app.py::sft --approved                     # LoRA SFT on the traces
+    modal run modal_app.py::main --dataset spider --limit 8 --no-spawn  # small smoke
+    modal run --detach modal_app.py::main --dataset spider             # full Spider-dev baseline
+    modal run modal_app.py::traces --limit 8 --no-spawn                # small trace sampling
+    modal run --detach modal_app.py::traces                            # Spider-train candidates
+    modal run --detach modal_app.py::sft                               # LoRA SFT on the traces
 
-Every entrypoint spends money on GPUs and refuses to launch without `--approved`. Pass it only
-after Adam approves the run and its rough cost.
+Every entrypoint spends money on GPUs and refuses to launch without approval. The refusal prints
+the approved command; run it only after Adam approves the run and its rough cost.
 
 Long entrypoints (main, traces, sft, grpo) spawn by default, so `--detach` is safe to leave without
 remembering `--spawn`. Pass `--no-spawn` to force a long entrypoint to block.
@@ -23,8 +23,12 @@ CUDA, torch, and vLLM versions must agree; verify the image on the target GPU be
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING
 
 import modal
+
+if TYPE_CHECKING:
+    from modal.app import _FunctionDecoratorType
 
 from llm_rlvr.modal_helpers import (
     GenerationRequest,
@@ -73,7 +77,7 @@ _IGNORE = [
 # Two layers: the heavy GPU install (layer 1) is keyed only on pyproject.toml + uv.lock, so editing
 # source doesn't re-download the ~GBs of CUDA/torch/vLLM — only the fast editable relink re-runs.
 image = (
-    modal.Image.from_registry(CUDA_IMAGE, add_python="3.11")
+    modal.Image.from_registry(CUDA_IMAGE, add_python="3.14")
     .apt_install("git")
     .pip_install("uv")
     .add_local_file(
@@ -97,7 +101,7 @@ VOLUMES: dict[str | PurePosixPath, modal.Volume | modal.CloudBucketMount] = {
 }
 
 
-def modal_gpu_entrypoint(*, timeout_hours: int):
+def modal_gpu_entrypoint(*, timeout_hours: int) -> _FunctionDecoratorType:
     return app.function(
         image=image,
         gpu="A100-80GB",
@@ -518,8 +522,8 @@ def grpo(
 ) -> None:
     """Launch single-turn GRPO. Spawns by default so `modal run --detach` is safe to leave.
 
-    modal run modal_app.py::grpo --run-id grpo-small --limit 32 --dev-size 8 --no-spawn --approved
-    modal run --detach modal_app.py::grpo --run-id grpo-s0 --approved                    # seed
+    modal run modal_app.py::grpo --run-id grpo-small --limit 32 --dev-size 8 --no-spawn
+    modal run --detach modal_app.py::grpo --run-id grpo-s0                               # seed
     """
     kwargs = {
         "run_id": run_id,

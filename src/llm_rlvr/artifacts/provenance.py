@@ -116,7 +116,7 @@ def _source_checkout() -> Path | None:
             check=True,
         )
         return root if Path(out.stdout.strip()).resolve() == root else None
-    except (subprocess.SubprocessError, OSError):
+    except subprocess.SubprocessError, OSError:
         return None
 
 
@@ -132,7 +132,7 @@ def git_commit() -> str:
             check=True,
         )
         return out.stdout.strip()
-    except (subprocess.SubprocessError, OSError):
+    except subprocess.SubprocessError, OSError:
         return "unknown"
 
 
@@ -147,7 +147,7 @@ def git_is_dirty() -> bool:
             text=True,
             check=True,
         )
-    except (subprocess.SubprocessError, OSError):
+    except subprocess.SubprocessError, OSError:
         return False
     return bool(out.stdout.strip())
 

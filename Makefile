@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: help install lock fmt lint typecheck imports test test-integration runtime-check check eval eval-full demo package-check data
+.PHONY: help install lock fmt lint typecheck imports test test-integration runtime-check check verify eval eval-full demo package-check data
 
 RUN := uv run --locked
 
@@ -30,12 +30,15 @@ test:  ## Run CPU unit tests in parallel without network or training dependencie
 	$(RUN) pytest -n auto
 
 test-integration:  ## Run dataset and network checks explicitly
-	$(RUN) pytest -m integration
+	$(RUN) pytest -m integration --force-enable-socket
 
 runtime-check:  ## Validate installed training APIs, failing when dependencies are absent
 	$(RUN) pytest -m runtime
 
 check: lock lint typecheck imports test package-check  ## Fast gate; package-check also runs public evidence and the demo from the wheel
+
+verify:  ## Drive the real CLI and Modal launcher on CPU (ARGS=all|list|control|<drive>)
+	@$(RUN) python .agents/skills/verify-llm-rlvr/verify $(ARGS)
 
 eval:  ## Validate and render tracked public evidence
 	$(RUN) llm-rlvr reproduce --mode public

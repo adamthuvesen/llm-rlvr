@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shlex
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol, Self
@@ -47,9 +48,11 @@ class CommitVolume(Protocol):
 
 
 class RemoteFunction(Protocol):
-    def spawn(self, **kwargs: Any) -> Any: ...
+    @property
+    def spawn(self) -> Callable[..., Any]: ...
 
-    def remote(self, **kwargs: Any) -> Any: ...
+    @property
+    def remote(self) -> Callable[..., Any]: ...
 
 
 def git_kwargs() -> dict[str, str | bool]:

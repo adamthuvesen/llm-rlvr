@@ -140,8 +140,8 @@ def _execute(db_path: Path, query: str, cfg: VerifierConfig) -> ExecutionOutcome
 
 
 def _denotation_eq(
-    gold_rows: list[tuple],
-    pred_rows: list[tuple],
+    gold_rows: list[tuple[object, ...]],
+    pred_rows: list[tuple[object, ...]],
     order_matters: bool,
     cfg: VerifierConfig,
 ) -> bool:
@@ -153,10 +153,10 @@ def _denotation_eq(
             cfg.max_permutation_cols,
         )
         return _identity_order_eq(gold_rows, pred_rows, order_matters)
-    return result_eq(gold_rows, pred_rows, order_matters=order_matters)
+    return bool(result_eq(gold_rows, pred_rows, order_matters=order_matters))
 
 
-def _num_cols(gold_rows: list[tuple], pred_rows: list[tuple]) -> int:
+def _num_cols(gold_rows: list[tuple[object, ...]], pred_rows: list[tuple[object, ...]]) -> int:
     if gold_rows:
         return len(gold_rows[0])
     if pred_rows:
@@ -164,7 +164,9 @@ def _num_cols(gold_rows: list[tuple], pred_rows: list[tuple]) -> int:
     return 0
 
 
-def _identity_order_eq(gold_rows: list[tuple], pred_rows: list[tuple], order_matters: bool) -> bool:
+def _identity_order_eq(
+    gold_rows: list[tuple[object, ...]], pred_rows: list[tuple[object, ...]], order_matters: bool
+) -> bool:
     """Bounded fallback for very wide results: compare without the column-permutation search."""
     if len(gold_rows) != len(pred_rows):
         return False

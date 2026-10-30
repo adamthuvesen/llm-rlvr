@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 from pydantic import Field
 
@@ -100,19 +100,19 @@ def sft_config_kwargs(hyperparams: SftHyperparams, output_dir: str | Path) -> di
     }
 
 
-def build_lora_config(hyperparams: SftHyperparams):
+def build_lora_config(hyperparams: SftHyperparams) -> Any:
     from peft import LoraConfig  # lazy import: train extra only
 
     return LoraConfig(**lora_kwargs(hyperparams))
 
 
-def build_sft_config_from_kwargs(desired: Mapping[str, object]):
+def build_sft_config_from_kwargs(desired: Mapping[str, object]) -> Any:
     from trl import SFTConfig  # lazy import: train extra only
 
     return build_training_config(SFTConfig, desired)
 
 
-def build_sft_config(hyperparams: SftHyperparams, output_dir: str | Path):
+def build_sft_config(hyperparams: SftHyperparams, output_dir: str | Path) -> Any:
     return build_sft_config_from_kwargs(sft_config_kwargs(hyperparams, output_dir))
 
 

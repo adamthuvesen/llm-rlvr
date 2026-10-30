@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import re
+import socket
 import subprocess
 from pathlib import Path
+
+import pytest
+from pytest_socket import SocketBlockedError
 
 ROOT = Path(__file__).resolve().parents[1]
 BLOCKED_SUFFIXES = {
@@ -36,18 +40,39 @@ def test_no_data_files_are_tracked() -> None:
     )
 
 
+def _defines(text: str, name: str) -> bool:
+    """True when `text` defines `name`: def/class, line-start key or make target, TOML table."""
+    escaped = re.escape(name)
+    return any(
+        re.search(pattern, text, re.MULTILINE)
+        for pattern in (
+            rf"^\s*(?:async\s+)?(?:def|class)\s+{escaped}\b",
+            rf"^{escaped}\s*[:=]",
+            rf"^\[{{1,2}}{escaped}\]{{1,2}}\s*$",
+        )
+    )
+
+
 def test_enforced_rules_cite_existing_targets() -> None:
     agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    table = agents.split("## Enforced Rules", 1)[1].split("\n## ", 1)[0]
+    assert "\n## Enforced Rules\n" in agents, "AGENTS.md must keep its `## Enforced Rules` section"
+    table = agents.split("\n## Enforced Rules\n", 1)[1].split("\n## ", 1)[0]
     rows = [line.split("|") for line in table.splitlines() if line.startswith("| ")][2:]
     assert rows, "AGENTS.md needs an `## Enforced Rules` table with at least one row"
     for row in rows:
         refs = re.findall(r"`([^`]+)`", row[2])
-        assert refs, f"rule has no `path` or `path::name` citation: {row[1].strip()}"
+        assert refs, f"rule cites no `path::name`: {row[1].strip()}"
         for ref in refs:
-            path, _, name = ref.partition("::")
+            path, separator, name = ref.partition("::")
             target = ROOT / path
-            assert target.exists(), f"AGENTS.md cites missing path {path!r}; fix the row"
-            assert name in target.read_text(encoding="utf-8"), (
-                f"AGENTS.md cites {name!r}, which is not in {path}; fix the row"
+            assert separator and name, f"AGENTS.md cites {ref!r}; use `path::name`"
+            assert target.is_file(), f"AGENTS.md cites missing file {path!r}; fix the row"
+            assert _defines(target.read_text(encoding="utf-8"), name), (
+                f"AGENTS.md cites {name!r}, which {path} does not define; fix the row"
             )
+
+
+@pytest.mark.filterwarnings("ignore:A test tried to use socket")
+def test_unit_tests_cannot_open_tcp_sockets() -> None:
+    with pytest.raises(SocketBlockedError):
+        socket.create_connection(("127.0.0.1", 9))

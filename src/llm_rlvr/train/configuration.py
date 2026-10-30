@@ -10,14 +10,11 @@ from enum import Enum
 from importlib import metadata
 from math import isfinite
 from pathlib import Path
-from typing import TypeVar
 
 from pydantic import ConfigDict, Field, JsonValue, field_validator
 
 from llm_rlvr._base import Frozen
 from llm_rlvr.artifacts.io import sha256_of
-
-ConfigT = TypeVar("ConfigT")
 
 
 class RuntimeConfigRecord(Frozen):
@@ -73,7 +70,7 @@ class _AdapterWeightIndex(Frozen):
     weight_map: dict[str, str] = Field(min_length=1)
 
 
-def build_training_config(
+def build_training_config[ConfigT](
     config_type: type[ConfigT], desired: Mapping[str, object], *, package: str = "trl"
 ) -> ConfigT:
     valid = {field.name for field in dataclasses.fields(config_type)}  # type: ignore[arg-type]

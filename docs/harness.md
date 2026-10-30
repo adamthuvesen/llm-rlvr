@@ -19,8 +19,8 @@ from llm_rlvr.harness import AnswerParser, Verifier, Verdict, Task, score_answer
 1. **`AnswerParser`**: pull the answer out of a raw completion and judge its format.
    ```python
    class AnswerParser(Protocol):
-       def extract(self, text: str) -> str | None: ...   # the answer, or None if there is none
-       def well_formed(self, text: str) -> bool: ...      # exactly the trained output shape?
+       def extract(self, text: str) -> str | None: ...  # the answer, or None if there is none
+       def well_formed(self, text: str) -> bool: ...  # exactly the trained output shape?
    ```
    Be defensive in `extract`: the pre-SFT base model is messy. `well_formed` feeds the format
    reward and the SFT format-rate metric. Keep it strict: one `<think>` block, then the answer.
@@ -31,8 +31,11 @@ from llm_rlvr.harness import AnswerParser, Verifier, Verdict, Task, score_answer
    class Verifier(Protocol):
        def verify(self, answer: str, reference: object, context: object) -> Verdict: ...
 
-   class Verdict:           # matched: correct?   valid: ran/parsed without error?   reason: tag
-       matched: bool; valid: bool; reason: str
+
+   class Verdict:  # matched: correct?   valid: ran/parsed without error?   reason: tag
+       matched: bool
+       valid: bool
+       reason: str
    ```
    `reference` and `context` are whatever your task needs (for SQL: reference query + database path;
    for math: expected number + nothing). A wrong-but-runnable answer is
@@ -57,9 +60,12 @@ shaped or near-binary RLVR reward:
 from llm_rlvr.harness import RewardConfig, score_answer
 
 breakdown = score_answer(
-    completion_text, reference, context,
-    parser=MY_PARSER, verifier=MY_VERIFIER,
-    config=RewardConfig(arm="shaped"),   # or arm="near_binary"
+    completion_text,
+    reference,
+    context,
+    parser=MY_PARSER,
+    verifier=MY_VERIFIER,
+    config=RewardConfig(arm="shaped"),  # or arm="near_binary"
     no_answer_reason="no_answer",
 )
 breakdown.total  # the scalar reward; also .format/.executable/.result_match/.length/.reason
@@ -133,42 +139,78 @@ from pathlib import Path
 from peft import LoraConfig
 from llm_rlvr.artifacts.io import atomic_write_text, sha256_of
 from llm_rlvr.train.prepared import (
-    PreparedSftRow, TrainingEligibility, execute_prepared_sft, publish_training_run,
+    PreparedSftRow,
+    TrainingEligibility,
+    execute_prepared_sft,
+    publish_training_run,
 )
+
 
 def train_integer_sft(base_model: str, revision: str, output: Path) -> Path:
     corpus = ((2, 4), (3, 6))
     if any(answer != 2 * number for number, answer in corpus):
         raise ValueError("integer-doubling reference verification failed")
-    rows = [PreparedSftRow.model_validate({
-        "prompt": [{"role": "user", "content": str(number)}],
-        "completion": [{"role": "assistant", "content": str(answer)}],
-    }) for number, answer in corpus]
-    source_ids = tuple(hashlib.sha256(json.dumps(
-        ["integer-doubling-example-v1", number, answer]
-    ).encode()).hexdigest() for number, answer in corpus)
+    rows = [
+        PreparedSftRow.model_validate(
+            {
+                "prompt": [{"role": "user", "content": str(number)}],
+                "completion": [{"role": "assistant", "content": str(answer)}],
+            }
+        )
+        for number, answer in corpus
+    ]
+    source_ids = tuple(
+        hashlib.sha256(
+            json.dumps(["integer-doubling-example-v1", number, answer]).encode()
+        ).hexdigest()
+        for number, answer in corpus
+    )
     source = output.with_suffix(".traces.jsonl")
     atomic_write_text(source, "\n".join(row.model_dump_json() for row in rows) + "\n")
     proof = output.with_suffix(".proof.json")
-    atomic_write_text(proof, json.dumps({
-        "policy": "integer-doubling-v1", "reference_errors": 0,
-        "source_sha256": sha256_of(source), "source_ids": source_ids,
-    }))
-    lora_kwargs = {"r": 8, "lora_alpha": 16, "lora_dropout": 0.0,
-                   "target_modules": "all-linear", "task_type": "CAUSAL_LM"}
+    atomic_write_text(
+        proof,
+        json.dumps(
+            {
+                "policy": "integer-doubling-v1",
+                "reference_errors": 0,
+                "source_sha256": sha256_of(source),
+                "source_ids": source_ids,
+            }
+        ),
+    )
+    lora_kwargs = {
+        "r": 8,
+        "lora_alpha": 16,
+        "lora_dropout": 0.0,
+        "target_modules": "all-linear",
+        "task_type": "CAUSAL_LM",
+    }
     execution = execute_prepared_sft(
-        rows, output, base_model=base_model, base_model_revision=revision,
-        requested_config={"output_dir": str(output), "completion_only_loss": True,
-                          "packing": False, "max_length": 512, "report_to": []},
-        lora_config=LoraConfig(**lora_kwargs), requested_lora=lora_kwargs,
+        rows,
+        output,
+        base_model=base_model,
+        base_model_revision=revision,
+        requested_config={
+            "output_dir": str(output),
+            "completion_only_loss": True,
+            "packing": False,
+            "max_length": 512,
+            "report_to": [],
+        },
+        lora_config=LoraConfig(**lora_kwargs),
+        requested_lora=lora_kwargs,
         eligibility=TrainingEligibility(
             verification_policy="integer-doubling-v1",
-            source_artifact_sha256=sha256_of(source), proof_sha256=sha256_of(proof),
+            source_artifact_sha256=sha256_of(source),
+            proof_sha256=sha256_of(proof),
             source_ids=source_ids,
         ),
     )
     return publish_training_run(
-        output, execution, base_model=base_model,
+        output,
+        execution,
+        base_model=base_model,
         base_model_revision=execution.base_model_revision,
         training_population_ids=source_ids,
     )

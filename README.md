@@ -1,6 +1,6 @@
 # llm-rlvr
 
-![License](https://img.shields.io/github/license/adamthuvesen/llm-rlvr) ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![License](https://img.shields.io/github/license/adamthuvesen/llm-rlvr) ![Python](https://img.shields.io/badge/python-3.14%2B-blue)
 
 An RLVR harness for text-to-SQL. It trains `Qwen/Qwen2.5-Coder-3B-Instruct`
 to write SQL by running the query and rewarding it when the result matches the reference answer,
@@ -46,8 +46,7 @@ make install
 make check
 ```
 
-`make check` checks the lockfile, Ruff, types, import contracts, unit tests, public evidence, and the SQLite demo.
-Use `make help` for focused checks. `make package-check` verifies a wheel outside the source checkout.
+Every other command is listed in [AGENTS.md](AGENTS.md#commands) and `make help`.
 
 Run a tiny no-GPU demo:
 

@@ -43,3 +43,6 @@ __pycache__/
 *.parquet
 *.arrow
 *.log
+
+# verify-llm-rlvr evidence
+/.verify/

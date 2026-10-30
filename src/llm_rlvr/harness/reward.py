@@ -39,9 +39,10 @@ def completion_text(completion: object) -> str:
     if isinstance(completion, str):
         return completion
     if isinstance(completion, Mapping):
-        if completion.get("role") != "assistant" or not isinstance(completion.get("content"), str):
+        content = completion.get("content")
+        if completion.get("role") != "assistant" or not isinstance(content, str):
             raise ValueError("completion message must have role='assistant' and string content")
-        return completion["content"]
+        return content
     if isinstance(completion, Sequence) and not isinstance(completion, (bytes, bytearray)):
         if not completion:
             raise ValueError("completion message list must not be empty")
@@ -54,7 +55,7 @@ def completion_text(completion: object) -> str:
                 raise ValueError("completion messages must have a role and string content")
         for message in reversed(completion):
             if message["role"] == "assistant":
-                return message["content"]
+                return str(message["content"])
         raise ValueError("completion message list must include an assistant message")
     raise ValueError("completion must be text, an assistant message, or a message list")
 

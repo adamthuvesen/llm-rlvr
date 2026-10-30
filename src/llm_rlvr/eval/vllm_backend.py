@@ -48,7 +48,7 @@ def make_vllm_engine(
     return llm, chat_kwargs
 
 
-def vllm_sampling_params(decoding: DecodingConfig, *, n: int = 1):
+def vllm_sampling_params(decoding: DecodingConfig, *, n: int = 1) -> Any:
     from vllm import SamplingParams  # lazy import: GPU backend only
 
     return SamplingParams(

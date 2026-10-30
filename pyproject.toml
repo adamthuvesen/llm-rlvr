@@ -7,7 +7,7 @@ name = "llm-rlvr"
 version = "0.1.0"
 description = "Reusable RLVR library for LLM post-training, with text-to-SQL as the reference task."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "Adam Thuvesen", email = "adam.thuvesen@mentimeter.com" }]
 
@@ -47,7 +47,7 @@ train = [
 dev = [
     "mypy>=1.19",
     "pytest>=8",
-    "ruff>=0.6",
+    "ruff==0.17.4",
     "pre-commit>=3.8",
     # The Modal launch CLI. Pinned so `modal run`/`modal deploy` use the surface modal_app.py
     # targets (modal.App, string GPU, add_local_*); it never enters the GPU image (the image
@@ -56,6 +56,7 @@ dev = [
     "import-linter>=2.15",
     "hatchling>=1.33.0",
     "pytest-xdist>=3.6",
+    "pytest-socket>=0.7",
 ]
 adapters = [
     "llm-rlvr[generate]",
@@ -67,7 +68,7 @@ llm-rlvr = "llm_rlvr.cli:main"
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py314"
 # The vendored evaluator is upstream code; do not lint or reformat it.
 extend-exclude = ["src/llm_rlvr/third_party"]
 force-exclude = true
@@ -80,7 +81,7 @@ known-first-party = ["llm_rlvr"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q -m 'not integration and not runtime'"
+addopts = "-q -m 'not integration and not runtime' --disable-socket --allow-unix-socket"
 markers = [
     "integration: hits the network or HuggingFace (deselected by default)",
     "slow: large dataset download (compose with integration)",
@@ -88,12 +89,19 @@ markers = [
 ]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.14"
 exclude = ["src/llm_rlvr/third_party"]
+strict = true
+
+# Vendored upstream code is untyped and excluded from checking.
+[[tool.mypy.overrides]]
+module = ["llm_rlvr.third_party.*"]
+follow_imports = "skip"
+
+# The CPU environment has no GPU stack, and `datasets` ships no type information.
+[[tool.mypy.overrides]]
+module = ["datasets", "peft", "torch", "transformers", "trl", "vllm", "vllm.*"]
 ignore_missing_imports = true
-check_untyped_defs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/llm_rlvr"]
