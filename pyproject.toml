@@ -45,7 +45,7 @@ train = [
     "accelerate>=1.0",
 ]
 dev = [
-    "mypy>=1.19",
+    "basedpyright==1.40.2",
     "pytest>=8",
     "ruff==0.17.4",
     "pre-commit>=3.8",
@@ -88,20 +88,23 @@ markers = [
     "runtime: requires installed optional training dependencies and never silently skips",
 ]
 
-[tool.mypy]
-python_version = "3.14"
-exclude = ["src/llm_rlvr/third_party"]
-strict = true
-
+[tool.basedpyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.14"
+include = ["src/llm_rlvr", "scripts", "tests", "examples", "modal_app.py", ".agents/skills/verify-llm-rlvr"]
 # Vendored upstream code is untyped and excluded from checking.
-[[tool.mypy.overrides]]
-module = ["llm_rlvr.third_party.*"]
-follow_imports = "skip"
+exclude = ["src/llm_rlvr/third_party", "**/__pycache__", ".venv", ".verify"]
+venvPath = "."
+venv = ".venv"
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
+reportUnknownParameterType = false
+reportUnknownLambdaType = false
 
-# The CPU environment has no GPU stack, and `datasets` ships no type information.
-[[tool.mypy.overrides]]
-module = ["datasets", "peft", "torch", "transformers", "trl", "vllm", "vllm.*"]
-ignore_missing_imports = true
+[[tool.basedpyright.executionEnvironments]]
+root = "tests"
+reportMissingParameterType = false
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/llm_rlvr"]

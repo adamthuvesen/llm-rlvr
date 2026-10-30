@@ -20,8 +20,9 @@ lint:  ## Check Ruff lint and formatting
 	$(RUN) ruff check .
 	$(RUN) ruff format --check .
 
-typecheck:  ## Check package, Modal registration, demo, and maintained scripts
-	$(RUN) mypy src/llm_rlvr scripts modal_app.py examples
+typecheck:  ## Check package, Modal registration, demo, scripts, tests, and the verify helper (basedpyright strict)
+	$(RUN) basedpyright
+	$(RUN) python scripts/check_basedpyright_ratchet.py
 
 imports:  ## Check architecture import contracts
 	$(RUN) lint-imports

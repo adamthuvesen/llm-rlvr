@@ -80,6 +80,7 @@ def fake_training(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
         output = Path(path)
         output.mkdir(parents=True, exist_ok=True)
         trainer = next(value for name, value in events if name == "trainer")
+        assert isinstance(trainer, dict)
         lora = trainer.get("peft_config")
         (output / "adapter_config.json").write_text(
             json.dumps(
@@ -183,6 +184,8 @@ def test_sft_runtime_uses_typed_rows_and_saves_effective_configuration(
     assert trainer["args"].completion_only_loss is True
     saved = AdapterProvenance.model_validate_json((output / "provenance.json").read_text())
     assert saved.base_model_revision == "resolved-commit"
+    assert saved.runtime_config is not None
+    assert saved.train_source_ids is not None
     assert saved.runtime_config.effective_lora["r"] == 32
     assert saved.runtime_config.effective_trl["completion_only_loss"] is True
     assert len(saved.train_source_ids) == 1
@@ -264,6 +267,10 @@ def test_grpo_runtime_uses_sql_reward_and_inherited_adapter(
     assert base_load["revision"] == "resolved-commit"
     provenance = GrpoProvenance.model_validate_json((output / "provenance.json").read_text())
     assert provenance.hyperparams.lora_rank == 64
+    assert provenance.runtime_config is not None
+    assert provenance.warm_start_identity is not None
+    assert provenance.train_source_ids is not None
+    assert provenance.dev_source_ids is not None
     assert provenance.runtime_config.requested_lora == {}
     assert provenance.runtime_config.effective_lora["r"] == 8
     assert provenance.warm_start_identity.sha256
@@ -583,6 +590,8 @@ def test_sft_publishes_checkpoint_with_its_actual_identity(
     final = AdapterProvenance.model_validate_json((output / "provenance.json").read_text())
     assert saved.saved_step == 1
     assert saved.training_exposure == "unknown"
+    assert saved.output_adapter_identity is not None
+    assert final.output_adapter_identity is not None
     assert saved.output_adapter_identity.configuration["r"] == 8
     assert final.output_adapter_identity.configuration["r"] == 32
 
