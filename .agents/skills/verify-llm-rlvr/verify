@@ -144,9 +144,18 @@ def main(argv: list[str]) -> int:
         print(f"evidence: {run_dir}")
     failed = any(r["result"] == "FAIL" for r in results)
     if control:
-        verdict = "control: FAIL observed" if failed else "control: expected FAIL, drive passed"
-        print(verdict, file=sys.stderr)
-        return 0 if failed else 1
+        failures = [str(r["note"]) for r in results if r["result"] == "FAIL"]
+        if len(failures) == 1 and failures[0].startswith(drives.CONTROL_FAILURE):
+            print("control: FAIL observed", file=sys.stderr)
+            return 0
+        if failures:
+            print(
+                f"control: failed for another reason; expected {drives.CONTROL_FAILURE!r}",
+                file=sys.stderr,
+            )
+        else:
+            print("control: expected FAIL, drive passed", file=sys.stderr)
+        return 1
     return 1 if failed else 0
 
 

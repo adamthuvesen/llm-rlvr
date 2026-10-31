@@ -211,4 +211,6 @@ DRIVES = {
     ),
 }
 SMOKE = "score"
+# The control passes only when its drive fails on exactly this planted expectation.
+CONTROL_FAILURE = "expected execution accuracy 0.75, got "
 CONTROL = ("score", control_score)

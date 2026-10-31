@@ -13,12 +13,12 @@ lock:  ## Check pyproject.toml agrees with uv.lock
 	uv lock --check
 
 fix:  ## Apply Ruff formatting and safe fixes
-	$(RUN) ruff check --fix .
-	$(RUN) ruff format .
+	$(RUN) ruff check --fix . .agents/skills/verify-llm-rlvr/verify
+	$(RUN) ruff format . .agents/skills/verify-llm-rlvr/verify
 
 lint:  ## Check Ruff lint and formatting
-	$(RUN) ruff check .
-	$(RUN) ruff format --check .
+	$(RUN) ruff check . .agents/skills/verify-llm-rlvr/verify
+	$(RUN) ruff format --check . .agents/skills/verify-llm-rlvr/verify
 
 typecheck:  ## Check package, Modal registration, demo, scripts, tests, and the verify helper (basedpyright strict)
 	$(RUN) basedpyright

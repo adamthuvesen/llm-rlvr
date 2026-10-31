@@ -50,6 +50,7 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 | Modal entrypoints and GPU functions refuse to launch without approval | `src/llm_rlvr/modal_helpers.py::require_approval`, `tests/test_modal_launch_approval.py::test_every_gpu_function_gates_on_approval_first`, `tests/test_modal_launch_approval.py::test_modal_calls_follow_the_gate_and_forward_approval`, `tests/test_modal_launch_approval.py::test_every_modal_entrypoint_passes_its_approval_flag`, `tests/test_modal_preflight.py::test_direct_gpu_function_call_refuses_without_approval` | 2026-11-06 |
 | `make verify` reports a pass only when its control observes FAIL | `.agents/skills/verify-llm-rlvr/drives.py::control_score`, `Makefile::verify` | 2026-11-06 |
 | Every citation in this table is defined where it points | `tests/test_repo_rules.py::test_enforced_rules_cite_existing_targets` | 2026-11-06 |
+| No file downgrades strict type checking with a `# pyright:` mode comment | `tests/test_strict_mode.py::test_no_file_downgrades_type_checking_mode` | 2026-11-07 |
 
 ## Judgment calls
 

@@ -92,6 +92,7 @@ markers = [
 [tool.basedpyright]
 typeCheckingMode = "strict"
 enableTypeIgnoreComments = false
+reportUnnecessaryTypeIgnoreComment = "error"
 pythonVersion = "3.14"
 include = ["src/llm_rlvr", "scripts", "tests", "examples", "modal_app.py"]
 # Vendored upstream code is untyped and excluded from checking.
