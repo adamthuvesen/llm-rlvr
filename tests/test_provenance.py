@@ -96,7 +96,7 @@ def test_generation_versions_cannot_be_mutated(provenance: GenerationProvenance)
     import pytest
 
     with pytest.raises(TypeError):
-        provenance.library_versions["torch"] = "changed"  # type: ignore[index]
+        provenance.library_versions["torch"] = "changed"  # pyright: ignore[reportIndexIssue]
 
 
 def test_nonfinite_and_invalid_decoding_rejected() -> None:

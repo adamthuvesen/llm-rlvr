@@ -30,12 +30,12 @@ class DriveError(Exception):
 class Drive:
     proves: str
     paths: list[str]
-    run: Callable[[Path, dict], str]
+    run: Callable[[Path, dict[str, str]], str]
 
 
 def run(
-    evidence: Path, env: dict, name: str, argv: list[str], timeout: float = 30
-) -> subprocess.CompletedProcess:
+    evidence: Path, env: dict[str, str], name: str, argv: list[str], timeout: float = 30
+) -> subprocess.CompletedProcess[str]:
     proc = subprocess.Popen(
         argv,
         cwd=ROOT,
@@ -70,12 +70,12 @@ def expect(condition: bool, message: str) -> None:
         raise DriveError(message)
 
 
-def ok(result: subprocess.CompletedProcess, name: str) -> None:
+def ok(result: subprocess.CompletedProcess[str], name: str) -> None:
     tail = result.stderr.strip()[-400:]
     expect(result.returncode == 0, f"{name} exited {result.returncode}: {tail}")
 
 
-def fixtures(evidence: Path, env: dict) -> Path:
+def fixtures(evidence: Path, env: dict[str, str]) -> Path:
     root = Path(tempfile.mkdtemp(dir=env["HOME"]))
     ok(
         run(evidence, env, "fixtures", [str(PYTHON), str(HERE / "fixtures.py"), str(root)]),
@@ -84,7 +84,7 @@ def fixtures(evidence: Path, env: dict) -> Path:
     return root
 
 
-def drive_score(evidence: Path, env: dict, expected: float = 0.5) -> str:
+def drive_score(evidence: Path, env: dict[str, str], expected: float = 0.5) -> str:
     root = fixtures(evidence, env)
     out = evidence / "score-report.json"
     argv = [str(CLI), "score", "--completions", str(root / "completions.json")]
@@ -104,11 +104,11 @@ def drive_score(evidence: Path, env: dict, expected: float = 0.5) -> str:
     return f"scored 2 completions on a SQLite DB: EX {accuracy:.3f}, reasons {report['reasons']}"
 
 
-def control_score(evidence: Path, env: dict) -> str:
+def control_score(evidence: Path, env: dict[str, str]) -> str:
     return drive_score(evidence, env, expected=0.75)
 
 
-def drive_build_traces(evidence: Path, env: dict) -> str:
+def drive_build_traces(evidence: Path, env: dict[str, str]) -> str:
     root = fixtures(evidence, env)
     traces, manifest = evidence / "traces.jsonl", evidence / "traces.manifest.json"
     argv = [str(CLI), "build-traces", "--candidates", str(root / "candidates.json")]
@@ -124,7 +124,7 @@ def drive_build_traces(evidence: Path, env: dict) -> str:
     return "kept 1 of 3 candidates: dropped the wrong SQL and the answer with no <think>"
 
 
-def drive_public_evidence(evidence: Path, env: dict) -> str:
+def drive_public_evidence(evidence: Path, env: dict[str, str]) -> str:
     result = run(evidence, env, "reproduce", [str(CLI), "reproduce", "--mode", "public"])
     ok(result, "llm-rlvr reproduce --mode public")
     for needle in [
@@ -146,7 +146,7 @@ APPROVED = {
 }
 
 
-def drive_launch_plan(evidence: Path, env: dict) -> str:
+def drive_launch_plan(evidence: Path, env: dict[str, str]) -> str:
     probe = [str(PYTHON), "-W", "ignore", str(HERE / "launch_plan.py")]
     result = run(evidence, env | {"PYTHONPATH": str(ROOT)}, "launch-plan", probe)
     ok(result, "launch plan")

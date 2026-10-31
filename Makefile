@@ -22,7 +22,7 @@ lint:  ## Check Ruff lint and formatting
 
 typecheck:  ## Check package, Modal registration, demo, scripts, tests, and the verify helper (basedpyright strict)
 	$(RUN) basedpyright
-	$(RUN) python scripts/check_basedpyright_ratchet.py
+	$(RUN) basedpyright --project .agents/skills/verify-llm-rlvr
 
 imports:  ## Check architecture import contracts
 	$(RUN) lint-imports

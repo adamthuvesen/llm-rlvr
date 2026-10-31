@@ -11,14 +11,15 @@ from pathlib import Path
 
 from llm_rlvr.artifacts.io import atomic_write_json
 from llm_rlvr.data.models import Example
+from llm_rlvr.harness.messages import ChatMessage
 from llm_rlvr.train.traces import CandidateSet, TraceCandidates, TraceSamplingConfig
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "examples"))
-from no_gpu_demo import _build_demo_db, _completion_set
+from no_gpu_demo import build_demo_db, demo_completion_set
 
 PROMPT = (
-    {"role": "system", "content": "instruction"},
-    {"role": "user", "content": "Database schema:\n...\n\nQuestion: who sold 120 tickets?"},
+    ChatMessage(role="system", content="instruction"),
+    ChatMessage(role="user", content="Database schema:\n...\n\nQuestion: who sold 120 tickets?"),
 )
 GOLD = "SELECT artist FROM shows WHERE tickets_sold = 120"
 CANDIDATES = (
@@ -29,8 +30,8 @@ CANDIDATES = (
 
 
 def main(out: Path) -> None:
-    _build_demo_db(out / "database")
-    atomic_write_json(_completion_set(), out / "completions.json")
+    build_demo_db(out / "database")
+    atomic_write_json(demo_completion_set(), out / "completions.json")
     example = Example(
         db_id="concert", question="Who sold 120 tickets?", gold_sql=GOLD, split="train"
     )

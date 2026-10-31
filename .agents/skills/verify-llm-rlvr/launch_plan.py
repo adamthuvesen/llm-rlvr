@@ -5,6 +5,7 @@ Run by `verify launch-plan` from the repo root. Prints one JSON object. Nothing 
 
 import json
 import sys
+from collections.abc import Callable
 
 import modal
 
@@ -25,7 +26,7 @@ ARGV = {
 }
 
 
-def outcome(call) -> str:
+def outcome(call: Callable[[], object]) -> str:
     try:
         call()
     except SystemExit as exc:
