@@ -33,6 +33,4 @@ jobs:
       - name: Install locked CPU development dependencies
         run: uv sync --locked --extra dev
       - name: Drive the real CLI and Modal launcher
-        run: |
-          make verify ARGS=all
-          make verify ARGS=control
+        run: make slow

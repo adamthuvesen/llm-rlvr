@@ -65,7 +65,7 @@ class SqlVerifier:
         self._config = config or VerifierConfig()
 
     def verify(self, answer: str, reference: object, context: object) -> Verdict:
-        result = execution_match(answer, str(reference), context, config=self._config)  # pyright: ignore[reportArgumentType]
+        result = execution_match(answer, str(reference), context, config=self._config)  # pyright: ignore[reportArgumentType]  # the Verifier protocol types context as object
         return Verdict(
             matched=result.matched,
             valid=result.reason not in {"pred_error", "pred_truncated"},

@@ -74,7 +74,7 @@ extend-exclude = ["src/llm_rlvr/third_party"]
 force-exclude = true
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "N", "PTH", "RUF", "PGH003", "TID251"]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "N", "PTH", "RUF", "PGH003", "PGH004", "TID251"]
 ignore = ["E501"]
 
 # Whole-module bans. A per-file TID251 ignore lifts every ban for that file, so
@@ -142,6 +142,7 @@ markers = [
 typeCheckingMode = "strict"
 enableTypeIgnoreComments = false
 reportUnnecessaryTypeIgnoreComment = "error"
+reportIgnoreCommentWithoutRule = "error"
 pythonVersion = "3.14"
 include = ["src/llm_rlvr", "scripts", "tests", "examples", "modal_app.py"]
 # Vendored upstream code is untyped and excluded from checking.

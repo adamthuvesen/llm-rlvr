@@ -127,6 +127,8 @@ def run_drives(names: list[str], run_dir: Path, control: bool) -> list[dict[str,
                 note, status = drive(evidence, env), "PASS"
             except (DriveError, KeyError, ValueError, OSError) as exc:
                 status, note = "FAIL", str(exc)
+            except SystemExit as exc:
+                status, note = "FAIL", f"drive exited the run: SystemExit({exc.code!r})"
             log = scratch / "tripwire.log"
             if log.exists() and log.read_text():
                 status, note = "FAIL", f"tripwire fired: {log.read_text().strip()}"

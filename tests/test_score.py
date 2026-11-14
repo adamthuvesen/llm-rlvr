@@ -163,7 +163,7 @@ def test_score_provenance_tracks_inputs_and_actual_database(
         == hashlib.sha256((scoring_root / "concert/concert.sqlite").read_bytes()).hexdigest()
     )
     with pytest.raises(TypeError):
-        first.reasons["match"] = 0  # pyright: ignore[reportIndexIssue]
+        first.reasons["match"] = 0  # pyright: ignore[reportIndexIssue]  # proves the read-only mapping rejects writes
 
 
 def test_old_score_report_without_scoring_provenance_still_reads(

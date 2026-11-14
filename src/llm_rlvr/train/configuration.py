@@ -73,7 +73,7 @@ class _AdapterWeightIndex(Frozen):
 def build_training_config[ConfigT](
     config_type: type[ConfigT], desired: Mapping[str, object], *, package: str = "trl"
 ) -> ConfigT:
-    valid = {field.name for field in dataclasses.fields(config_type)}  # pyright: ignore[reportArgumentType]
+    valid = {field.name for field in dataclasses.fields(config_type)}  # pyright: ignore[reportArgumentType]  # config_type is any dataclass type
     unsupported = sorted(set(desired) - valid)
     if unsupported:
         try:

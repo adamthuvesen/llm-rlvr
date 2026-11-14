@@ -21,6 +21,7 @@ If a doc disagrees with code, fix the doc in the same change.
 
 ```bash
 make check        # fast gate (CI runs the same): lock, Ruff, types, imports, tests, installed wheel
+make slow         # verify all, then verify control (CI runs the same)
 make fix          # auto-format + safe lint fixes
 make eval         # validate/render the tracked public summary (CPU, model-free)
 make eval-full    # full re-scoring, requires every restored external artifact pair
@@ -48,9 +49,10 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 | Generic training and the CPU wheel import without SQL or the model stack | `tests/test_import_architecture.py::test_generic_training_imports_without_sql_or_heavy_dependencies`, `scripts/verify_package.py::main` | 2026-11-05 |
 | Package, scripts, tests, and Modal app pass basedpyright strict with no baseline | `Makefile::typecheck`, `pyproject.toml::typeCheckingMode` | 2026-11-06 |
 | Modal entrypoints and GPU functions refuse to launch without approval | `src/llm_rlvr/modal_helpers.py::require_approval`, `tests/test_modal_launch_approval.py::test_every_gpu_function_gates_on_approval_first`, `tests/test_modal_launch_approval.py::test_modal_calls_follow_the_gate_and_forward_approval`, `tests/test_modal_launch_approval.py::test_every_modal_entrypoint_passes_its_approval_flag`, `tests/test_modal_preflight.py::test_direct_gpu_function_call_refuses_without_approval` | 2026-11-06 |
-| `make verify` reports a pass only when its control observes FAIL | `.agents/skills/verify-llm-rlvr/drives.py::control_score`, `Makefile::verify` | 2026-11-06 |
+| `make verify` reports a pass only when its control observes FAIL | `.agents/skills/verify-llm-rlvr/drives.py::control_score`, `.agents/skills/verify-llm-rlvr/verify::verdict`, `Makefile::slow` | 2026-11-06 |
 | Every citation in this table is defined where it points | `tests/test_repo_rules.py::test_enforced_rules_cite_existing_targets` | 2026-11-06 |
 | No file downgrades strict type checking with a `# pyright:` mode comment | `tests/test_strict_mode.py::test_no_file_downgrades_type_checking_mode` | 2026-11-07 |
+| Every pyright ignore names its rule and a reason; no blanket `noqa`, file-wide `# ruff: noqa`, or `noqa` on a module ban | `pyproject.toml::reportIgnoreCommentWithoutRule`, `pyproject.toml::tool.ruff.lint`, `tests/test_strict_mode.py::test_ignores_name_a_rule_and_a_reason_and_no_noqa_lifts_a_ban` | 2026-11-09 |
 | Process, network, paid SDK, and Modal modules are imported only by named owner files, each held to its own modules | `pyproject.toml::tool.ruff.lint.flake8-tidy-imports.banned-api`, `tests/test_banned_modules.py::test_every_file_uses_only_the_banned_modules_it_owns`, `tests/test_banned_modules.py::test_only_named_owners_hold_a_tid251_ignore` | 2026-11-07 |
 
 ## Judgment calls
