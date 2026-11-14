@@ -34,9 +34,9 @@ Run `make install` once first.
 ## Limits
 
 - No drive trains or generates. The locked CPU environment has no torch, TRL, PEFT, or vLLM,
-  and the real runs need the Qwen weights. Training proof is a paid Modal smoke, for example
-  `modal run modal_app.py::grpo --run-id grpo-small --limit 32 --dev-size 8 --no-spawn --approved`,
-  and only after Adam approves it and its rough cost.
+  and the real runs need the Qwen weights. Training proof is a paid Modal smoke: `modal_app.py::grpo` with
+  `--run-id grpo-small --limit 32 --dev-size 8 --no-spawn`. Run it only after Adam approves it
+  and its rough cost. The refusal message prints the exact command.
 - No drive scores real Spider or BIRD databases (`make data` downloads them). The score and
   trace drives use the `make demo` SQLite database. `make eval-full` needs restored artifacts.
 

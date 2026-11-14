@@ -82,7 +82,7 @@ _IGNORE = [
 image = (
     modal.Image.from_registry(CUDA_IMAGE, add_python=LOCAL_PYTHON)
     .apt_install("git")
-    .pip_install("uv")
+    .pip_install("uv==0.13.5")
     .add_local_file(
         Path(__file__).parent / "pyproject.toml", f"{REMOTE_ROOT}/pyproject.toml", copy=True
     )

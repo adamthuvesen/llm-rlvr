@@ -46,7 +46,7 @@ train = [
 ]
 dev = [
     "basedpyright==1.40.2",
-    "pytest>=8",
+    "pytest>=9.1.1",
     "ruff==0.17.4",
     "pre-commit>=3.8",
     # The Modal launch CLI. Pinned so `modal run`/`modal deploy` use the surface modal_app.py
@@ -83,6 +83,7 @@ known-first-party = ["llm_rlvr"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q -m 'not integration and not runtime' --disable-socket --allow-unix-socket"
+strict_markers = true
 markers = [
     "integration: hits the network or HuggingFace (deselected by default)",
     "slow: large dataset download (compose with integration)",

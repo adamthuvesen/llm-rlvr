@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 .PHONY: help install lock fix lint typecheck imports test test-integration runtime-check check verify eval eval-full demo package-check data
 
-RUN := uv run --locked
+RUN := uv run --locked --extra dev
 
 help:  ## List supported commands
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
