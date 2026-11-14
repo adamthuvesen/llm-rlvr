@@ -186,7 +186,7 @@ def verdict(results: list[dict[str, object]], control: bool) -> int:
     failed = any(r["result"] == "FAIL" for r in results)
     if control:
         failures = [str(r["note"]) for r in results if r["result"] == "FAIL"]
-        if len(failures) == 1 and failures[0].startswith(drives.CONTROL_FAILURE):
+        if len(failures) == 1 and failures[0] == drives.CONTROL_FAILURE:
             print("control: FAIL observed", file=sys.stderr)
             return 0
         if failures:

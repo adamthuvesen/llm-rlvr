@@ -51,6 +51,7 @@ Everything runs through `uv` (`uv run …`, never bare `python`/`pip`). GPU work
 | `make verify` reports a pass only when its control observes FAIL | `.agents/skills/verify-llm-rlvr/drives.py::control_score`, `Makefile::verify` | 2026-11-06 |
 | Every citation in this table is defined where it points | `tests/test_repo_rules.py::test_enforced_rules_cite_existing_targets` | 2026-11-06 |
 | No file downgrades strict type checking with a `# pyright:` mode comment | `tests/test_strict_mode.py::test_no_file_downgrades_type_checking_mode` | 2026-11-07 |
+| Process, network, paid SDK, and Modal modules are imported only by named owner files, each held to its own modules | `pyproject.toml::tool.ruff.lint.flake8-tidy-imports.banned-api`, `tests/test_banned_modules.py::test_every_file_uses_only_the_banned_modules_it_owns`, `tests/test_banned_modules.py::test_only_named_owners_hold_a_tid251_ignore` | 2026-11-07 |
 
 ## Judgment calls
 

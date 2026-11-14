@@ -11,18 +11,25 @@ import pytest
 from pytest_socket import SocketBlockedError
 
 ROOT = Path(__file__).resolve().parents[1]
-BLOCKED_SUFFIXES = {
-    *(".db", ".sqlite", ".sqlite3", ".parquet", ".arrow", ".jsonl", ".csv", ".zip", ".gz"),
-    *(".pt", ".pth", ".safetensors", ".bin", ".ckpt"),
+# Allowlist: a file type not listed here cannot be tracked, so new data formats fail until named.
+ALLOWED_SUFFIXES = {".py", ".md", ".json", ".toml", ".yaml", ".yml", ".lock", ".typed"}
+ALLOWED_SUFFIXLESS_NAMES = {
+    "LICENSE",
+    "Makefile",
+    "verify",
+    ".gitignore",
+    ".python-version",
+    "skills",
 }
 MAX_TRACKED_BYTES = 512 * 1024
 SIZE_EXEMPT = {"uv.lock"}
 
 
 def _blocked(name: str) -> bool:
+    path = Path(name)
     return (
         name.startswith("data/")
-        or Path(name).suffix in BLOCKED_SUFFIXES
+        or (path.suffix or path.name) not in ALLOWED_SUFFIXES | ALLOWED_SUFFIXLESS_NAMES
         or (name not in SIZE_EXEMPT and (ROOT / name).stat().st_size > MAX_TRACKED_BYTES)
     )
 
@@ -38,7 +45,8 @@ def test_no_data_files_are_tracked() -> None:
     ).stdout.split("\0")
     bad = [name for name in filter(None, trackable) if (ROOT / name).exists() and _blocked(name)]
     assert not bad, (
-        f"data, weights, or files over {MAX_TRACKED_BYTES} bytes are tracked or trackable: {bad}. "
+        f"files outside the allowed types, under data/, or over {MAX_TRACKED_BYTES} bytes are "
+        f"tracked or trackable: {bad}. Allowed types: {sorted(ALLOWED_SUFFIXES)}. "
         "Pin datasets in src/llm_rlvr/data/artifacts.py and keep raw outputs under gitignored "
         "results/; then `git rm --cached` them."
     )
@@ -58,8 +66,9 @@ def _defines(text: str, name: str) -> bool:
 
 
 def test_rule_detectors_find_known_cases() -> None:
-    assert _blocked("data/spider.db") and _blocked("weights/adapter.safetensors")
-    assert not _blocked("README.md")
+    assert _blocked("data/spider.json") and _blocked("weights/adapter.safetensors")
+    assert _blocked("results/new_format.xlsx") and _blocked("notes.pickle") and _blocked("weights")
+    assert not _blocked("README.md") and not _blocked("results/public/claims.json")
     assert _defines("check: lint\n", "check") and not _defines("check-fast: lint\n", "check")
     assert _defines("def require_approval(", "require_approval")
     assert not _defines("    require_approval(approved)\n", "require_approval")
