@@ -19,22 +19,26 @@ MAX_TRACKED_BYTES = 512 * 1024
 SIZE_EXEMPT = {"uv.lock"}
 
 
+def _blocked(name: str) -> bool:
+    return (
+        name.startswith("data/")
+        or Path(name).suffix in BLOCKED_SUFFIXES
+        or (name not in SIZE_EXEMPT and (ROOT / name).stat().st_size > MAX_TRACKED_BYTES)
+    )
+
+
 def test_no_data_files_are_tracked() -> None:
-    tracked = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, text=True, check=True
+    # Untracked files that are not ignored are one `git add` from being tracked.
+    trackable = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.split("\0")
-    bad = [
-        name
-        for name in filter(None, tracked)
-        if (ROOT / name).exists()
-        and (
-            name.startswith("data/")
-            or Path(name).suffix in BLOCKED_SUFFIXES
-            or (name not in SIZE_EXEMPT and (ROOT / name).stat().st_size > MAX_TRACKED_BYTES)
-        )
-    ]
+    bad = [name for name in filter(None, trackable) if (ROOT / name).exists() and _blocked(name)]
     assert not bad, (
-        f"data, weights, or files over {MAX_TRACKED_BYTES} bytes are tracked: {bad}. "
+        f"data, weights, or files over {MAX_TRACKED_BYTES} bytes are tracked or trackable: {bad}. "
         "Pin datasets in src/llm_rlvr/data/artifacts.py and keep raw outputs under gitignored "
         "results/; then `git rm --cached` them."
     )
@@ -51,6 +55,14 @@ def _defines(text: str, name: str) -> bool:
             rf"^\[{{1,2}}{escaped}\]{{1,2}}\s*$",
         )
     )
+
+
+def test_rule_detectors_find_known_cases() -> None:
+    assert _blocked("data/spider.db") and _blocked("weights/adapter.safetensors")
+    assert not _blocked("README.md")
+    assert _defines("check: lint\n", "check") and not _defines("check-fast: lint\n", "check")
+    assert _defines("def require_approval(", "require_approval")
+    assert not _defines("    require_approval(approved)\n", "require_approval")
 
 
 def test_enforced_rules_cite_existing_targets() -> None:
