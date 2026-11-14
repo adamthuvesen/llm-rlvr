@@ -6,8 +6,13 @@ import importlib
 
 import pytest
 
-from llm_rlvr.train.grpo import GrpoHyperparams, build_grpo_config
-from llm_rlvr.train.sft import SftHyperparams, build_lora_config, build_sft_config
+from llm_rlvr.train.grpo import GrpoHyperparams, build_grpo_config_from_kwargs, grpo_config_kwargs
+from llm_rlvr.train.sft import (
+    SftHyperparams,
+    build_lora_config,
+    build_sft_config_from_kwargs,
+    sft_config_kwargs,
+)
 
 
 @pytest.mark.runtime
@@ -25,10 +30,10 @@ def test_installed_training_apis_support_required_configuration() -> None:
     lora = build_lora_config(SftHyperparams())
     assert isinstance(lora, peft.LoraConfig)
     assert lora.target_modules == "all-linear"
-    config = build_sft_config(SftHyperparams(), "out")
+    config = build_sft_config_from_kwargs(sft_config_kwargs(SftHyperparams(), "out"))
     assert isinstance(config, trl.SFTConfig)
     assert config.completion_only_loss is True
-    grpo = build_grpo_config(GrpoHyperparams(), "out")
+    grpo = build_grpo_config_from_kwargs(grpo_config_kwargs(GrpoHyperparams(), "out"))
     assert isinstance(grpo, trl.GRPOConfig)
     assert grpo.num_generations == 4
     assert grpo.use_vllm is True

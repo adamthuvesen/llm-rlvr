@@ -2,24 +2,18 @@
 
 from llm_rlvr.tasks.sql.task import (
     NO_SQL_REASON,
-    SQL_PARSER,
     RewardConfig,
-    SqlAnswerParser,
-    SqlTask,
-    SqlVerifier,
+    build_grpo_rows,
     make_reward_fn,
     score_completion,
-    sql_task,
+    sql_verdict,
 )
 
 __all__ = [
     "NO_SQL_REASON",
-    "SQL_PARSER",
     "RewardConfig",
-    "SqlAnswerParser",
-    "SqlTask",
-    "SqlVerifier",
+    "build_grpo_rows",
     "make_reward_fn",
     "score_completion",
-    "sql_task",
+    "sql_verdict",
 ]

@@ -1,8 +1,7 @@
-"""Text-to-SQL: the reference `Task` for the RLVR harness.
+"""Text-to-SQL GRPO rows and the execution-grounded training reward.
 
-This wires the SQL parser, execution-match verifier, and schema-aware prompt builders into the
-task-agnostic `harness` protocols, and supplies the SQL execution-grounded GRPO reward on top of
-the harness shaping core.
+This binds the SQL parser and execution-match verifier to the task-agnostic harness shaping
+(`harness.score_answer`), and builds the GRPO rows the reward reads.
 
 For the verifier the reference is the expected SQL and the context is the database path. The
 training reward (`score_completion` / `make_reward_fn`) runs the verifier with the empty-result
@@ -20,10 +19,10 @@ from pathlib import Path
 from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.data.paths import resolve_database
 from llm_rlvr.data.splits import assert_train_split
-from llm_rlvr.harness import RewardBreakdown, Verdict, Verifier, completion_text, score_answer
+from llm_rlvr.harness import RewardBreakdown, Verdict, completion_text, score_answer
 from llm_rlvr.harness import RewardConfig as _ShapingConfig
 from llm_rlvr.tasks.sql.parsing import extract_sql, well_formed
-from llm_rlvr.tasks.sql.prompt import Messages, build_prompts
+from llm_rlvr.tasks.sql.prompt import build_prompts
 from llm_rlvr.tasks.sql.verifier import GoldExecutionError, VerifierConfig, execution_match
 
 # The reason tag for a completion that contains no SQL.
@@ -41,36 +40,18 @@ class RewardConfig(_ShapingConfig):
     guard_trivial_empty: bool = True
 
 
-class SqlAnswerParser:
-    """Extract the SQL from a completion and judge the trained `<think>` + ```sql``` format."""
-
-    def extract(self, text: str) -> str | None:
-        return extract_sql(text)
-
-    def well_formed(self, text: str) -> bool:
-        return well_formed(text)
-
-
-SQL_PARSER = SqlAnswerParser()
-
-
-class SqlVerifier:
-    """Execution-match verifier as a harness `Verifier`: reference SQL, database context.
+def sql_verdict(answer: str, gold_sql: str, db_path: str | Path, config: VerifierConfig) -> Verdict:
+    """Execution-match `answer` against `gold_sql` on one database, as a harness `Verdict`.
 
     Raises `GoldExecutionError` when the reference query itself fails, so the generic reward records
     a `gold_error` without special-casing SQL.
     """
-
-    def __init__(self, config: VerifierConfig | None = None) -> None:
-        self._config = config or VerifierConfig()
-
-    def verify(self, answer: str, reference: object, context: object) -> Verdict:
-        result = execution_match(answer, str(reference), context, config=self._config)  # pyright: ignore[reportArgumentType]  # the Verifier protocol types context as object
-        return Verdict(
-            matched=result.matched,
-            valid=result.reason not in {"pred_error", "pred_truncated"},
-            reason=result.reason,
-        )
+    result = execution_match(answer, gold_sql, db_path, config=config)
+    return Verdict(
+        matched=result.matched,
+        valid=result.reason not in {"pred_error", "pred_truncated"},
+        reason=result.reason,
+    )
 
 
 def score_completion(
@@ -86,13 +67,12 @@ def score_completion(
     `executable` and `result_match` components from the single verdict.
     """
     cfg = config or RewardConfig()
-    verifier = SqlVerifier(VerifierConfig(guard_trivial_empty=cfg.guard_trivial_empty))
+    verifier_config = VerifierConfig(guard_trivial_empty=cfg.guard_trivial_empty)
     return score_answer(
         text,
-        gold_sql,
-        db_path,
-        parser=SQL_PARSER,
-        verifier=verifier,
+        extract=extract_sql,
+        well_formed=well_formed,
+        verify=lambda sql: sql_verdict(sql, gold_sql, db_path, verifier_config),
         config=cfg,
         no_answer_reason=NO_SQL_REASON,
     )
@@ -135,51 +115,13 @@ def make_reward_fn(
     return reward
 
 
-class SqlTask:
-    """The text-to-SQL `Task` (see `llm_rlvr.harness.Task`)."""
-
-    name = "sql"
-    parser: SqlAnswerParser = SQL_PARSER
-
-    def make_verifier(self) -> Verifier:
-        return SqlVerifier(VerifierConfig())
-
-    def make_reward_fn(
-        self,
-        context_root: str | Path,
-        *,
-        config: RewardConfig | None = None,
-        resolver: Callable[[str, str | Path], Path] = resolve_database,
-    ) -> Callable[..., list[float]]:
-        return make_reward_fn(context_root, config=config, resolver=resolver)
-
-    def build_prompts(
-        self,
-        examples: Sequence[Example],
-        resources: Mapping[str, DatabaseSchema],
-        *,
-        style: str = "cot",
-        **_kwargs: object,
-    ) -> list[Messages]:
-        return build_prompts(examples, resources, style=style)
-
-    def build_grpo_rows(
-        self,
-        examples: Sequence[Example],
-        resources: Mapping[str, DatabaseSchema],
-        *,
-        style: str = "cot",
-        **_kwargs: object,
-    ) -> list[dict[str, object]]:
-        """One row per example: the chat `prompt` plus the `gold_sql` + `db_id` the reward needs."""
-        assert_train_split(examples, context="SQL GRPO rows")
-        prompts = build_prompts(examples, resources, style=style)
-        return [
-            {"prompt": prompt, "gold_sql": example.gold_sql, "db_id": example.db_id}
-            for example, prompt in zip(examples, prompts, strict=True)
-        ]
-
-
-def sql_task() -> SqlTask:
-    """The text-to-SQL task instance."""
-    return SqlTask()
+def build_grpo_rows(
+    examples: Sequence[Example], schemas: Mapping[str, DatabaseSchema], *, style: str = "cot"
+) -> list[dict[str, object]]:
+    """One row per example: the chat `prompt` plus the `gold_sql` + `db_id` the reward needs."""
+    assert_train_split(examples, context="SQL GRPO rows")
+    prompts = build_prompts(examples, schemas, style=style)
+    return [
+        {"prompt": prompt, "gold_sql": example.gold_sql, "db_id": example.db_id}
+        for example, prompt in zip(examples, prompts, strict=True)
+    ]

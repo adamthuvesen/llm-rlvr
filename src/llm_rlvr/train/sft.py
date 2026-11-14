@@ -112,10 +112,6 @@ def build_sft_config_from_kwargs(desired: Mapping[str, object]) -> Any:
     return build_training_config(SFTConfig, desired)
 
 
-def build_sft_config(hyperparams: SftHyperparams, output_dir: str | Path) -> Any:
-    return build_sft_config_from_kwargs(sft_config_kwargs(hyperparams, output_dir))
-
-
 class AdapterProvenance(Frozen):
     """Everything needed to retrain an adapter checkpoint: base, LoRA config, data, versions."""
 

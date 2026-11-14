@@ -1,20 +1,16 @@
-"""Verifier protocol for task rewards.
+"""Verifier outcomes for task rewards.
 
-A `Verifier` decides whether a model's answer is correct against a reference, by *checking* (running
+A verifier decides whether a model's answer is correct against a reference, by *checking* (running
 code, comparing denotations, executing tests) rather than judging with another model. The verdict it
 returns drives both the training reward and the evaluation score.
 
-`reference` and `context` are deliberately untyped (`object`): a task defines what they mean. For
-text-to-SQL the reference is the expected query and the context is the database path; for math, the
-reference is the expected answer and the context is unused; for code, the reference is a test suite.
-When the *reference itself* is broken, a verifier raises
-`ReferenceUnverifiable` — that is the example's fault, not the model's, and callers handle it
+When the *reference itself* is broken, a verifier raises `ReferenceUnverifiable` — that is the example's fault, not the model's, and callers handle it
 distinctly from a wrong answer.
 """
 
 from __future__ import annotations
 
-from typing import Protocol, Self, runtime_checkable
+from typing import Self
 
 from pydantic import model_validator
 
@@ -51,14 +47,3 @@ class ReferenceUnverifiable(RuntimeError):  # noqa: N818  — deliberate API nam
     def __init__(self, message: str, *, reason: str = "reference_error") -> None:
         super().__init__(message)
         self.reason = reason
-
-
-@runtime_checkable
-class Verifier(Protocol):
-    """Check one answer against one reference in one context, returning a `Verdict`.
-
-    Implementations must be pure and side-effect-free with respect to the context (e.g. read-only
-    database access). Raise `ReferenceUnverifiable` when the reference itself fails to evaluate.
-    """
-
-    def verify(self, answer: str, reference: object, context: object) -> Verdict: ...

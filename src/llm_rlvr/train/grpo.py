@@ -15,16 +15,23 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from pydantic import Field
 
 from llm_rlvr._base import Frozen
 from llm_rlvr.artifacts.provenance import git_commit, git_is_dirty, library_versions
-from llm_rlvr.data.models import EXAMPLE_IDENTITY_POLICY, example_identity
+from llm_rlvr.data.models import (
+    EXAMPLE_IDENTITY_POLICY,
+    DatabaseSchema,
+    Example,
+    example_identity,
+)
+from llm_rlvr.data.paths import resolve_database
+from llm_rlvr.data.splits import assert_train_split
 from llm_rlvr.harness import RewardConfig as ShapingConfig
-from llm_rlvr.harness import Task
-from llm_rlvr.tasks.sql import RewardConfig, sql_task
+from llm_rlvr.tasks.sql import RewardConfig, build_grpo_rows, make_reward_fn
+from llm_rlvr.tasks.sql.verifier import GoldExecutionError, validate_reference
 from llm_rlvr.train.configuration import (
     AdapterIdentity,
     RuntimeConfigRecord,
@@ -93,10 +100,6 @@ def build_grpo_config_from_kwargs(desired: Mapping[str, object]) -> Any:
     from trl import GRPOConfig  # lazy import: train extra only
 
     return build_training_config(GRPOConfig, desired)
-
-
-def build_grpo_config(hyperparams: GrpoHyperparams, output_dir: str | Path) -> Any:
-    return build_grpo_config_from_kwargs(grpo_config_kwargs(hyperparams, output_dir))
 
 
 def split_train_dev[T](
@@ -200,75 +203,52 @@ def build_grpo_provenance(
 
 
 def run_grpo(
-    examples: Sequence[object],
-    resources: Mapping[str, object],
-    context_root: str | Path,
+    examples: Sequence[Example],
+    schemas: Mapping[str, DatabaseSchema],
+    database_root: str | Path,
     output_dir: str | Path,
     *,
-    task: Task[Any, Any, Any] | None = None,
     base_model: str,
     warm_start_adapter: str | Path,
     dataset: str,
     dataset_revision: str,
     base_model_revision: str | None = None,
     hyperparams: GrpoHyperparams | None = None,
-    reward: ShapingConfig | None = None,
+    reward: RewardConfig | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
     on_begin: Callable[[], None] | None = None,
 ) -> Path:
     """Train a GRPO LoRA adapter warm-started from the SFT adapter; persist it + provenance (GPU).
 
-    Task-agnostic: the rows and the reward come from `task` (default: the text-to-SQL task) via
-    `task.build_grpo_rows` + `task.make_reward_fn`, so a registered non-SQL `Task` trains through
-    this same driver. `resources` is whatever the task's row builder needs (SQL: the schemas);
-    `context_root` is where its verifier resolves context (SQL: the database root).
-
     Warm-starts by loading `warm_start_adapter` over `base_model` as a *trainable* PEFT model, so
     the saved adapter is the SFT→GRPO continuation (one adapter over the base at eval). A disjoint
     dev slice is held out for post-hoc dev-EX checkpoint selection; periodic checkpoints land under
     `output_dir`.
     """
-    tk = cast("Task[Any, Any, Any]", task or sql_task())
     hp = hyperparams or GrpoHyperparams()
-    rw = reward or (RewardConfig() if tk.name == "sql" else ShapingConfig())
-    if tk.name == "sql" and not isinstance(rw, RewardConfig):
-        rw = RewardConfig.model_validate(rw.model_dump())
-    if tk.name == "sql" and isinstance(rw, RewardConfig) and not rw.guard_trivial_empty:
+    rw = reward or RewardConfig()
+    if not rw.guard_trivial_empty:
         raise ValueError("SQL GRPO training requires guard_trivial_empty=True")
+    assert_train_split(examples, context="SQL GRPO input")
+    for example in examples:
+        try:
+            validate_reference(example.gold_sql, resolve_database(example.db_id, database_root))
+        except GoldExecutionError as exc:
+            identity = example_identity(example)
+            raise ValueError(f"SQL GRPO reference failed for source {identity}: {exc}") from exc
 
     train_examples, dev_examples = split_train_dev(
         examples, dev_size=hp.eval_slice_size, seed=hp.seed
     )
-    rows = tk.build_grpo_rows(train_examples, resources)
-    from llm_rlvr.data.models import Example
-
-    def source_ids(items: Sequence[object]) -> tuple[str, ...] | None:
-        if not all(isinstance(item, Example) for item in items):
-            return None
-        return tuple(example_identity(item) for item in items if isinstance(item, Example))
-
-    train_ids, dev_ids = source_ids(train_examples), source_ids(dev_examples)
-    if train_ids is not None and dev_ids is not None and set(train_ids) & set(dev_ids):
+    train_ids = tuple(example_identity(example) for example in train_examples)
+    dev_ids = tuple(example_identity(example) for example in dev_examples)
+    if set(train_ids) & set(dev_ids):
         raise ValueError("GRPO train/dev contain the same source example")
-    if tk.name == "sql":
-        from llm_rlvr.data.paths import resolve_database
-        from llm_rlvr.data.splits import assert_train_split
-        from llm_rlvr.tasks.sql.verifier import GoldExecutionError, validate_reference
-
-        sql_examples = [item for item in examples if isinstance(item, Example)]
-        if len(sql_examples) != len(examples):
-            raise ValueError("SQL GRPO requires typed Example inputs")
-        assert_train_split(sql_examples, context="SQL GRPO input")
-        for example in sql_examples:
-            try:
-                validate_reference(example.gold_sql, resolve_database(example.db_id, context_root))
-            except GoldExecutionError as exc:
-                identity = example_identity(example)
-                raise ValueError(f"SQL GRPO reference failed for source {identity}: {exc}") from exc
+    rows = build_grpo_rows(train_examples, schemas)
     execution = execute_prepared_grpo(
         rows,
-        tk.make_reward_fn(context_root, config=rw),
+        make_reward_fn(database_root, config=rw),
         output_dir,
         base_model=base_model,
         base_model_revision=base_model_revision,
@@ -279,9 +259,9 @@ def run_grpo(
             "dataset_revision": dataset_revision,
             "hyperparams": hp.model_dump(mode="json"),
             "reward": rw.model_dump(mode="json"),
-            "train_source_ids": list(train_ids) if train_ids is not None else None,
-            "dev_source_ids": list(dev_ids) if dev_ids is not None else None,
-            "source_identity_policy": EXAMPLE_IDENTITY_POLICY if train_ids is not None else None,
+            "train_source_ids": list(train_ids),
+            "dev_source_ids": list(dev_ids),
+            "source_identity_policy": EXAMPLE_IDENTITY_POLICY,
         },
         on_begin=on_begin,
     )

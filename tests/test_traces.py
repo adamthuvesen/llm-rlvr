@@ -18,7 +18,7 @@ from llm_rlvr.train.traces import (
     build_trace_manifest,
     filter_traces,
     read_candidate_set,
-    read_trace_dataset,
+    read_trace_rows,
     sample_candidates,
     write_trace_dataset,
 )
@@ -201,7 +201,7 @@ def test_build_traces_cli_runs_the_whole_cpu_funnel(scoring_root: Path, tmp_path
         ]
     )  # fmt: skip
     assert code == 0
-    assert read_trace_dataset(out)[0].completion == WF_CORRECT
+    assert read_trace_rows(out)[0].completion[0].content == WF_CORRECT
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["counts"] == {
         "n_questions": 1,
@@ -216,7 +216,14 @@ def test_build_traces_cli_runs_the_whole_cpu_funnel(scoring_root: Path, tmp_path
 def test_trace_dataset_jsonl_round_trip(scoring_root: Path, tmp_path: Path) -> None:
     kept, _ = filter_traces(_candidates(WF_CORRECT), scoring_root)
     path = write_trace_dataset(kept, tmp_path / "traces.jsonl")
-    assert read_trace_dataset(path) == kept
+    rows = read_trace_rows(path)
+    assert [
+        (row.db_id, row.question, row.prompt, row.completion[0].content, row.source_example)
+        for row in rows
+    ] == [
+        (trace.db_id, trace.question, trace.prompt, trace.completion, trace.source_example)
+        for trace in kept
+    ]
     # The on-disk shape is TRL conversational prompt-completion.
     import json
 
@@ -232,7 +239,7 @@ def test_trace_dataset_rejects_empty_completion(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     with pytest.raises(ValidationError, match="completion"):
-        read_trace_dataset(path)
+        read_trace_rows(path)
 
 
 def test_dev_candidates_rejected_at_ingestion() -> None:
@@ -303,13 +310,11 @@ def test_trace_rows_reject_invalid_role_semantics(tmp_path: Path, field: str, ro
     path = tmp_path / "bad.jsonl"
     path.write_text(json.dumps(row) + "\n", encoding="utf-8")
     with pytest.raises(ValidationError):
-        read_trace_dataset(path)
+        read_trace_rows(path)
 
 
 def test_legacy_trace_lineage_remains_unknown(tmp_path: Path) -> None:
     import json
-
-    from llm_rlvr.train.traces import read_trace_rows
 
     row = {
         "prompt": [dict(message) for message in PROMPT],
@@ -325,7 +330,6 @@ def test_legacy_trace_lineage_remains_unknown(tmp_path: Path) -> None:
 
 
 def test_new_trace_rows_preserve_train_source(scoring_root: Path, tmp_path: Path) -> None:
-    from llm_rlvr.train.traces import read_trace_rows
 
     candidates = _candidates(WF_CORRECT)
     traces, _ = filter_traces(candidates, scoring_root)
@@ -336,8 +340,8 @@ def test_new_trace_rows_preserve_train_source(scoring_root: Path, tmp_path: Path
 
 
 def test_sql_grpo_rows_reject_non_train_examples() -> None:
-    from llm_rlvr.tasks.sql import sql_task
+    from llm_rlvr.tasks.sql import build_grpo_rows
 
     dev = Example(db_id="concert", question="q", gold_sql="SELECT 1", split="dev")
     with pytest.raises(ValueError, match="train-split examples only"):
-        sql_task().build_grpo_rows([dev], {})
+        build_grpo_rows([dev], {})

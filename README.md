@@ -7,9 +7,8 @@ to write SQL by running the query and rewarding it when the result matches the r
 so the reward comes from running the query rather than matching strings.
 
 Training is run by [TRL](https://github.com/huggingface/trl). Tasks are made verifiable here with a
-read-only SQLite sandbox, an execution-match verifier, and reward shaping. Text-to-SQL is included
-as the reference task. New tasks are added by implementing an `AnswerParser` and a `Verifier`, then
-reusing the same reward and training path.
+read-only SQLite sandbox, an execution-match verifier, and reward shaping. Text-to-SQL is the one
+task. A new task reuses the reward shaping and training executors; see `docs/harness.md`.
 
 ## Result
 

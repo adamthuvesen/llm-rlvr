@@ -5,11 +5,9 @@ reward.** A bug in eval is a bug in training, and vice versa. Generated result f
 metadata to be scored without loading a model. The committed public bundle carries the compact
 headline summary.
 
-That verifier-as-reward idea lives in a **task-agnostic harness** (`harness/`): a task plugs in by
-implementing two small protocols, `AnswerParser` (pull the answer out of a completion) and
-`Verifier` (check it, return a `Verdict`), and bundling them as a `Task`. The shaped / near-binary
-reward (`harness.score_answer`) is generic over those. **Text-to-SQL is the reference task**
-(`tasks/sql/task.py`). To train your own model on your own verifiable problem, add a task. See
+That verifier-as-reward idea lives in task-agnostic shaping (`harness.score_answer`): it takes an
+answer extractor, a format check, and a verifier that returns a `Verdict`. **Text-to-SQL is the one
+task** (`tasks/sql/task.py`). To train your own model on your own verifiable problem, see
 `docs/harness.md`.
 
 The shipped result is single-turn RLVR on that SQL task: SFT cold-start followed by GRPO with
@@ -19,8 +17,8 @@ execution-verified rewards.
 
 | Module | Owns | Change here when |
 | --- | --- | --- |
-| `harness/` | Parser, verifier, task protocols, and reward shaping | A rule applies to every task |
-| `tasks/sql/` | SQL parsing, prompts, execution-match, and the SQL task | A rule depends on SQL |
+| `harness/` | Verdicts, chat messages, and reward shaping | A rule applies to every task |
+| `tasks/sql/` | SQL parsing, prompts, execution-match, GRPO rows, and the SQL reward | A rule depends on SQL |
 | `env/sandbox.py` | Read-only SQLite execution, time limits, and complete-result detection | SQLite safety or execution behavior changes |
 | `data/` | Typed source examples, pinned loaders, database paths, and cache publication | Dataset identity or installation changes |
 | `artifacts/` | Shared provenance, atomic files, and managed run manifests | Artifact identity or publication changes |
@@ -72,7 +70,7 @@ Spider + BIRD    ->  saved completions       ->   score -> aggregate -> report
   Score reports validate counts, reasons, rates, provenance, and available per-item outcomes.
   Progression rows validate their aggregates against the recorded seed values.
 - **Pure builder + thin training driver**: config assembly is pure and CPU-testable
-  (`grpo_config_kwargs`, `build_grpo_config`, `split_train_dev`, `filter_traces`); the `run_*`
+  (`grpo_config_kwargs`, `split_train_dev`, `filter_traces`); the `run_*`
   functions keep runtime work at the edge. Unit tests cover the builders; model-loading paths are
   integration-marked.
 - **Lazy imports**: CLI subcommands and GPU backends (`vllm`, `trl`, `peft`, `torch`) import inside
@@ -106,9 +104,9 @@ A partial extraction cannot become a valid cache merely because one expected fil
 
 ## The reward (Stage 2)
 
-`harness.score_answer` composes one per-completion score from an `AnswerParser` + a `Verifier`;
-`tasks/sql/task.py` binds those to SQL (the `SqlAnswerParser` + execution-match `SqlVerifier`) and adds
-the empty-result guard. The shaping is task-agnostic; only the parser/verifier are SQL. Per
+`harness.score_answer` composes one per-completion score from an answer extractor, a format check,
+and a verifier; `tasks/sql/task.py` binds those to SQL (`extract_sql`, `well_formed`, and the
+execution-match `sql_verdict`) and adds the empty-result guard. The shaping is task-agnostic; only the parser/verifier are SQL. Per
 completion, from a single sandbox execution:
 
 - **shaped arm** (SQL-R1-style): `format + executable + result_match + length`, config-driven

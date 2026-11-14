@@ -139,10 +139,10 @@ def test_invalid_verifier_limits_rejected(field: str, value: object) -> None:
 
 
 def test_truncated_prediction_is_invalid_for_reward(tiny_db: Path) -> None:
-    from llm_rlvr.tasks.sql import SqlVerifier
+    from llm_rlvr.tasks.sql import sql_verdict
 
-    verdict = SqlVerifier(VerifierConfig(row_cap=2)).verify(
-        "SELECT a FROM t", "SELECT a FROM t LIMIT 2", tiny_db
+    verdict = sql_verdict(
+        "SELECT a FROM t", "SELECT a FROM t LIMIT 2", tiny_db, VerifierConfig(row_cap=2)
     )
     assert not verdict.matched
     assert not verdict.valid

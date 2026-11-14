@@ -351,17 +351,3 @@ def read_trace_rows(
     if require_train_lineage and any(row.source_example is None for row in rows):
         raise ValueError("training requires source_example lineage for every trace row")
     return rows
-
-
-def read_trace_dataset(path: str | Path) -> tuple[SftTrace, ...]:
-    """Read traces while preserving unknown lineage in legacy rows."""
-    return tuple(
-        SftTrace(
-            db_id=row.db_id,
-            question=row.question,
-            prompt=row.prompt,
-            completion=row.completion[0].content,
-            source_example=row.source_example,
-        )
-        for row in read_trace_rows(path)
-    )
