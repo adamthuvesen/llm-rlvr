@@ -220,6 +220,10 @@ def execute_prepared_grpo(
     revision_kwargs = {"revision": revision} if revision else {}
     base = AutoModelForCausalLM.from_pretrained(base_model, dtype="bfloat16", **revision_kwargs)
     policy = PeftModel.from_pretrained(base, str(warm_start_adapter), is_trainable=True)
+    if revision:
+        # PEFT saves the warm start's declared ref, which may be a branch or tag, not the commit.
+        for adapter_config in policy.peft_config.values():
+            adapter_config.revision = revision
     trainer = GRPOTrainer(
         model=policy, reward_funcs=[reward_fn], args=config, train_dataset=train_dataset
     )

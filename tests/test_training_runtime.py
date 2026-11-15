@@ -13,7 +13,7 @@ import pytest
 
 from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
 from llm_rlvr.train import configuration
-from llm_rlvr.train.configuration import inspect_adapter
+from llm_rlvr.train.configuration import AdapterSourceProvenance, inspect_adapter
 from llm_rlvr.train.grpo import GrpoHyperparams, GrpoProvenance, grpo_config_kwargs, run_grpo
 from llm_rlvr.train.sft import AdapterProvenance, SftHyperparams, run_sft, sft_config_kwargs
 
@@ -82,6 +82,9 @@ def fake_training(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
         trainer = next(value for name, value in events if name == "trainer")
         assert isinstance(trainer, dict)
         lora = trainer.get("peft_config")
+        policy = trainer.get("model")
+        loaded = policy.peft_config["default"] if isinstance(policy, SimpleNamespace) else None
+        revision = {"revision": loaded.revision} if loaded and loaded.revision else {}
         (output / "adapter_config.json").write_text(
             json.dumps(
                 {
@@ -90,6 +93,7 @@ def fake_training(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
                     "lora_alpha": lora.lora_alpha if lora else 16,
                     "lora_dropout": lora.lora_dropout if lora else 0.0,
                 }
+                | revision
             )
         )
         (output / "adapter_model.safetensors").write_bytes(b"trained weights")
@@ -126,7 +130,8 @@ def fake_training(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
 
     def load_adapter(base, path, **kwargs):
         events.append(("adapter", {"base": base, "path": path, **kwargs}))
-        return "policy"
+        declared = json.loads((Path(path) / "adapter_config.json").read_text()).get("revision")
+        return SimpleNamespace(peft_config={"default": SimpleNamespace(revision=declared)})
 
     monkeypatch.setitem(
         sys.modules,
@@ -418,6 +423,41 @@ def test_grpo_resolves_default_adapter_revision_and_equivalent_explicit_tag(
     assert trainer["args"].output_dir == str(tmp_path / "output")
     assert execution.configuration.effective_trl["output_dir"] == str(tmp_path / "output")
     assert not (tmp_path / "other").exists()
+
+
+def test_grpo_publishes_adapter_whose_config_declares_a_branch(
+    tmp_path, fake_training, monkeypatch
+) -> None:
+    from llm_rlvr.train.prepared import execute_prepared_grpo, publish_training_run
+
+    adapter = _adapter(tmp_path / "warm")
+    config = json.loads((adapter / "adapter_config.json").read_text())
+    (adapter / "adapter_config.json").write_text(json.dumps(config | {"revision": "main"}))
+
+    def resolve(_model, revision):
+        return "main-commit" if revision == "main" else revision
+
+    monkeypatch.setattr(configuration, "resolve_model_revision", resolve)
+    output = tmp_path / "output"
+    execution = execute_prepared_grpo(
+        [{"prompt": "question"}],
+        lambda **_kwargs: [1.0],
+        output,
+        base_model="model",
+        base_model_revision=None,
+        warm_start_adapter=adapter,
+        requested_config=grpo_config_kwargs(GrpoHyperparams(), output),
+    )
+    assert execution.base_model_revision == "main-commit"
+    assert execution.output_adapter.base_model_revision == "main-commit"
+    assert json.loads((output / "adapter_config.json").read_text())["revision"] == "main-commit"
+    publish_training_run(
+        output,
+        AdapterSourceProvenance(base_model="model", base_model_revision="main-commit"),
+        base_model="model",
+        base_model_revision="main-commit",
+        training_population_ids=None,
+    )
 
 
 def test_sql_grpo_gold_failure_blocks_model_loading(tmp_path, scoring_root, fake_training) -> None:
