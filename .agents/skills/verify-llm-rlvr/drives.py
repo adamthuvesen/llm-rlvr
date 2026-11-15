@@ -163,6 +163,7 @@ DRIVES = {
         "llm-rlvr score turns a CompletionSet and SQLite DBs into execution accuracy",
         [
             "src/llm_rlvr/eval/**",
+            "src/llm_rlvr/generation/**",
             "src/llm_rlvr/harness/**",
             "src/llm_rlvr/tasks/**",
             "src/llm_rlvr/env/**",
@@ -175,6 +176,7 @@ DRIVES = {
         "llm-rlvr build-traces keeps only correct, well-formed SFT traces and writes a manifest",
         [
             "src/llm_rlvr/train/traces.py",
+            "src/llm_rlvr/generation/**",
             "src/llm_rlvr/harness/**",
             "src/llm_rlvr/tasks/**",
             "src/llm_rlvr/cli.py",

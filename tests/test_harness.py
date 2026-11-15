@@ -126,8 +126,7 @@ def test_sql_training_reward_aborts_on_unverifiable_reference(scoring_root) -> N
 
 
 def test_sql_training_reward_requires_empty_guard() -> None:
-    from llm_rlvr.tasks.sql import RewardConfig as SqlRewardConfig
-    from llm_rlvr.tasks.sql import make_reward_fn
+    from llm_rlvr.tasks.sql import SqlRewardConfig, make_reward_fn
 
     with pytest.raises(ValueError, match="guard_trivial_empty=True"):
         make_reward_fn("unused", config=SqlRewardConfig(guard_trivial_empty=False))

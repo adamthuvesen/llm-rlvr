@@ -216,7 +216,7 @@ def _sample_vllm(
     sampling: TraceSamplingConfig,
 ) -> list[list[str]]:
     """N completions per prompt (unlike the baseline backend's single greedy output)."""
-    from llm_rlvr.eval.vllm_backend import make_vllm_engine, vllm_sampling_params
+    from llm_rlvr.generation.vllm_backend import make_vllm_engine, vllm_sampling_params
 
     llm, chat_kwargs = make_vllm_engine(model, model_revision=model_revision)
     params = vllm_sampling_params(sampling, n=sampling.n)

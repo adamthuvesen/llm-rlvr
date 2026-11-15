@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
-from llm_rlvr.tasks.sql import RewardConfig, build_grpo_rows
+from llm_rlvr.tasks.sql import SqlRewardConfig, build_grpo_rows
 from llm_rlvr.train.grpo import (
     GrpoHyperparams,
     GrpoProvenance,
@@ -79,7 +79,7 @@ def test_provenance_records_reward_warmstart_and_seed_and_roundtrips() -> None:
         base_model="Qwen/Qwen2.5-Coder-3B-Instruct",
         warm_start_adapter="sft/sft-r32",
         hyperparams=GrpoHyperparams(seed=7),
-        reward=RewardConfig(arm="near_binary"),
+        reward=SqlRewardConfig(arm="near_binary"),
         dataset="spider",
         dataset_revision="rev123",
         n_train=7,

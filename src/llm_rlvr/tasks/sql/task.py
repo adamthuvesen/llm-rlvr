@@ -19,8 +19,7 @@ from pathlib import Path
 from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.data.paths import resolve_database
 from llm_rlvr.data.splits import assert_train_split
-from llm_rlvr.harness import RewardBreakdown, Verdict, completion_text, score_answer
-from llm_rlvr.harness import RewardConfig as _ShapingConfig
+from llm_rlvr.harness import RewardBreakdown, RewardConfig, Verdict, completion_text, score_answer
 from llm_rlvr.tasks.sql.parsing import extract_sql, well_formed
 from llm_rlvr.tasks.sql.prompt import build_prompts
 from llm_rlvr.tasks.sql.verifier import GoldExecutionError, VerifierConfig, execution_match
@@ -29,7 +28,7 @@ from llm_rlvr.tasks.sql.verifier import GoldExecutionError, VerifierConfig, exec
 NO_SQL_REASON = "no_sql"
 
 
-class RewardConfig(_ShapingConfig):
+class SqlRewardConfig(RewardConfig):
     """The harness shaping config plus the SQL-only empty-result guard.
 
     Adds `guard_trivial_empty` to the generic shaping (arm + component weights + format/length).
@@ -59,14 +58,14 @@ def score_completion(
     gold_sql: str,
     db_path: str | Path,
     *,
-    config: RewardConfig | None = None,
+    config: SqlRewardConfig | None = None,
 ) -> RewardBreakdown:
     """Score one completion against the expected SQL on one database.
 
     Executes the prediction once through the SQL verifier (read-only sandbox) and derives the
     `executable` and `result_match` components from the single verdict.
     """
-    cfg = config or RewardConfig()
+    cfg = config or SqlRewardConfig()
     verifier_config = VerifierConfig(guard_trivial_empty=cfg.guard_trivial_empty)
     return score_answer(
         text,
@@ -81,7 +80,7 @@ def score_completion(
 def make_reward_fn(
     db_root: str | Path,
     *,
-    config: RewardConfig | None = None,
+    config: SqlRewardConfig | None = None,
     resolver: Callable[[str, str | Path], Path] = resolve_database,
 ) -> Callable[..., list[float]]:
     """Wrap `score_completion` in the TRL `GRPOTrainer` reward-function convention.
@@ -90,7 +89,7 @@ def make_reward_fn(
     (`gold_sql`, `db_id`) as aligned keyword lists; the database is resolved per example from
     `db_id` under `db_root`.
     """
-    cfg = config or RewardConfig()
+    cfg = config or SqlRewardConfig()
     if not cfg.guard_trivial_empty:
         raise ValueError("SQL training reward requires guard_trivial_empty=True")
 

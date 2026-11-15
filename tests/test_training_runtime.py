@@ -458,14 +458,14 @@ def test_adapter_weight_index_requires_all_shards(tmp_path) -> None:
 
 
 def test_grpo_records_known_sft_dev_exposure_without_excluding_it() -> None:
-    from llm_rlvr.tasks.sql import RewardConfig
+    from llm_rlvr.tasks.sql import SqlRewardConfig
     from llm_rlvr.train.grpo import build_grpo_provenance
 
     provenance = build_grpo_provenance(
         base_model="model",
         warm_start_adapter="warm",
         hyperparams=GrpoHyperparams(),
-        reward=RewardConfig(),
+        reward=SqlRewardConfig(),
         dataset="spider",
         dataset_revision="revision",
         n_train=1,

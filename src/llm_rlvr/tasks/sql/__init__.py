@@ -2,7 +2,7 @@
 
 from llm_rlvr.tasks.sql.task import (
     NO_SQL_REASON,
-    RewardConfig,
+    SqlRewardConfig,
     build_grpo_rows,
     make_reward_fn,
     score_completion,
@@ -11,7 +11,7 @@ from llm_rlvr.tasks.sql.task import (
 
 __all__ = [
     "NO_SQL_REASON",
-    "RewardConfig",
+    "SqlRewardConfig",
     "build_grpo_rows",
     "make_reward_fn",
     "score_completion",

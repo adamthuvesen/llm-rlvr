@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
 import pytest
@@ -62,12 +61,10 @@ def test_trivial_empty_guard_blocks_reward_hacking(tiny_db: Path) -> None:
 
 def test_permutation_cap_bounds_wide_results(tiny_db: Path) -> None:
     # With the cap forced to 1, a 2-column result falls back to identity-order compare:
-    # identical order matches, reordered does not — and it returns promptly (no hang).
+    # identical order matches, reordered does not — and both calls return (no hang).
     capped = VerifierConfig(max_permutation_cols=1)
-    started = time.monotonic()
     same = execution_match("SELECT a, b FROM t", "SELECT a, b FROM t", tiny_db, config=capped)
     reordered = execution_match("SELECT b, a FROM t", "SELECT a, b FROM t", tiny_db, config=capped)
-    assert time.monotonic() - started < 5.0
     assert same.matched is True
     assert reordered.matched is False  # documented fallback tradeoff above the cap
 

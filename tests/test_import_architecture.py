@@ -18,7 +18,7 @@ class BlockDependencies(importlib.abc.MetaPathFinder):
             'torch', 'trl', 'peft', 'transformers', 'datasets',
         )
         if any(fullname == name or fullname.startswith(name + '.') for name in blocked):
-            raise ImportError('generic import reached blocked dependency: ' + fullname)
+            raise ImportError('generic training import reached blocked dependency ' + fullname + '; import it lazily inside the function that needs it')
 
 sys.meta_path.insert(0, BlockDependencies())
 from llm_rlvr.harness import RewardConfig

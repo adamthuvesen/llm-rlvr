@@ -23,6 +23,7 @@ execution-verified rewards.
 | `data/` | Typed source examples, pinned loaders, database paths, and cache publication | Dataset identity or installation changes |
 | `artifacts/` | Shared provenance, atomic files, and managed run manifests | Artifact identity or publication changes |
 | `eval/` | SQL completion artifacts, generation, scoring, and seed aggregation | A saved evaluation result changes |
+| `generation/` | The vLLM engine bootstrap shared by evaluation and trace sampling | A generation backend changes |
 | `train/configuration.py` | Adapter identity and requested/effective runtime configuration | Model or training API compatibility changes |
 | `train/prepared.py` | Prepared SFT rows, bound GRPO rewards, and final publication | Generic training execution changes |
 | `train/checkpoints.py` | Independent periodic adapter provenance and completion | Checkpoint publication changes |
@@ -34,7 +35,9 @@ execution-verified rewards.
 `harness/` has no SQL, data, evaluation, or training dependency. The SQL task does not depend on evaluation or training.
 `train/prepared.py` accepts prepared rows and a reward function. It does not construct SQL resources.
 Prepared SFT accepts validated conversations and a task-supplied eligibility proof. SQL SFT validates SQL trace lineage before composition.
-Import contracts in `pyproject.toml` enforce these boundaries through `make imports`.
+An exhaustive layers contract in `pyproject.toml` holds each module to the layers below it, from top to bottom:
+`cli`, `modal_helpers`, `report`, `eval` and `train`, `generation`, `tasks`, `data`, then `artifacts`, `env`, `harness`, and `third_party`, and `_base`.
+A second contract keeps prepared training independent of SQL composition. `make imports` runs both.
 
 The SQL implementations live under `tasks/sql/`. Shared provenance lives in `artifacts/provenance.py`.
 `artifacts/io.py` owns atomic publication. Import each name from its defining module.

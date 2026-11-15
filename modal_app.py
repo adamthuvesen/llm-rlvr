@@ -359,7 +359,7 @@ def grpo_train(
     del approved  # locals() below feeds the request model, which forbids extra fields
     request = GrpoRequest.model_validate(locals())
     from llm_rlvr.artifacts.io import ensure_new_output
-    from llm_rlvr.tasks.sql import RewardConfig
+    from llm_rlvr.tasks.sql import SqlRewardConfig
     from llm_rlvr.train.grpo import GrpoHyperparams, run_grpo
 
     ensure_new_output(runs_path("grpo", run_id))
@@ -380,7 +380,7 @@ def grpo_train(
         dataset="spider",
         dataset_revision=ctx.dataset_revision,
         hyperparams=GrpoHyperparams.model_validate(hp_kwargs),
-        reward=RewardConfig(arm=request.reward_arm),
+        reward=SqlRewardConfig(arm=request.reward_arm),
         on_begin=runs.commit,
         commit=commit,
         dirty=dirty,

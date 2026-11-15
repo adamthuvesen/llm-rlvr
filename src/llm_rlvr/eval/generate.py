@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 from llm_rlvr.artifacts.provenance import DecodingConfig, build_generation_provenance
 from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.eval.completions import CompletionSet, assemble_completion_set
-from llm_rlvr.eval.vllm_backend import make_vllm_engine, sample_vllm_completions
+from llm_rlvr.generation.vllm_backend import make_vllm_engine, sample_vllm_completions
 from llm_rlvr.tasks.sql.prompt import Messages as Messages
 from llm_rlvr.tasks.sql.prompt import build_prompts as build_prompts
 from llm_rlvr.tasks.sql.prompt import select_exemplars

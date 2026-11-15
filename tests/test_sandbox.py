@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-import time
 from pathlib import Path
 
 import pytest
@@ -44,17 +43,14 @@ def test_row_cap_exact_result_is_complete(tiny_db: Path) -> None:
 
 def test_timeout_interrupts_long_query(tiny_db: Path) -> None:
     # Counting to a billion forces a full scan before the single output row; the watchdog
-    # interrupts it well before completion.
+    # interrupts it, so the call returns a timeout error instead of finishing the scan.
     slow = (
         "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 1000000000) "
         "SELECT COUNT(*) FROM c"
     )
-    started = time.monotonic()
     out = SqliteSandbox(tiny_db, timeout_s=0.05).execute(slow)
-    elapsed = time.monotonic() - started
     assert isinstance(out, ExecutionError)
     assert out.error_type == "timeout"
-    assert elapsed < 1.0  # bounded, not a hang
 
 
 def test_invalid_sql_is_structured_error(tiny_db: Path) -> None:

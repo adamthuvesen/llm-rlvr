@@ -29,8 +29,8 @@ from llm_rlvr.data.models import (
 )
 from llm_rlvr.data.paths import resolve_database
 from llm_rlvr.data.splits import assert_train_split
-from llm_rlvr.harness import RewardConfig as ShapingConfig
-from llm_rlvr.tasks.sql import RewardConfig, build_grpo_rows, make_reward_fn
+from llm_rlvr.harness import RewardConfig
+from llm_rlvr.tasks.sql import SqlRewardConfig, build_grpo_rows, make_reward_fn
 from llm_rlvr.tasks.sql.verifier import GoldExecutionError, validate_reference
 from llm_rlvr.train.configuration import (
     AdapterIdentity,
@@ -129,7 +129,7 @@ class GrpoProvenance(Frozen):
     base_model_revision: str | None = None
     warm_start_adapter: str
     hyperparams: GrpoHyperparams
-    reward: ShapingConfig | RewardConfig
+    reward: RewardConfig | SqlRewardConfig
     dataset: str
     dataset_revision: str
     n_train: int
@@ -155,7 +155,7 @@ def build_grpo_provenance(
     base_model: str,
     warm_start_adapter: str | Path,
     hyperparams: GrpoHyperparams,
-    reward: ShapingConfig,
+    reward: RewardConfig,
     dataset: str,
     dataset_revision: str,
     n_train: int,
@@ -214,7 +214,7 @@ def run_grpo(
     dataset_revision: str,
     base_model_revision: str | None = None,
     hyperparams: GrpoHyperparams | None = None,
-    reward: RewardConfig | None = None,
+    reward: SqlRewardConfig | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
     on_begin: Callable[[], None] | None = None,
@@ -227,7 +227,7 @@ def run_grpo(
     `output_dir`.
     """
     hp = hyperparams or GrpoHyperparams()
-    rw = reward or RewardConfig()
+    rw = reward or SqlRewardConfig()
     if not rw.guard_trivial_empty:
         raise ValueError("SQL GRPO training requires guard_trivial_empty=True")
     assert_train_split(examples, context="SQL GRPO input")

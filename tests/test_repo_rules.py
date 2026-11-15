@@ -82,7 +82,9 @@ def test_enforced_rules_cite_existing_targets() -> None:
     assert rows, "AGENTS.md needs an `## Enforced Rules` table with at least one row"
     for row in rows:
         refs = re.findall(r"`([^`]+)`", row[2])
-        assert refs, f"rule cites no `path::name`: {row[1].strip()}"
+        assert refs, (
+            f"AGENTS.md Enforced Rules row cites no `path::name`: {row[1].strip()}; add the enforcer to the row"
+        )
         for ref in refs:
             path, separator, name = ref.partition("::")
             target = ROOT / path
