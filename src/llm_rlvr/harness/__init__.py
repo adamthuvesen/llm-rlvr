@@ -1,24 +1,18 @@
-"""Task-agnostic RLVR harness.
+"""Task-agnostic RLVR reward shaping.
 
-The reusable core of this project, factored out of the text-to-SQL specifics: a *verifiable
-reward* is a deterministic program that decides whether a model's answer is correct, and the same
-program is used both as the GRPO training reward and as the offline evaluation scorer. Everything
-in this package is independent of SQL — a new task plugs in by implementing two small protocols
-(`AnswerParser`, `Verifier`) and bundling them into a `Task`.
+A *verifiable reward* is a deterministic program that decides whether a model's answer is correct,
+and the same program is used both as the GRPO training reward and as the offline evaluation scorer.
+Nothing in this package depends on SQL:
 
-  - `AnswerParser`  — pull the answer out of a raw completion, and judge its format.
-  - `Verifier`      — execute/check the answer against a reference; return a `Verdict`.
+  - `Verdict`       — a verifier's outcome (`matched`, `valid`, `reason`).
   - `RewardConfig`  — generic shaping (format / valid / matched / length); arm selection.
-  - `score_answer`  — compose a parser + verifier + shaping into one per-completion reward.
-  - `Task`          — the full extension surface a concrete task implements (see `docs/harness.md`).
+  - `score_answer`  — compose an answer extractor + format check + verifier into one reward.
 
-Text-to-SQL is the reference task (`llm_rlvr.tasks.sql`); see `docs/harness.md` for how to add
-your own.
+Text-to-SQL (`llm_rlvr.tasks.sql`) is the one task; see `docs/harness.md`.
 """
 
 from __future__ import annotations
 
-from llm_rlvr.harness.answer import AnswerParser
 from llm_rlvr.harness.reward import (
     RewardArm,
     RewardBreakdown,
@@ -26,18 +20,14 @@ from llm_rlvr.harness.reward import (
     completion_text,
     score_answer,
 )
-from llm_rlvr.harness.task import Task
-from llm_rlvr.harness.verifier import ReferenceUnverifiable, Verdict, Verifier
+from llm_rlvr.harness.verifier import ReferenceUnverifiable, Verdict
 
 __all__ = [
-    "AnswerParser",
     "ReferenceUnverifiable",
     "RewardArm",
     "RewardBreakdown",
     "RewardConfig",
-    "Task",
     "Verdict",
-    "Verifier",
     "completion_text",
     "score_answer",
 ]

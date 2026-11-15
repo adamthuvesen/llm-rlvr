@@ -1,6 +1,7 @@
 # Reproducibility manifest
 
-Every external artifact this project depends on is pinned. Code pins live in
+Dataset revisions and database archives are pinned. Model, adapter, and raw-artifact identities are recorded where available.
+Historical raw-artifact hash pins remain unavailable. Dataset pins live in
 [`src/llm_rlvr/data/artifacts.py`](../../src/llm_rlvr/data/artifacts.py); this file is the
 human-readable mirror. The public headline is checked from the tracked
 [`results/public/`](../../results/public/) bundle with `make eval` (CPU only, no model). Full raw
@@ -30,7 +31,7 @@ checksummed artifact above. BIRD's `dev.zip` is one self-hosted bundle.
 | Stage-2 GRPO adapters (main result) | Volume → `grpo/grpo-s0`, `grpo/grpo-s1`, `grpo/grpo-s2`; LR 5e-5, shaped reward, seeds 0/1/2, warm-start `sft/sft-r32`; full config in each `provenance.json` | - |
 | Stage-2 reward ablation adapter | Volume → `grpo/grpo-nb-s0`; identical config, `near_binary` arm (1.0/0.1/0) | - |
 | Cross-family control adapters | Volume → `sft/sft-llama-r32` (trace manifest `results/sft/traces-llama.manifest.json`, 2,501/7,000 kept) and `grpo/grpo-llama-s0` (same recipe @ LR 5e-5 shaped, warm-start `sft/sft-llama-r32`) | - |
-| Reward config (shaped, the main arm) | `tasks/sql.py` `RewardConfig` (shaping fields inherited from `harness/reward.py`): weights format 0.2 / executable 0.2 / result_match 1.0 / length 0.1; `preamble_credit=0.3` (full format credit only when `<think>` leads); `guard_trivial_empty=True` | - |
+| Reward config (shaped, the main arm) | `tasks/sql/task.py` `SqlRewardConfig` (shaping fields inherited from `harness/reward.py`): weights format 0.2 / executable 0.2 / result_match 1.0 / length 0.1; `preamble_credit=0.3` (full format credit only when `<think>` leads); `guard_trivial_empty=True` | - |
 | Vendored verifier | `taoyds/test-suite-sql-eval`; execution-match path only (`exec_eval.py` + `parse.py`) | Apache 2.0 |
 
 The verifier is parity-tested against upstream (`tests/test_verifier_parity.py`); the only
@@ -46,7 +47,7 @@ The committed public bundle is compact:
 | `results/public/claims.json` | Maps public README claims to committed evidence and external raw-artifact sources |
 | `results/public/headline_summary.json` | Counts for the README headline table and seed-level CI check |
 | `results/public/provenance.json` | States the raw-artifact policy and public/full reproduction modes |
-| `results/public/reproduce.py` | Validates the claim map, JSON, README headline rows, and rendered progression tables |
+| `results/public/reproduce.py` | Compatibility wrapper for the installed `report.public` validation code |
 
 `make eval` runs this public check. It does not need raw completions, databases, Modal, GPU, or
 network access.
@@ -54,7 +55,21 @@ network access.
 Public mode is a clean-clone check: it proves the committed headline table is derived from committed
 summary/provenance, and it names the external raw inputs behind each claim. Full mode starts after
 restoring the external `CompletionSet` and `ScoreReport` bundle under gitignored `results/`. Then
-`make eval-full` re-scores those raw artifacts locally without loading a model.
+`make eval-full` runs the tracked `llm_rlvr.report.full` implementation without loading a model.
+It requires every completion file and its historical `.score.json` report before scoring starts.
+Headline counts come from `headline_summary.json`. Control file paths live in `report/full.py` and use their saved reports as expectations.
+The tracked inventory includes the headline, direct and few-shot baselines, direct SFT, reward ablation, and cross-family controls.
+Each inventory role requires its documented model, dev split, prompt style, greedy temperature, adapter path, few-shot count, and known token budget.
+Headline identities use the tracked summary. Control identities use the settings documented below.
+The supported headline adapter recipe explicitly maps SFT and GRPO seed paths. Unsupported recipe text fails validation.
+Adapter paths can be relative to the Volume or absolute under the documented `/runs` mount. Other absolute roots fail validation.
+Unknown legacy model revisions, adapter hashes, and source lineage remain unknown.
+
+The comparison reports counts, accuracy deltas, reference errors, and per-item changes when historical outcomes exist.
+It preserves historical reports. Existing raw artifacts have no committed historical hash pins, so full mode labels that limit.
+Optional supplied manifest hashes are checked before scoring. New scoring records also bind their versioned canonical input digest.
+Recorded database-file hashes must match the supplied databases before any query executes.
+A current file hash identifies the restored bytes. It does not establish a missing historical pin.
 
 ## Generated evaluation artifacts
 
@@ -71,9 +86,9 @@ the raw bundle is restored under gitignored `results/`:
 | `bird-dev-zs.json` | BIRD-dev, `<think>` zero-shot | 0.3129 (480/1534) |
 | `bird-dev-zs-direct.json` | BIRD-dev, direct zero-shot | 0.3514 (539/1534) |
 
-Each `CompletionSet` carries its own provenance (model, greedy decoding, dataset revision,
-DB-archive SHA256, **`prompt_style`**, few-shot recipe, adapter, git commit), so every number is
-traceable to exactly the inputs that produced it. Reporting both prompt styles (`<think>` matched
+Each `CompletionSet` carries its generation provenance: model, decoding, dataset revision, available archive identity, prompt style, and adapter.
+New scores add scoring provenance, actual database-file hashes, and per-item outcomes.
+Legacy files without these fields retain the corresponding evidence limits. Reporting both prompt styles (`<think>` matched
 and direct) keeps the RL gain from being measured against an artificially low base anchor. The
 50-example `*-n50` slices remain as the local wiring proof. `*.score.json` files are the generated
 `ScoreReport`s.
@@ -97,8 +112,7 @@ bare SQL, no `<think>` block.
 
 ## Stage 2: single-turn GRPO (`results/grpo/` + `results/llama/`)
 
-Same eval pipeline with the GRPO adapters; `make eval-full` re-scores every row and renders the full
-progression tables when the raw bundle is present. The tracked public bundle renders the headline
+The same evaluation pipeline scores the GRPO adapters. `make eval-full` re-scores the restored inventory and prints before/after comparisons. The tracked public bundle renders the headline
 Qwen progression from `results/public/headline_summary.json`. All EX is single-DB execution-match
 with the documented ~6.5% false-positive caveat.
 

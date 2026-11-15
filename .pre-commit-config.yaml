@@ -1,7 +1,19 @@
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+  - repo: local
     hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
+      - id: locked-ruff
+        name: Ruff lint from uv.lock
+        entry: uv run --locked ruff check
+        language: system
+        types_or: [python, pyi]
+      - id: locked-ruff-format
+        name: Ruff format from uv.lock
+        entry: uv run --locked ruff format --check
+        language: system
+        types_or: [python, pyi]
+      - id: locked-dependencies
+        name: Dependency lock consistency
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false

@@ -1,6 +1,7 @@
 """Generic shaped / near-binary reward over a verifier.
 
-`score_answer` composes one per-completion reward from an `AnswerParser` + a `Verifier`:
+`score_answer` composes one per-completion reward from an answer extractor, a format check, and a
+verifier:
 
   - **format** — credit for the trained reasoning-then-answer shape; full credit only when the
     `<think>` block *leads* (no prose preamble), partial credit otherwise. Text-only, task-agnostic.
@@ -13,19 +14,18 @@ Two arms, selected by `RewardConfig.arm`:
   - **shaped** (SQL-R1 style): the weighted sum of the four components above.
   - **near_binary** (Arctic style): `1.0` correct / `0.1` valid-but-wrong / `0` else — nothing else.
 
-Task-specific concerns live behind the parser/verifier: what counts as an "answer", what "valid"
-means, and any guards (e.g. the SQL empty-result guard) are configured on the `Verifier` the caller
+Task-specific concerns live behind those callables: what counts as an "answer", what "valid"
+means, and any guards (e.g. the SQL empty-result guard) are configured on the verifier the caller
 passes in, not here. This keeps the shaping reusable across tasks.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Literal
 
 from llm_rlvr._base import Frozen
-from llm_rlvr.harness.answer import AnswerParser
-from llm_rlvr.harness.verifier import ReferenceUnverifiable, Verifier
+from llm_rlvr.harness.verifier import ReferenceUnverifiable, Verdict
 
 RewardArm = Literal["shaped", "near_binary"]
 
@@ -38,20 +38,32 @@ def completion_text(completion: object) -> str:
     """
     if isinstance(completion, str):
         return completion
-    if isinstance(completion, dict):
-        return str(completion.get("content", ""))
-    if isinstance(completion, Sequence):
+    if isinstance(completion, Mapping):
+        content = completion.get("content")
+        if completion.get("role") != "assistant" or not isinstance(content, str):
+            raise ValueError("completion message must have role='assistant' and string content")
+        return content
+    if isinstance(completion, Sequence) and not isinstance(completion, (bytes, bytearray)):
+        if not completion:
+            raise ValueError("completion message list must not be empty")
+        for message in completion:
+            if (
+                not isinstance(message, Mapping)
+                or message.get("role") not in ("system", "user", "assistant")
+                or not isinstance(message.get("content"), str)
+            ):
+                raise ValueError("completion messages must have a role and string content")
         for message in reversed(completion):
-            if isinstance(message, dict) and message.get("role") == "assistant":
-                return str(message.get("content", ""))
-        return completion_text(completion[-1]) if completion else ""
-    return str(completion)
+            if message["role"] == "assistant":
+                return str(message["content"])
+        raise ValueError("completion message list must include an assistant message")
+    raise ValueError("completion must be text, an assistant message, or a message list")
 
 
 class RewardConfig(Frozen):
     """Arm selection + shaped-arm component weights. Task-agnostic shaping only.
 
-    The empty-result guard and other verifier knobs are NOT here — they belong to the `Verifier`
+    The empty-result guard and other verifier knobs are NOT here — they belong to the verifier
     the caller constructs and passes to `score_answer`.
     """
 
@@ -85,10 +97,10 @@ class RewardBreakdown(Frozen):
     reason: str
 
 
-def _format_score(text: str, parser: AnswerParser, cfg: RewardConfig) -> float:
+def _format_score(text: str, well_formed: Callable[[str], bool], cfg: RewardConfig) -> float:
     """1.0 for a well-formed completion led by <think>; `preamble_credit` if a preamble precedes
     it; 0.0 if malformed."""
-    if not parser.well_formed(text):
+    if not well_formed(text):
         return 0.0
     leads = text.lstrip().lower().startswith("<think>")
     return 1.0 if leads else cfg.preamble_credit
@@ -107,33 +119,33 @@ def _length_score(text: str, cfg: RewardConfig) -> float:
 
 def score_answer(
     text: str,
-    reference: object,
-    context: object,
     *,
-    parser: AnswerParser,
-    verifier: Verifier,
+    extract: Callable[[str], str | None],
+    well_formed: Callable[[str], bool],
+    verify: Callable[[str], Verdict],
     config: RewardConfig | None = None,
     no_answer_reason: str = "no_answer",
 ) -> RewardBreakdown:
     """Score one completion: parse the answer, verify it, and compose the shaped/near-binary reward.
 
-    Pure and side-effect-free (the verifier touches its context read-only). `reference`/`context`
-    are passed through to the verifier unchanged. When no answer can be parsed the reward is the
-    format+length shaping only, tagged `no_answer_reason`; when the *reference* is unverifiable the
-    verifier's `ReferenceUnverifiable.reason` is surfaced and no match/valid credit is given.
+    `extract` pulls the answer out of `text`, `well_formed` judges the trained output format, and
+    `verify` checks the answer against the example's reference, read-only. When no answer can be
+    parsed the reward is the format+length shaping only, tagged `no_answer_reason`; when the
+    *reference* is unverifiable the verifier's `ReferenceUnverifiable.reason` is surfaced and no
+    match/valid credit is given.
     """
     cfg = config or RewardConfig()
-    fmt = _format_score(text, parser, cfg)
+    fmt = _format_score(text, well_formed, cfg)
     length = _length_score(text, cfg)
 
-    answer = parser.extract(text)
+    answer = extract(text)
     if answer is None:
         return _assemble(
             cfg, fmt=fmt, valid=0.0, matched=0.0, length=length, reason=no_answer_reason
         )
 
     try:
-        verdict = verifier.verify(answer, reference, context)
+        verdict = verify(answer)
     except ReferenceUnverifiable as exc:
         # The reference is broken, not the prediction; record it without rewarding the model.
         return _assemble(cfg, fmt=fmt, valid=0.0, matched=0.0, length=length, reason=exc.reason)

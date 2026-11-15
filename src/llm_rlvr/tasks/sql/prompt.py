@@ -15,6 +15,8 @@ from llm_rlvr.data.models import DatabaseSchema, Example
 from llm_rlvr.data.schema import serialize_schema
 from llm_rlvr.data.splits import assert_train_split
 
+Messages = list[dict[str, str]]
+
 INSTRUCTION = (
     "You are an expert data analyst. Given a SQLite database schema and a question, write a "
     "single SQLite query that answers it. Reason step by step inside <think></think>, then give "
@@ -48,6 +50,25 @@ class FewShotExemplar(Frozen):
     question: str
     gold_sql: str
     evidence: str | None = None
+
+
+def build_prompts(
+    examples: Sequence[Example],
+    schemas: Mapping[str, DatabaseSchema],
+    exemplars: Sequence[FewShotExemplar] = (),
+    style: str = "cot",
+) -> list[Messages]:
+    """Render SQL messages for every example with shared few-shot exemplars."""
+    return [
+        build_messages(
+            serialize_schema(schemas[example.db_id]),
+            example.question,
+            exemplars,
+            evidence=example.evidence,
+            style=style,
+        )
+        for example in examples
+    ]
 
 
 def build_messages(

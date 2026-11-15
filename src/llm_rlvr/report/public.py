@@ -1,0 +1,324 @@
+"""Validate and render the tracked public evidence bundle.
+
+This script is intentionally small: it checks the committed public summary, claim map, and
+README headline table.
+Full training reruns are outside the public quickstart.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Literal
+
+from pydantic import Field, ValidationError, model_validator
+
+from llm_rlvr._base import Frozen
+from llm_rlvr.report.progression import build_rl_row, render_progression
+
+_PUBLIC_FILES = {
+    "results/public/claims.json",
+    "results/public/headline_summary.json",
+    "results/public/provenance.json",
+    "results/public/reproduce.py",
+}
+
+
+class Count(Frozen):
+    correct: int = Field(ge=0, strict=True)
+    total: int = Field(gt=0, strict=True)
+    source: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def counts_are_valid(self) -> Count:
+        if self.correct > self.total:
+            raise ValueError(f"correct must be between 0 and total for {self.source}")
+        return self
+
+    @property
+    def accuracy(self) -> float:
+        return self.correct / self.total
+
+
+class SeedCount(Count):
+    seed: int = Field(ge=0, strict=True)
+
+
+class BenchmarkRow(Frozen):
+    benchmark: str
+    base: Count
+    sft: Count
+    grpo_seeds: tuple[SeedCount, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def totals_match(self) -> BenchmarkRow:
+        totals = {self.base.total, self.sft.total, *(seed.total for seed in self.grpo_seeds)}
+        if len(totals) != 1:
+            raise ValueError(f"{self.benchmark} mixes denominators: {sorted(totals)}")
+        seeds = [seed.seed for seed in self.grpo_seeds]
+        if len(seeds) != len(set(seeds)):
+            raise ValueError(f"{self.benchmark} seed ids must be unique")
+        sources = [self.base.source, self.sft.source, *(seed.source for seed in self.grpo_seeds)]
+        if len(sources) != len(set(sources)):
+            raise ValueError(f"{self.benchmark} artifact sources must be unique")
+        return self
+
+    @property
+    def grpo_values(self) -> tuple[float, ...]:
+        return tuple(seed.accuracy for seed in self.grpo_seeds)
+
+
+class Headline(Frozen):
+    metric: str
+    model: str = Field(min_length=1)
+    adapter_path: str = Field(min_length=1)
+    prompt_style: Literal["cot"]
+    decoding: Literal["greedy"]
+    rows: tuple[BenchmarkRow, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def benchmarks_are_unique(self) -> Headline:
+        names = [row.benchmark for row in self.rows]
+        if len(names) != len(set(names)):
+            raise ValueError("headline benchmarks must be unique")
+        return self
+
+
+class PublicSummary(Frozen):
+    schema_version: int
+    headline: Headline
+
+    @model_validator(mode="after")
+    def schema_is_supported(self) -> PublicSummary:
+        if self.schema_version != 1:
+            raise ValueError(f"unsupported schema_version: {self.schema_version}")
+        if self.headline.metric != "single_db_execution_accuracy":
+            raise ValueError(f"unsupported metric: {self.headline.metric}")
+        return self
+
+
+class PublicProvenance(Frozen):
+    schema_version: int
+    bundle: str
+    tracked_files: tuple[str, ...]
+    raw_artifact_policy: str
+    public_mode: str
+    full_artifact_mode: str
+    source_volume: str
+    notes: tuple[str, ...]
+
+    @model_validator(mode="after")
+    def schema_is_supported(self) -> PublicProvenance:
+        if self.schema_version != 1:
+            raise ValueError(f"unsupported provenance schema_version: {self.schema_version}")
+        return self
+
+
+class ClaimLocation(Frozen):
+    path: str
+    anchor: str
+
+
+class Claim(Frozen):
+    id: str
+    description: str
+    location: ClaimLocation
+    readme_text: str
+    public_evidence: tuple[str, ...] = Field(min_length=1)
+    full_artifact_sources: tuple[str, ...]
+    public_check: str
+    summary_row: str | None = None
+
+
+class ClaimMap(Frozen):
+    schema_version: int
+    claims: tuple[Claim, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def schema_is_supported(self) -> ClaimMap:
+        if self.schema_version != 1:
+            raise ValueError(f"unsupported claim schema_version: {self.schema_version}")
+        ids = [claim.id for claim in self.claims]
+        if len(ids) != len(set(ids)):
+            raise ValueError("claim ids must be unique")
+        return self
+
+
+def main(root: Path | None = None) -> int:
+    root = root or Path.cwd()
+    summary_path = root / "results/public/headline_summary.json"
+    provenance_path = root / "results/public/provenance.json"
+    claims_path = root / "results/public/claims.json"
+    try:
+        summary = PublicSummary.model_validate_json(summary_path.read_text(encoding="utf-8"))
+        provenance = PublicProvenance.model_validate_json(
+            provenance_path.read_text(encoding="utf-8")
+        )
+        claim_map = ClaimMap.model_validate_json(claims_path.read_text(encoding="utf-8"))
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        headline = _headline_markdown(summary)
+        _check_readme_table(readme, summary)
+        _check_provenance(provenance, root)
+        _check_claims(readme, summary, claim_map, root)
+    except (OSError, ValidationError, ValueError) as exc:
+        print(f"public evidence check failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"public evidence bundle: {provenance.bundle}")
+    print(f"mode: {provenance.public_mode}")
+    print(f"claims: {len(claim_map.claims)} checked from {claims_path.relative_to(root)}")
+    print()
+    print(headline)
+    print()
+    for rendered in _render_seed_tables(summary):
+        print(rendered)
+        print()
+    print("ok: README headline table matches results/public/headline_summary.json")
+    return 0
+
+
+def _headline_markdown(summary: PublicSummary) -> str:
+    lines = [
+        "| Benchmark | Base | SFT | GRPO | Gain vs SFT | Evidence |",
+        "| --- | ---: | ---: | ---: | ---: | --- |",
+    ]
+    for row in summary.headline.rows:
+        aggregate = build_rl_row(
+            "GRPO", row.benchmark, sft_anchor=row.sft.accuracy, per_seed_ex=row.grpo_values
+        )
+        if aggregate.gain.ci_low is None:
+            evidence = "1 seed, point estimate"
+        elif aggregate.gain.above_zero:
+            evidence = f"{aggregate.ex.n} seeds, 95% CI excludes zero"
+        elif aggregate.gain.excludes_zero:
+            evidence = f"{aggregate.ex.n} seeds, 95% CI below zero"
+        else:
+            evidence = f"{aggregate.ex.n} seeds, 95% CI includes zero"
+        lines.append(
+            f"| {row.benchmark} | {row.base.accuracy:.3f} | {row.sft.accuracy:.3f} | "
+            f"**{aggregate.ex.mean:.3f}** | **{aggregate.gain.mean * 100:+.1f}pt** | {evidence} |"
+        )
+    return "\n".join(lines)
+
+
+def _expected_headline_rows(summary: PublicSummary) -> dict[str, str]:
+    rows: dict[str, str] = {}
+    for line in _headline_markdown(summary).splitlines()[2:]:
+        benchmark = line.split("|", maxsplit=2)[1].strip()
+        rows[benchmark] = line
+    return rows
+
+
+def _benchmark_by_name(summary: PublicSummary) -> dict[str, BenchmarkRow]:
+    return {row.benchmark: row for row in summary.headline.rows}
+
+
+def _check_readme_table(readme: str, summary: PublicSummary) -> None:
+    actual = _readme_result_rows(readme)
+    expected = list(_expected_headline_rows(summary).values())
+    if actual != expected:
+        raise ValueError(
+            "README result table does not match tracked public summary:\n"
+            f"expected:\n{chr(10).join(expected)}\n"
+            f"actual:\n{chr(10).join(actual)}"
+        )
+
+
+def _readme_result_rows(readme: str) -> list[str]:
+    lines = readme.splitlines()
+    header = "| Benchmark | Base | SFT | GRPO | Gain vs SFT | Evidence |"
+    starts = [index for index, line in enumerate(lines) if line == header]
+    if len(starts) != 1:
+        raise ValueError("README must contain exactly one headline result table")
+    rows = []
+    for line in lines[starts[0] + 2 :]:
+        if not line.startswith("|"):
+            break
+        rows.append(line)
+    if not rows:
+        raise ValueError("README result table rows were not found")
+    return rows
+
+
+def _check_provenance(provenance: PublicProvenance, root: Path) -> None:
+    tracked = set(provenance.tracked_files)
+    if tracked != _PUBLIC_FILES or len(tracked) != len(provenance.tracked_files):
+        raise ValueError(
+            f"provenance tracked_files must be {sorted(_PUBLIC_FILES)}, got {sorted(tracked)}"
+        )
+    for relative_path in provenance.tracked_files:
+        path = root / relative_path
+        if not path.is_file():
+            raise ValueError(f"tracked public evidence file is missing: {relative_path}")
+
+
+def _check_claims(readme: str, summary: PublicSummary, claim_map: ClaimMap, root: Path) -> None:
+    summary_rows = _expected_headline_rows(summary)
+    benchmarks = _benchmark_by_name(summary)
+    claimed_rows: set[str] = set()
+    for claim in claim_map.claims:
+        if claim.location.path != "README.md":
+            raise ValueError(f"{claim.id}: unsupported public claim location {claim.location.path}")
+        if claim.public_check != "make eval":
+            raise ValueError(f"{claim.id}: public_check must be make eval")
+        headings = {
+            line.lstrip("#").strip() for line in readme.splitlines() if line.startswith("#")
+        }
+        if claim.location.anchor not in headings:
+            raise ValueError(f"{claim.id}: README anchor was not found")
+        if not _document_contains(readme, claim.readme_text):
+            raise ValueError(f"{claim.id}: README text was not found")
+        for evidence_path in claim.public_evidence:
+            if evidence_path not in _PUBLIC_FILES:
+                raise ValueError(f"{claim.id}: unknown public evidence file {evidence_path}")
+            if not (root / evidence_path).is_file():
+                raise ValueError(f"{claim.id}: missing public evidence file {evidence_path}")
+        if claim.summary_row is not None:
+            if claim.summary_row in claimed_rows:
+                raise ValueError(f"{claim.id}: duplicate headline claim for {claim.summary_row}")
+            expected = summary_rows.get(claim.summary_row)
+            if expected is None:
+                raise ValueError(f"{claim.id}: unknown summary_row {claim.summary_row}")
+            if claim.readme_text != expected:
+                raise ValueError(f"{claim.id}: readme_text does not match computed headline row")
+            benchmark = benchmarks[claim.summary_row]
+            expected_sources = {
+                benchmark.base.source,
+                benchmark.sft.source,
+                *(seed.source for seed in benchmark.grpo_seeds),
+            }
+            if set(claim.full_artifact_sources) != expected_sources:
+                raise ValueError(
+                    f"{claim.id}: full_artifact_sources do not match headline_summary.json"
+                )
+            claimed_rows.add(claim.summary_row)
+
+    missing_rows = set(summary_rows) - claimed_rows
+    if missing_rows:
+        raise ValueError(f"claims.json is missing headline rows: {sorted(missing_rows)}")
+
+
+def _document_contains(document: str, expected: str) -> bool:
+    if expected in document:
+        return True
+    return " ".join(expected.split()) in " ".join(document.split())
+
+
+def _render_seed_tables(summary: PublicSummary) -> list[str]:
+    rendered: list[str] = []
+    for row in summary.headline.rows:
+        rl_row = build_rl_row(
+            "GRPO  <think>",
+            row.benchmark,
+            sft_anchor=row.sft.accuracy,
+            per_seed_ex=row.grpo_values,
+        )
+        rendered.append(
+            render_progression(
+                row.benchmark,
+                base_ex=row.base.accuracy,
+                sft_ex=row.sft.accuracy,
+                rl_rows=[rl_row],
+            )
+        )
+    return rendered

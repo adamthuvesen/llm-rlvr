@@ -1,171 +1,229 @@
 # Runbook: Text-to-SQL RLVR
 
-This runbook covers setup, local scoring, public-summary reproduction, full raw-artifact
-re-scoring, and the supported Modal entrypoints. Exact pins and result paths live in
-[artifacts.md](artifacts.md).
+Use the CPU gate for code changes. Use full reproduction after restoring the external evidence bundle.
+Artifact pins and historical result paths live in [artifacts.md](artifacts.md).
 
-GPU generation and training can spend money. Get explicit approval for any paid run, state the rough
-cost, and start with a small `--limit` before launching a full job. Long Modal runs use
-`modal run --detach ... --spawn`; a connected local run can die with the laptop session.
+Every `modal_app.py` entrypoint spends money on Modal GPUs and refuses to launch without approval.
+The refusal prints the approved command. Run it only after Adam approves the run and its rough cost.
+Start with a smoke before a full run.
+Long Modal runs use `modal run --detach`. Long entrypoints spawn by default, so a local disconnect does not kill them.
 
 ## Setup
 
 ```bash
-make install            # CPU env: data, sandbox, verifier, eval
-make check              # Ruff lint + format check + mypy + unit tests
-make data               # fetch, verify, and extract the pinned Spider databases
+make install
+make check
+make help
 ```
 
-`make data` downloads the pinned Spider database archive, checks its SHA256, and extracts it under
-`data/spider/spider_data/` (gitignored). To use an existing extracted tree:
+`make install` installs the locked CPU development environment.
+`make check` checks the lockfile, Ruff, types, import contracts, unit tests, and the installed wheel.
+It runs in seconds, so run it after every change. To iterate on one owner, run its test files
+with `uv run --locked pytest tests/<file>.py`.
+
+Fetch the pinned Spider database archive:
+
+```bash
+make data
+```
+
+The loader verifies the archive, extracts into a temporary tree, validates the tree, then publishes the cache.
+To use an existing extracted bundle:
 
 ```bash
 export TEXT2SQL_SPIDER_ROOT=/path/to/spider_data
 ```
 
-For local model generation, install the optional generation stack:
+Overrides retain unknown archive identity unless an archive was actually verified.
+`TEXT2SQL_BIRD_ROOT` selects an extracted BIRD bundle in the same way.
+
+Optional environments:
 
 ```bash
-uv sync --extra generate   # transformers + torch; add --extra gpu on a GPU host
+uv sync --locked --extra generate  # Transformers and Torch
+uv sync --locked --extra adapters  # Transformers, Torch, and PEFT without vLLM
+uv sync --locked --extra train --extra dev  # Training host
 ```
+
+GPU work runs only through the Modal entrypoints below.
 
 ## Local Generation and Scoring
 
-`generate` is the only model-loading step. It writes a `CompletionSet` with provenance. `score`
-reads that artifact with no model.
+`generate` loads the model. `score` reads saved completions without a model.
+Outputs use fresh paths. Atomic publication prevents partial single-file outputs, and existing paths fail with a nonzero exit.
 
 ```bash
-PYTORCH_ENABLE_MPS_FALLBACK=1 uv run llm-rlvr generate \
+PYTORCH_ENABLE_MPS_FALLBACK=1 uv run --locked llm-rlvr generate \
   --model Qwen/Qwen2.5-Coder-3B-Instruct --split dev \
   --tables-json data/spider/spider_data/tables.json --backend transformers \
   --out runs/baseline_3b_dev50.json --limit 50 --slice-seed 0 --max-new-tokens 512
 
-uv run llm-rlvr score --completions runs/baseline_3b_dev50.json \
-  --db-root data/spider/spider_data/database --out results/baseline_3b_dev50.json
+uv run --locked llm-rlvr score --completions runs/baseline_3b_dev50.json \
+  --db-root data/spider/spider_data/database --out results/baseline_3b_dev50.score.json
 ```
 
-Few-shot generation uses seeded train exemplars and never samples from dev/test:
+Few-shot generation uses seeded train exemplars:
 
 ```bash
-PYTORCH_ENABLE_MPS_FALLBACK=1 uv run llm-rlvr generate \
+PYTORCH_ENABLE_MPS_FALLBACK=1 uv run --locked llm-rlvr generate \
   --model Qwen/Qwen2.5-Coder-3B-Instruct --split dev \
   --tables-json data/spider/spider_data/tables.json --backend transformers \
   --out runs/baseline_3b_dev50_fewshot.json --limit 50 --slice-seed 0 \
   --few-shot-k 3 --few-shot-seed 0 --max-new-tokens 512
 ```
 
+Local `--limit` uses seeded selection. Remote `--limit` uses a prefix. Provenance records the selection policy.
+Score reports retain reference-query errors in the denominator and expose per-item diagnostics.
+
 ## Modal Entry Points
 
-`modal_app.py` runs generation and training on Modal. The app writes artifacts to the `text2sql-runs`
-Volume and uses the same scorer as local evaluation.
-
-Common generation commands:
+The Modal app writes to the `text2sql-runs` Volume.
+Generation runs use `generation/<run-id>/`. Candidate runs use `traces/<run-id>/`.
+A missing run ID uses a model tag and request digest. Existing run directories fail before model loading.
+Choose a fresh run ID when repeating a run.
 
 ```bash
-modal run modal_app.py::main --dataset spider --limit 8
-modal run --detach modal_app.py::main --dataset spider --spawn
-modal run --detach modal_app.py::main --dataset spider --few-shot-k 3 --spawn
-modal run --detach modal_app.py::main --dataset spider --prompt-style direct --spawn
-modal run --detach modal_app.py::main --dataset bird --spawn
-modal run --detach modal_app.py::main --dataset bird --prompt-style direct --spawn
+modal run modal_app.py::main --dataset spider --limit 8 --run-id spider-dev-smoke
+modal run --detach modal_app.py::main --dataset spider
+modal run --detach modal_app.py::main --dataset spider --few-shot-k 3
+modal run --detach modal_app.py::main --dataset spider --prompt-style direct
+modal run --detach modal_app.py::main --dataset bird
 ```
 
-Pull and score a generated artifact:
+Managed directories publish `request.json` before execution and `complete.json` after output validation.
+Restore all files from a managed directory before consuming its output:
 
 ```bash
-modal volume get text2sql-runs spider-dev-zs.json ./runs/spider-dev-zs.json
-uv run llm-rlvr score --completions runs/spider-dev-zs.json \
+mkdir -p runs/spider-dev-smoke
+modal volume get text2sql-runs generation/spider-dev-smoke/request.json runs/spider-dev-smoke/request.json
+modal volume get text2sql-runs generation/spider-dev-smoke/completions.json runs/spider-dev-smoke/completions.json
+modal volume get text2sql-runs generation/spider-dev-smoke/complete.json runs/spider-dev-smoke/complete.json
+uv run --locked llm-rlvr score --completions runs/spider-dev-smoke/completions.json \
   --db-root data/spider/spider_data/database
 ```
 
+Readers verify the completion marker and output hashes. An interrupted managed run remains incomplete.
+Use a fresh run after resolving its failure. Do not create a completion marker manually.
+Legacy unmanaged artifact files remain readable.
+
 ## SFT Cold-Start
 
-The SFT adapter teaches the `<think>...</think>` + SQL answer format by self-distillation: sample
-Spider-train, keep execution-correct well-formed traces, then train a LoRA adapter on those traces.
+Sample Spider-train, filter execution-correct well-formed traces, then train the LoRA adapter.
 
 ```bash
-modal run modal_app.py::traces --limit 8
-modal run --detach modal_app.py::traces --spawn
+modal run modal_app.py::traces --limit 8 --run-id trace-smoke
+modal run --detach modal_app.py::traces
 
-modal volume get text2sql-runs sft/candidates-n8-seed0.json ./runs/sft/candidates-n8-seed0.json
-uv run llm-rlvr build-traces --candidates runs/sft/candidates-n8-seed0.json \
+mkdir -p runs/trace-smoke
+modal volume get text2sql-runs traces/trace-smoke/request.json runs/trace-smoke/request.json
+modal volume get text2sql-runs traces/trace-smoke/candidates.json runs/trace-smoke/candidates.json
+modal volume get text2sql-runs traces/trace-smoke/complete.json runs/trace-smoke/complete.json
+uv run --locked llm-rlvr build-traces --candidates runs/trace-smoke/candidates.json \
   --db-root data/spider/spider_data/database \
   --out data/sft/traces.jsonl --manifest results/sft/traces.manifest.json
 
 modal volume put text2sql-runs data/sft/traces.jsonl sft/traces.jsonl
-modal run --detach modal_app.py::sft --run-id sft-r32 --model-revision <pinned-commit> --spawn
+modal volume put text2sql-runs results/sft/traces.manifest.json sft/traces.manifest.json
+modal run --detach modal_app.py::sft --run-id sft-r32 --model-revision <pinned-commit> \
+  --trace-manifest sft/traces.manifest.json
 ```
 
-Evaluate the adapter by passing `--adapter` to the same generation command:
+Trace filtering rejects source metadata mismatches. New traces retain typed source examples.
+SFT requires the matching manifest, trace hash, source lineage, and zero reference-query errors before model loading.
+Historical trace files can remain readable while being insufficient for a new training run.
+Periodic `checkpoint-*` adapters receive their own completion markers and checkpoint-specific provenance after successful training.
+Restore each checkpoint's request, provenance, weights, config, and completion marker before evaluation.
+An interrupted checkpoint remains incomplete even when its parent directory has a completion marker.
+
+Evaluate an adapter with the generation entrypoint:
 
 ```bash
-modal run --detach modal_app.py::main --dataset spider --adapter sft/sft-r32 --spawn
-modal run --detach modal_app.py::main --dataset bird --adapter sft/sft-r32 --spawn
+modal run --detach modal_app.py::main --dataset spider --adapter sft/sft-r32
+modal run --detach modal_app.py::main --dataset bird --adapter sft/sft-r32
 ```
 
 ## GRPO Training
 
-GRPO starts from the SFT adapter and scores each rollout by executing SQL in the read-only sandbox.
-The main result uses the shaped reward arm, `guard_trivial_empty=True`, four generations per prompt,
-and seed-level aggregation.
+GRPO starts from SFT and scores rollouts through the same SQL verifier as CPU evaluation.
+The SQL training path requires `guard_trivial_empty=True`.
+Training configuration rejects unsupported TRL fields before training and records requested and effective settings.
+Warm-start LoRA settings come from the inspected adapter.
 
 ```bash
 modal run modal_app.py::grpo --run-id grpo-small --limit 32 --dev-size 8
 
 for SEED in 0 1 2; do
   modal run --detach modal_app.py::grpo --run-id grpo-s$SEED --learning-rate 5e-5 \
-    --seed $SEED --spawn
+    --seed $SEED
   sleep 45
 done
 ```
+
+GRPO records source identities for its train/dev split.
+SFT exposure remains unknown for an old adapter without source lineage. Do not infer a clean SFT holdout from a GRPO split alone.
 
 Controls use the same entrypoint:
 
 ```bash
 modal run --detach modal_app.py::grpo --run-id grpo-nb-s0 --learning-rate 5e-5 \
-  --reward-arm near_binary --spawn
+  --reward-arm near_binary
 
 LB=unsloth/Llama-3.2-3B-Instruct
-modal run --detach modal_app.py::traces --base-model $LB --spawn
-modal run --detach modal_app.py::sft --traces sft/traces-llama.jsonl --run-id sft-llama-r32 \
-  --base-model $LB --spawn
+modal run --detach modal_app.py::traces --base-model $LB
+modal run --detach modal_app.py::sft --traces sft/traces-llama.jsonl \
+  --trace-manifest sft/traces-llama.manifest.json --run-id sft-llama-r32 --base-model $LB
 modal run --detach modal_app.py::grpo --run-id grpo-llama-s0 --warm-start sft/sft-llama-r32 \
-  --base-model $LB --learning-rate 5e-5 --spawn
+  --base-model $LB --learning-rate 5e-5
 ```
 
-Evaluate any adapter with `--adapter` and score the pulled artifact on CPU:
-
-```bash
-modal run --detach modal_app.py::main --dataset bird --adapter grpo/grpo-s0 --spawn
-modal volume get text2sql-runs bird-dev-zs-grpo-s0.json results/grpo/
-uv run llm-rlvr score --completions results/grpo/bird-dev-zs-grpo-s0.json \
-  --db-root <bird-db-root> --workers 8
-```
+Create and upload each family's filtered trace dataset and manifest before its SFT run.
+The model revision and adapter identities must match.
 
 ## Reproduce Reported Numbers
-
-Run this before claiming the public headline or after changing reporting code:
 
 ```bash
 make eval
 ```
 
-`make eval` is CPU-only and model-free; it validates the tracked bundle under `results/public/` and
-checks that the README headline table matches it.
+Public mode validates tracked counts, claim references, README headline rows, and seed-level tables.
+It requires no model, network, database, or raw completion artifacts.
 
-For full raw re-scoring, restore the external result bundle under gitignored `results/`, then run:
-
-```bash
-make data && make eval-full
-```
-
-`make eval-full` is CPU-only and model-free after the matching `CompletionSet` artifacts have been
-restored. Wall time is dominated by BIRD execution and depends on available cores.
-
-## Check the Verifier
-
-The execution-match verifier is parity-tested against the upstream Test-Suite SQL Eval path:
+Restore the external completion/report pairs and matching databases, then run:
 
 ```bash
-uv run pytest tests/test_verifier_parity.py -q
+make eval-full
 ```
+
+Full mode executes the tracked `report/full.py` inventory. Every completion requires its historical `.score.json` report.
+It reports all missing files before scoring. It validates the whole inventory, provenance, optional hash pins, and database paths.
+It preserves historical reports and prints counts, accuracy deltas, reference errors, and available per-item changes.
+Legacy hash pins and outcomes remain unknown when the saved evidence lacks them.
+
+Use explicit database roots when several extracted bundles exist:
+
+```bash
+uv run --locked llm-rlvr reproduce --mode full \
+  --spider-db-root /path/to/database --bird-db-root /path/to/dev_databases --workers 8
+```
+
+Environment overrides refer to extracted bundle roots. CLI database-root arguments refer to database subdirectories.
+Full mode never downloads missing data. Fetch or restore data first.
+Score changes or reference-query failures return nonzero after the complete comparison.
+Missing or malformed inputs return nonzero without partial result output.
+
+## Additional Verification
+
+```bash
+make package-check
+make runtime-check
+make test-integration
+```
+
+The wheel check installs locked CPU dependencies outside the checkout.
+It imports every package module while blocking optional model dependencies, then runs CLI help, public evidence, and the SQLite demo.
+CI configures the CPU gate and wheel check on Python 3.14.
+
+The runtime check constructs real LoRA and SFT configurations without downloading a model or executing GPU training.
+Missing training dependencies fail with an install command. They never become a skipped success.
+Dataset integration tests use the actual pinned loaders and databases.
+See [verification.md](verification.md) for the verification rubric and evidence limits.

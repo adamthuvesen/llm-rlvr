@@ -38,3 +38,33 @@ def test_caveat_suppressed_when_not_single_db() -> None:
     rows = [build_rl_row("RL", "Spider-dev", sft_anchor=0.633, per_seed_ex=[0.70, 0.71, 0.72])]
     out = render_progression("Spider-dev", base_ex=0.6, sft_ex=0.633, rl_rows=rows, single_db=False)
     assert SINGLE_DB_CAVEAT not in out
+
+
+def test_negative_gain_is_not_rendered_as_success() -> None:
+    row = build_rl_row("regressed", "BIRD-dev", sft_anchor=0.6, per_seed_ex=[0.4, 0.4, 0.4])
+    out = render_progression("BIRD-dev", base_ex=0.3, sft_ex=0.6, rl_rows=[row])
+    assert row.gain.excludes_zero and not row.gain.above_zero
+    assert "✓>0" not in out
+    assert "(<0)" in out
+
+
+def test_stored_row_cannot_forge_derived_aggregates() -> None:
+    import pytest
+
+    from llm_rlvr.report.progression import RlRow
+
+    row = build_rl_row("RL", "BIRD-dev", sft_anchor=0.3, per_seed_ex=[0.4, 0.4, 0.4])
+    data = row.model_dump()
+    data["per_seed_ex"] = [0.2, 0.2, 0.2]
+    with pytest.raises(ValueError, match="aggregate"):
+        RlRow.model_validate(data)
+
+
+def test_render_rejects_rows_from_another_benchmark_or_anchor() -> None:
+    import pytest
+
+    row = build_rl_row("RL", "BIRD-dev", sft_anchor=0.3, per_seed_ex=[0.4])
+    with pytest.raises(ValueError, match="benchmark and SFT anchor"):
+        render_progression("Spider-dev", base_ex=0.2, sft_ex=0.3, rl_rows=[row])
+    with pytest.raises(ValueError, match="benchmark and SFT anchor"):
+        render_progression("BIRD-dev", base_ex=0.2, sft_ex=0.4, rl_rows=[row])

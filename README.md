@@ -1,15 +1,14 @@
 # llm-rlvr
 
-![License](https://img.shields.io/github/license/adamthuvesen/llm-rlvr) ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![License](https://img.shields.io/github/license/adamthuvesen/llm-rlvr) ![Python](https://img.shields.io/badge/python-3.14%2B-blue)
 
 An RLVR harness for text-to-SQL. It trains `Qwen/Qwen2.5-Coder-3B-Instruct`
 to write SQL by running the query and rewarding it when the result matches the reference answer,
 so the reward comes from running the query rather than matching strings.
 
 Training is run by [TRL](https://github.com/huggingface/trl). Tasks are made verifiable here with a
-read-only SQLite sandbox, an execution-match verifier, and reward shaping. Text-to-SQL is included
-as the reference task. New tasks are added by implementing an `AnswerParser` and a `Verifier`, then
-reusing the same reward and training path.
+read-only SQLite sandbox, an execution-match verifier, and reward shaping. Text-to-SQL is the one
+task. A new task reuses the reward shaping and training executors; see `docs/harness.md`.
 
 ## Result
 
@@ -46,6 +45,8 @@ make install
 make check
 ```
 
+Every other command is listed in [AGENTS.md](AGENTS.md#commands) and `make help`.
+
 Run a tiny no-GPU demo:
 
 ```bash
@@ -73,6 +74,10 @@ The public reproduction path covers the CPU checks and tracked evidence bundle. 
 is run with `make eval-full` after the external artifacts are restored. Training reruns require the
 GPU extras (`trl`, `peft`, `accelerate`, `vllm`) and are outside the public quickstart.
 
+Full reproduction ships in `llm_rlvr.report.full`. It checks every required artifact before scoring, then reports score and reference-error deltas.
+Historical reports stay unchanged. Legacy artifacts without stored hashes or per-item outcomes retain those limits.
+See [the runbook](docs/internal/runbook.md#reproduce-reported-numbers) for explicit database roots.
+
 ## Caveats
 
 - Accuracy is single-DB execution match, not test-suite multi-DB accuracy.
@@ -81,7 +86,10 @@ GPU extras (`trl`, `peft`, `accelerate`, `vllm`) and are outside the public quic
 ## Docs
 
 - [docs/harness.md](docs/harness.md): the task-agnostic RLVR harness and how to add a task.
-- [docs/architecture.md](docs/architecture.md): module map, data flow, reward design.
+- [docs/architecture.md](docs/architecture.md): module owners, dependency boundaries, and artifact states.
+- [docs/internal/runbook.md](docs/internal/runbook.md): commands, input requirements, and failure recovery.
+- [docs/internal/artifacts.md](docs/internal/artifacts.md): public claims and external artifact inventory.
+- [docs/internal/verification.md](docs/internal/verification.md): verification scope and change-quality rubric.
 
 ## Related Repositories
 

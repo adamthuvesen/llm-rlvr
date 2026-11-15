@@ -51,16 +51,20 @@ def well_formed(text: str) -> bool:
 
 def extract_sql(text: str) -> str | None:
     """Return the predicted SQL, or None if the completion contains none."""
-    closed = [(lang.strip(), body.strip()) for lang, body in _FENCE.findall(text)]
+    closed: list[tuple[str, str]] = [
+        (lang.strip(), body.strip()) for lang, body in _FENCE.findall(text)
+    ]
 
     for lang, body in reversed(closed):  # 1. last explicitly sql-tagged block
         if _lang_is_sql(lang):
             return body
 
-    answers = _ANSWER.findall(text)  # 2. an <answer> block
+    answers: list[str] = _ANSWER.findall(text)  # 2. an <answer> block
     if answers:
         inner = answers[-1].strip()
-        inner_blocks = [(lang.strip(), body.strip()) for lang, body in _FENCE.findall(inner)]
+        inner_blocks: list[tuple[str, str]] = [
+            (lang.strip(), body.strip()) for lang, body in _FENCE.findall(inner)
+        ]
         for lang, body in reversed(inner_blocks):
             if _lang_is_sql(lang) or _looks_like_sql(body):
                 return body

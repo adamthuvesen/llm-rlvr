@@ -13,44 +13,58 @@ unit-testable on CPU; `run_grpo` is the GPU-only driver Modal calls. The `GRPOCo
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import Any
 
 from pydantic import Field
 
 from llm_rlvr._base import Frozen
-from llm_rlvr.eval.completions import write_pydantic_json
-from llm_rlvr.eval.provenance import git_commit, git_is_dirty, library_versions
-from llm_rlvr.harness import Task
-from llm_rlvr.tasks.sql import RewardConfig, sql_task
+from llm_rlvr.artifacts.provenance import git_commit, git_is_dirty, library_versions
+from llm_rlvr.data.models import (
+    EXAMPLE_IDENTITY_POLICY,
+    DatabaseSchema,
+    Example,
+    example_identity,
+)
+from llm_rlvr.data.paths import resolve_database
+from llm_rlvr.data.splits import assert_train_split
+from llm_rlvr.harness import RewardConfig
+from llm_rlvr.tasks.sql import SqlRewardConfig, build_grpo_rows, make_reward_fn
+from llm_rlvr.tasks.sql.verifier import GoldExecutionError, validate_reference
+from llm_rlvr.train.configuration import (
+    AdapterIdentity,
+    RuntimeConfigRecord,
+    build_training_config,
+)
+from llm_rlvr.train.prepared import execute_prepared_grpo, publish_training_run
 
 _TRAIN_LIBRARIES = ("llm-rlvr", "trl", "peft", "transformers", "torch", "accelerate", "vllm")
 
 PROVENANCE_FILENAME = "provenance.json"
-T = TypeVar("T")
 
 
 class GrpoHyperparams(Frozen):
     """Single-A100 colocate GRPO config."""
 
-    lora_rank: int = 32
-    lora_alpha: int = 64
-    lora_dropout: float = 0.05
+    # Legacy requested values. GRPO continues the warm-start adapter's actual LoRA configuration.
+    lora_rank: int = Field(default=32, gt=0, strict=True)
+    lora_alpha: int = Field(default=64, gt=0, strict=True)
+    lora_dropout: float = Field(default=0.05, ge=0, lt=1, allow_inf_nan=False)
     # GRPO LoRA LR: between SQL-R1's low full-finetune LR and common LoRA LRs.
-    learning_rate: float = 1e-5
-    beta: float = 0.04  # KL coefficient; start at a mild value, revisit if entropy collapses.
-    num_generations: int = 4  # G=4 halves generation vs G=8; 2-GRPO shows G=2 keeps 97.6%.
-    max_completion_length: int = 1024  # SQL is short; the length reward guards truncation.
-    temperature: float = 1.0  # exploration during rollouts
-    top_p: float = 1.0
-    per_device_batch_size: int = 8
-    gradient_accumulation_steps: int = 4
-    num_train_epochs: int = 1  # early-stop / checkpoint-select off the dev-EX curve governs spend
-    warmup_ratio: float = 0.03
-    vllm_gpu_memory_utilization: float = 0.3  # colocate: leave room for the trainer on one card
-    save_steps: int = 50  # periodic checkpoints so dev-EX selection has candidates to score
-    eval_slice_size: int = Field(default=500, ge=0)  # held-out dev-EX slice
+    learning_rate: float = Field(default=1e-5, gt=0, allow_inf_nan=False)
+    beta: float = Field(default=0.04, ge=0, allow_inf_nan=False)
+    num_generations: int = Field(default=4, ge=2, strict=True)
+    max_completion_length: int = Field(default=1024, gt=0, strict=True)
+    temperature: float = Field(default=1.0, gt=0, allow_inf_nan=False)
+    top_p: float = Field(default=1.0, gt=0, le=1, allow_inf_nan=False)
+    per_device_batch_size: int = Field(default=8, gt=0, strict=True)
+    gradient_accumulation_steps: int = Field(default=4, gt=0, strict=True)
+    num_train_epochs: int = Field(default=1, gt=0, strict=True)
+    warmup_ratio: float = Field(default=0.03, ge=0, le=1, allow_inf_nan=False)
+    vllm_gpu_memory_utilization: float = Field(default=0.3, gt=0, lt=1, allow_inf_nan=False)
+    save_steps: int = Field(default=50, gt=0, strict=True)
+    eval_slice_size: int = Field(default=500, ge=0, strict=True)
     seed: int = 0
 
 
@@ -82,28 +96,15 @@ def grpo_config_kwargs(hyperparams: GrpoHyperparams, output_dir: str | Path) -> 
     }
 
 
-def build_grpo_config_from_kwargs(desired: Mapping[str, object]):
-    import dataclasses
-    import logging
-
+def build_grpo_config_from_kwargs(desired: Mapping[str, object]) -> Any:
     from trl import GRPOConfig  # lazy import: train extra only
 
-    # The TRL↔vLLM pairing is fragile and GRPOConfig fields drift across versions, so pass only the
-    # kwargs this installed GRPOConfig accepts and warn loudly on any dropped — never silently.
-    valid = {f.name for f in dataclasses.fields(GRPOConfig)}
-    dropped = sorted(set(desired) - valid)
-    if dropped:
-        logging.getLogger(__name__).warning(
-            "GRPOConfig dropped unsupported kwargs %s on this trl version", dropped
-        )
-    return GRPOConfig(**{k: v for k, v in desired.items() if k in valid})
+    return build_training_config(GRPOConfig, desired)
 
 
-def build_grpo_config(hyperparams: GrpoHyperparams, output_dir: str | Path):
-    return build_grpo_config_from_kwargs(grpo_config_kwargs(hyperparams, output_dir))
-
-
-def split_train_dev(examples: Sequence[T], *, dev_size: int, seed: int) -> tuple[list[T], list[T]]:
+def split_train_dev[T](
+    examples: Sequence[T], *, dev_size: int, seed: int
+) -> tuple[list[T], list[T]]:
     """Disjoint train/dev split for dev-EX checkpoint selection; the dev slice never trains.
 
     Deterministic in `seed`; `dev_size` is clamped so a small run still yields a train split.
@@ -128,11 +129,22 @@ class GrpoProvenance(Frozen):
     base_model_revision: str | None = None
     warm_start_adapter: str
     hyperparams: GrpoHyperparams
-    reward: RewardConfig
+    reward: RewardConfig | SqlRewardConfig
     dataset: str
     dataset_revision: str
     n_train: int
     n_dev: int
+    runtime_config: RuntimeConfigRecord | None = None
+    warm_start_identity: AdapterIdentity | None = None
+    output_adapter_identity: AdapterIdentity | None = None
+    requested_base_model_revision: str | None = None
+    train_source_ids: tuple[str, ...] | None = None
+    dev_source_ids: tuple[str, ...] | None = None
+    # A GRPO dev split does not establish whether SFT previously exposed those examples.
+    sft_dev_exposure: str = "unknown"
+    sft_train_source_ids: tuple[str, ...] | None = None
+    sft_exposed_dev_source_ids: tuple[str, ...] | None = None
+    source_identity_policy: str | None = None
     library_versions: dict[str, str] = Field(default_factory=dict)
     git_commit: str = "unknown"
     git_dirty: bool = False
@@ -151,6 +163,13 @@ def build_grpo_provenance(
     base_model_revision: str | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
+    runtime_config: RuntimeConfigRecord | None = None,
+    warm_start_identity: AdapterIdentity | None = None,
+    output_adapter_identity: AdapterIdentity | None = None,
+    requested_base_model_revision: str | None = None,
+    train_source_ids: tuple[str, ...] | None = None,
+    dev_source_ids: tuple[str, ...] | None = None,
+    sft_train_source_ids: tuple[str, ...] | None = None,
 ) -> GrpoProvenance:
     """Assemble GRPO checkpoint provenance, capturing reward + GRPO config + library/git state."""
     return GrpoProvenance(
@@ -163,6 +182,20 @@ def build_grpo_provenance(
         dataset_revision=dataset_revision,
         n_train=n_train,
         n_dev=n_dev,
+        runtime_config=runtime_config,
+        warm_start_identity=warm_start_identity,
+        output_adapter_identity=output_adapter_identity,
+        requested_base_model_revision=requested_base_model_revision,
+        train_source_ids=train_source_ids,
+        dev_source_ids=dev_source_ids,
+        sft_dev_exposure="known" if sft_train_source_ids is not None else "unknown",
+        sft_train_source_ids=sft_train_source_ids,
+        source_identity_policy=EXAMPLE_IDENTITY_POLICY if train_source_ids is not None else None,
+        sft_exposed_dev_source_ids=(
+            tuple(source for source in dev_source_ids if source in set(sft_train_source_ids))
+            if sft_train_source_ids is not None and dev_source_ids is not None
+            else None
+        ),
         library_versions=library_versions(_TRAIN_LIBRARIES),
         git_commit=commit if commit is not None else git_commit(),
         git_dirty=dirty if dirty is not None else git_is_dirty(),
@@ -170,65 +203,72 @@ def build_grpo_provenance(
 
 
 def run_grpo(
-    examples: Sequence[object],
-    resources: Mapping[str, object],
-    context_root: str | Path,
+    examples: Sequence[Example],
+    schemas: Mapping[str, DatabaseSchema],
+    database_root: str | Path,
     output_dir: str | Path,
     *,
-    task: Task | None = None,
     base_model: str,
     warm_start_adapter: str | Path,
     dataset: str,
     dataset_revision: str,
     base_model_revision: str | None = None,
     hyperparams: GrpoHyperparams | None = None,
-    reward: RewardConfig | None = None,
+    reward: SqlRewardConfig | None = None,
     commit: str | None = None,
     dirty: bool | None = None,
+    on_begin: Callable[[], None] | None = None,
 ) -> Path:
     """Train a GRPO LoRA adapter warm-started from the SFT adapter; persist it + provenance (GPU).
-
-    Task-agnostic: the rows and the reward come from `task` (default: the text-to-SQL task) via
-    `task.build_grpo_rows` + `task.make_reward_fn`, so a registered non-SQL `Task` trains through
-    this same driver. `resources` is whatever the task's row builder needs (SQL: the schemas);
-    `context_root` is where its verifier resolves context (SQL: the database root).
 
     Warm-starts by loading `warm_start_adapter` over `base_model` as a *trainable* PEFT model, so
     the saved adapter is the SFT→GRPO continuation (one adapter over the base at eval). A disjoint
     dev slice is held out for post-hoc dev-EX checkpoint selection; periodic checkpoints land under
     `output_dir`.
     """
-    from datasets import Dataset  # lazy: heavy training stack, train extra only
-    from peft import PeftModel
-    from transformers import AutoModelForCausalLM
-    from trl import GRPOTrainer
-
-    tk = task or cast(Task, sql_task())
     hp = hyperparams or GrpoHyperparams()
-    rw = reward or RewardConfig()
+    rw = reward or SqlRewardConfig()
+    if not rw.guard_trivial_empty:
+        raise ValueError("SQL GRPO training requires guard_trivial_empty=True")
+    assert_train_split(examples, context="SQL GRPO input")
+    for example in examples:
+        try:
+            validate_reference(example.gold_sql, resolve_database(example.db_id, database_root))
+        except GoldExecutionError as exc:
+            identity = example_identity(example)
+            raise ValueError(f"SQL GRPO reference failed for source {identity}: {exc}") from exc
 
     train_examples, dev_examples = split_train_dev(
         examples, dev_size=hp.eval_slice_size, seed=hp.seed
     )
-    rows = tk.build_grpo_rows(train_examples, resources)
-    train_dataset = Dataset.from_list(rows)
-
-    revision = {"revision": base_model_revision} if base_model_revision else {}
-    base = AutoModelForCausalLM.from_pretrained(base_model, dtype="bfloat16", **revision)
-    policy = PeftModel.from_pretrained(base, str(warm_start_adapter), is_trainable=True)
-
-    trainer = GRPOTrainer(
-        model=policy,
-        reward_funcs=[tk.make_reward_fn(context_root, config=rw)],
-        args=build_grpo_config(hp, output_dir),
-        train_dataset=train_dataset,
+    train_ids = tuple(example_identity(example) for example in train_examples)
+    dev_ids = tuple(example_identity(example) for example in dev_examples)
+    if set(train_ids) & set(dev_ids):
+        raise ValueError("GRPO train/dev contain the same source example")
+    rows = build_grpo_rows(train_examples, schemas)
+    execution = execute_prepared_grpo(
+        rows,
+        make_reward_fn(database_root, config=rw),
+        output_dir,
+        base_model=base_model,
+        base_model_revision=base_model_revision,
+        warm_start_adapter=warm_start_adapter,
+        requested_config=grpo_config_kwargs(hp, output_dir),
+        request_metadata={
+            "dataset": dataset,
+            "dataset_revision": dataset_revision,
+            "hyperparams": hp.model_dump(mode="json"),
+            "reward": rw.model_dump(mode="json"),
+            "train_source_ids": list(train_ids),
+            "dev_source_ids": list(dev_ids),
+            "source_identity_policy": EXAMPLE_IDENTITY_POLICY,
+        },
+        on_begin=on_begin,
     )
-    trainer.train()
-    trainer.save_model(str(output_dir))
 
     provenance = build_grpo_provenance(
         base_model=base_model,
-        base_model_revision=base_model_revision,
+        base_model_revision=execution.base_model_revision,
         warm_start_adapter=warm_start_adapter,
         hyperparams=hp,
         reward=rw,
@@ -236,8 +276,25 @@ def run_grpo(
         dataset_revision=dataset_revision,
         n_train=len(train_examples),
         n_dev=len(dev_examples),
+        runtime_config=execution.configuration,
+        warm_start_identity=execution.warm_start,
+        output_adapter_identity=execution.output_adapter,
+        requested_base_model_revision=base_model_revision,
+        train_source_ids=train_ids,
+        dev_source_ids=dev_ids,
+        sft_train_source_ids=(
+            execution.warm_start.sft_train_source_ids
+            if execution.warm_start.source_identity_policy == EXAMPLE_IDENTITY_POLICY
+            else None
+        ),
         commit=commit,
         dirty=dirty,
     )
-    write_pydantic_json(provenance, Path(output_dir) / PROVENANCE_FILENAME)
-    return Path(output_dir)
+    return publish_training_run(
+        output_dir,
+        provenance,
+        base_model=base_model,
+        base_model_revision=execution.base_model_revision,
+        training_population_ids=train_ids,
+        sft_training_population_ids=execution.warm_start.sft_train_source_ids,
+    )

@@ -7,7 +7,7 @@ name = "llm-rlvr"
 version = "0.1.0"
 description = "Reusable RLVR library for LLM post-training, with text-to-SQL as the reference task."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "Adam Thuvesen", email = "adam.thuvesen@mentimeter.com" }]
 
@@ -45,14 +45,22 @@ train = [
     "accelerate>=1.0",
 ]
 dev = [
-    "mypy>=1.19",
-    "pytest>=8",
-    "ruff>=0.6",
+    "basedpyright==1.40.2",
+    "pytest>=9.1.1",
+    "ruff==0.17.4",
     "pre-commit>=3.8",
     # The Modal launch CLI. Pinned so `modal run`/`modal deploy` use the surface modal_app.py
     # targets (modal.App, string GPU, add_local_*); it never enters the GPU image (the image
     # exports only `--extra train`, which includes `gpu`), so it adds no runtime weight to the box.
     "modal==1.5.0",
+    "import-linter>=2.15",
+    "hatchling>=1.33.0",
+    "pytest-xdist>=3.6",
+    "pytest-socket>=0.7",
+]
+adapters = [
+    "llm-rlvr[generate]",
+    "peft>=0.14",
 ]
 
 [project.scripts]
@@ -60,31 +68,140 @@ llm-rlvr = "llm_rlvr.cli:main"
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py314"
 # The vendored evaluator is upstream code; do not lint or reformat it.
 extend-exclude = ["src/llm_rlvr/third_party"]
+force-exclude = true
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "N", "PTH", "RUF"]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "N", "PTH", "RUF", "PGH003", "PGH004", "TID251"]
+ignore = ["E501"]
+
+# Whole-module bans. A per-file TID251 ignore lifts every ban for that file, so
+# tests/test_banned_modules.py holds each owner to the modules it owns.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"subprocess".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"pty".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.system".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.popen".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.execv".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.execve".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.execl".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.execlp".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.execvp".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.spawnv".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.spawnve".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.spawnl".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.spawnlp".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"os.spawnvp".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"asyncio.subprocess".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"asyncio.create_subprocess_exec".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"asyncio.create_subprocess_shell".msg = "Run processes only in an owner file, such as src/llm_rlvr/artifacts/provenance.py for git calls. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"socket".msg = "Do not call the network: read a committed fixture under tests/fixtures instead. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"http.client".msg = "Do not call the network: read a committed fixture under tests/fixtures instead. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"urllib.request".msg = "Do not call the network: read a committed fixture under tests/fixtures instead. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"requests".msg = "Do not call the network: read a committed fixture under tests/fixtures instead. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"httpx".msg = "Do not call the network: read a committed fixture under tests/fixtures instead. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"huggingface_hub".msg = "Download from the Hub only in src/llm_rlvr/data/installation.py or src/llm_rlvr/train/configuration.py. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"datasets".msg = "Load datasets only in src/llm_rlvr/data/spider.py or src/llm_rlvr/train/prepared.py; elsewhere read a committed fixture. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"modal".msg = "Use Modal only in modal_app.py, which gates paid runs behind --approved. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"openai".msg = "Do not call a paid model API: score committed completions under tests/fixtures instead. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"anthropic".msg = "Do not call a paid model API: score committed completions under tests/fixtures instead. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+"snowflake".msg = "Do not use a warehouse driver: this repo reads only local data files. To add an owner, list the file in OWNERS in tests/test_banned_modules.py and give it a TID251 per-file-ignore in pyproject.toml."
+
+# Owners of a banned module (see tests/test_banned_modules.py::OWNERS).
+[tool.ruff.lint.per-file-ignores]
+"src/llm_rlvr/artifacts/provenance.py" = ["TID251"]
+"src/llm_rlvr/data/installation.py" = ["TID251"]
+"src/llm_rlvr/data/spider.py" = ["TID251"]
+"src/llm_rlvr/train/configuration.py" = ["TID251"]
+"src/llm_rlvr/train/prepared.py" = ["TID251"]
+"scripts/verify_package.py" = ["TID251"]
+"modal_app.py" = ["TID251"]
+"tests/test_import_architecture.py" = ["TID251"]
+"tests/test_repo_rules.py" = ["TID251"]
+"tests/test_strict_mode.py" = ["TID251"]
+".agents/skills/verify-llm-rlvr/drives.py" = ["TID251"]
+".agents/skills/verify-llm-rlvr/launch_plan.py" = ["TID251"]
+".agents/skills/verify-llm-rlvr/verify" = ["TID251"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["llm_rlvr"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q -m 'not integration'"
+addopts = "-q -m 'not integration and not runtime' --disable-socket --allow-unix-socket"
+strict_markers = true
 markers = [
     "integration: hits the network or HuggingFace (deselected by default)",
     "slow: large dataset download (compose with integration)",
+    "runtime: requires installed optional training dependencies and never silently skips",
 ]
 
-[tool.mypy]
-python_version = "3.11"
-exclude = ["src/llm_rlvr/third_party"]
-ignore_missing_imports = true
-check_untyped_defs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
+[tool.basedpyright]
+typeCheckingMode = "strict"
+enableTypeIgnoreComments = false
+reportUnnecessaryTypeIgnoreComment = "error"
+reportIgnoreCommentWithoutRule = "error"
+pythonVersion = "3.14"
+include = ["src/llm_rlvr", "scripts", "tests", "examples", "modal_app.py"]
+# Vendored upstream code is untyped and excluded from checking.
+exclude = ["src/llm_rlvr/third_party", "**/__pycache__", ".venv", ".verify"]
+venvPath = "."
+venv = ".venv"
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
+reportUnknownParameterType = false
+reportUnknownLambdaType = false
+reportMissingTypeStubs = false
+
+# The GPU libraries (torch, transformers, peft, trl, vllm) are optional and absent from the CPU environment.
+[[tool.basedpyright.executionEnvironments]]
+root = "src/llm_rlvr/eval"
+reportMissingImports = false
+
+[[tool.basedpyright.executionEnvironments]]
+root = "src/llm_rlvr/generation"
+reportMissingImports = false
+
+[[tool.basedpyright.executionEnvironments]]
+root = "src/llm_rlvr/train"
+reportMissingImports = false
+
+[[tool.basedpyright.executionEnvironments]]
+root = "tests"
+reportMissingParameterType = false
+reportPrivateUsage = false
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/llm_rlvr"]
+
+[tool.uv.sources]
+llm-rlvr = { workspace = true }
+
+[tool.importlinter]
+root_package = "llm_rlvr"
+
+[[tool.importlinter.contracts]]
+name = "llm_rlvr modules import only lower layers; move shared code to a lower layer such as _base"
+type = "layers"
+containers = ["llm_rlvr"]
+exhaustive = true
+layers = [
+    "cli",
+    "modal_helpers",
+    "report",
+    "eval | train",
+    "generation",
+    "tasks",
+    "data",
+    "artifacts | env | harness | third_party",
+    "_base",
+]
+
+[[tool.importlinter.contracts]]
+name = "Prepared training must not import SQL, eval, report, or SFT and GRPO code; pass inputs in from the caller"
+type = "forbidden"
+source_modules = ["llm_rlvr.train.prepared", "llm_rlvr.train.configuration", "llm_rlvr.train.checkpoints"]
+forbidden_modules = ["llm_rlvr.data", "llm_rlvr.env", "llm_rlvr.tasks", "llm_rlvr.eval", "llm_rlvr.report", "llm_rlvr.train.sft", "llm_rlvr.train.grpo", "llm_rlvr.train.traces"]

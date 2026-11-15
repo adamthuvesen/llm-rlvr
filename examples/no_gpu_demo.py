@@ -10,17 +10,17 @@ import sqlite3
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from llm_rlvr.artifacts.provenance import DecodingConfig, GenerationProvenance
 from llm_rlvr.data.models import Example
 from llm_rlvr.eval.completions import (
     CompletionSet,
     GenerationSample,
     ProblemCompletions,
 )
-from llm_rlvr.eval.provenance import DecodingConfig, GenerationProvenance
 from llm_rlvr.eval.score import score_completion_set
 
 
-def _build_demo_db(db_root: Path) -> None:
+def build_demo_db(db_root: Path) -> None:
     db_path = db_root / "concert" / "concert.sqlite"
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
@@ -36,19 +36,21 @@ def _build_demo_db(db_root: Path) -> None:
     conn.close()
 
 
-def _completion_set() -> CompletionSet:
+def demo_completion_set() -> CompletionSet:
     examples = (
         Example(
             db_id="concert",
             question="Which artist sold 120 tickets?",
             gold_sql="SELECT artist FROM shows WHERE tickets_sold = 120",
             split="demo",
+            dataset="local-demo",
         ),
         Example(
             db_id="concert",
             question="How many shows sold at least 80 tickets?",
             gold_sql="SELECT COUNT(*) FROM shows WHERE tickets_sold >= 80",
             split="demo",
+            dataset="local-demo",
         ),
     )
     sqls = (
@@ -77,8 +79,8 @@ def _completion_set() -> CompletionSet:
 def main() -> int:
     with TemporaryDirectory(prefix="llm-rlvr-demo-") as tmp:
         db_root = Path(tmp) / "database"
-        _build_demo_db(db_root)
-        report = score_completion_set(_completion_set(), db_root)
+        build_demo_db(db_root)
+        report = score_completion_set(demo_completion_set(), db_root)
 
     print(
         f"execution_accuracy={report.execution_accuracy:.4f} "

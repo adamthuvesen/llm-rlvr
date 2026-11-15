@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from llm_rlvr.data.models import Column, DatabaseSchema, Example, Table
-from llm_rlvr.eval.prompt import (
+from llm_rlvr.tasks.sql.prompt import (
     INSTRUCTION,
     FewShotExemplar,
     build_messages,
@@ -87,7 +87,7 @@ def test_no_evidence_leaves_prompt_unchanged() -> None:
 
 
 def test_prompt_style_selects_instruction() -> None:
-    from llm_rlvr.eval.prompt import DIRECT_INSTRUCTION
+    from llm_rlvr.tasks.sql.prompt import DIRECT_INSTRUCTION
 
     assert build_messages("S", "Q", style="cot")[0]["content"] == INSTRUCTION
     assert build_messages("S", "Q", style="direct")[0]["content"] == DIRECT_INSTRUCTION

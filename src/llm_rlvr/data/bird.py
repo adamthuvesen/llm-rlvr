@@ -10,13 +10,15 @@ from __future__ import annotations
 
 import json
 import os
-import zipfile
 from pathlib import Path
+from typing import Literal
 
 from llm_rlvr._base import Frozen
 from llm_rlvr.data.artifacts import BIRD_ARCHIVE
+from llm_rlvr.data.installation import extract_zip, install_archive
 from llm_rlvr.data.models import Example
-from llm_rlvr.data.paths import verify_sha256
+from llm_rlvr.data.paths import resolve_database
+from llm_rlvr.data.spider import load_schemas
 
 # Points at an already-extracted BIRD dev bundle root (the dir holding dev.json) — offline hatch.
 _BIRD_ROOT_ENV = "TEXT2SQL_BIRD_ROOT"
@@ -30,11 +32,16 @@ class BirdDev(Frozen):
     dev_json: Path
     tables_json: Path
     database_root: Path
+    source: Literal["archive", "override", "legacy"] = "override"
+    archive_sha256: str | None = None
 
 
 def load_bird_examples(dev_json: str | Path) -> tuple[Example, ...]:
     """Parse BIRD `dev.json` into typed `Example`s, preserving the `evidence` hint."""
     rows = json.loads(Path(dev_json).read_text(encoding="utf-8"))
+    ids = [row["question_id"] for row in rows if "question_id" in row]
+    if len(ids) != len(set(ids)):
+        raise ValueError("duplicate BIRD question_id")
     return tuple(
         Example(
             db_id=row["db_id"],
@@ -59,34 +66,39 @@ def ensure_bird_dev(cache_dir: str | Path | None = None) -> BirdDev:
         return _bird_dev_at(Path(override))
 
     cache = Path(cache_dir) if cache_dir is not None else _DEFAULT_CACHE
-    marker = cache / ".extracted"
-    if not marker.exists():
-        from huggingface_hub import hf_hub_download
 
-        archive = hf_hub_download(
-            repo_id=BIRD_ARCHIVE.repo,
-            filename=BIRD_ARCHIVE.filename,
-            revision=BIRD_ARCHIVE.revision,
-            repo_type="dataset",
-        )
-        verify_sha256(archive, BIRD_ARCHIVE.sha256)
-        cache.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(archive) as bundle:
-            bundle.extractall(cache)
-        nested = next(cache.glob("**/dev_databases.zip"), None)
-        if nested is not None:
-            with zipfile.ZipFile(nested) as dbs:
-                dbs.extractall(nested.parent)
-        marker.write_text("ok", encoding="utf-8")
+    if not (cache / ".installed").exists() and any(cache.glob("**/dev.json")):
+        return _bird_dev_at(_find_bundle_root(cache)).model_copy(update={"source": "legacy"})
 
-    return _bird_dev_at(_find_bundle_root(cache))
+    def prepare(root: Path) -> None:
+        nested = list(root.glob("**/dev_databases.zip"))
+        if len(nested) > 1:
+            raise ValueError(f"multiple dev_databases.zip files under {root}")
+        if nested:
+            extract_zip(nested[0], nested[0].parent)
+
+    installed = install_archive(
+        cache,
+        BIRD_ARCHIVE,
+        prepare,
+        validate=lambda root: _bird_dev_at(_find_bundle_root(root)),
+    )
+    verified = (installed / ".archive.sha256").is_file()
+    return _bird_dev_at(_find_bundle_root(installed)).model_copy(
+        update={
+            "source": "archive" if verified else "legacy",
+            "archive_sha256": BIRD_ARCHIVE.sha256 if verified else None,
+        }
+    )
 
 
 def _find_bundle_root(cache: Path) -> Path:
-    dev = next(cache.glob("**/dev.json"), None)
-    if dev is None:
+    matches = list(cache.glob("**/dev.json"))
+    if len(matches) > 1:
+        raise ValueError(f"multiple dev.json files under {cache}")
+    if not matches:
         raise FileNotFoundError(f"no dev.json found under {cache}")
-    return dev.parent
+    return matches[0].parent
 
 
 def _bird_dev_at(root: Path) -> BirdDev:
@@ -94,11 +106,17 @@ def _bird_dev_at(root: Path) -> BirdDev:
     tables_json = root / "dev_tables.json"
     database_root = root / "dev_databases"
     for required in (dev_json, tables_json, database_root):
-        if not required.exists():
+        if not (required.is_dir() if required == database_root else required.is_file()):
             raise FileNotFoundError(
                 f"expected a BIRD dev layout at {root} (dev.json + dev_tables.json + "
                 f"dev_databases/); missing {required.name}"
             )
+    schemas = load_schemas(tables_json)
+    for db_id in schemas:
+        resolve_database(db_id, database_root)
+    for example in load_bird_examples(dev_json):
+        if example.db_id not in schemas:
+            raise ValueError(f"unknown database id {example.db_id!r} in BIRD examples")
     return BirdDev(
         root=root, dev_json=dev_json, tables_json=tables_json, database_root=database_root
     )

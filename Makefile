@@ -1,37 +1,61 @@
 .DEFAULT_GOAL := check
-.PHONY: install fmt lint typecheck test test-integration check eval eval-full demo
+.PHONY: help install lock fix lint typecheck imports test test-integration runtime-check check verify slow eval eval-full demo package-check data
 
-install:  ## Sync the CPU dev environment (data, env, verifier, eval — no GPU stack)
-	uv sync --extra dev
+RUN := uv run --locked --extra dev
 
-fmt:  ## Auto-format and apply safe lint fixes
-	uv run ruff format .
-	uv run ruff check --fix .
+help:  ## List supported commands
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-lint:  ## Lint and format-check (no changes)
-	uv run ruff check .
-	uv run ruff format --check .
+install:  ## Install the locked CPU development environment
+	uv sync --locked --extra dev
 
-typecheck:  ## Check static types
-	uv run mypy src/llm_rlvr
+lock:  ## Check pyproject.toml agrees with uv.lock
+	uv lock --check
 
-test:  ## Run unit tests (network/integration deselected)
-	uv run python -m pytest
+fix:  ## Apply Ruff formatting and safe fixes
+	$(RUN) ruff check --fix . .agents/skills/verify-llm-rlvr/verify
+	$(RUN) ruff format . .agents/skills/verify-llm-rlvr/verify
 
-test-integration:  ## Run the network/HuggingFace/model integration tests
-	uv run python -m pytest -m integration
+lint:  ## Check Ruff lint and formatting
+	$(RUN) ruff check . .agents/skills/verify-llm-rlvr/verify
+	$(RUN) ruff format --check . .agents/skills/verify-llm-rlvr/verify
 
-check: lint typecheck test  ## Project gate: lint + static types + unit tests
+typecheck:  ## Check package, Modal registration, demo, scripts, tests, and the verify helper (basedpyright strict)
+	$(RUN) basedpyright
+	$(RUN) basedpyright --project .agents/skills/verify-llm-rlvr
 
-data:  ## Fetch + verify + extract the pinned Spider databases (HF mirror; see docs/internal/runbook.md)
-	uv run python -c "from llm_rlvr.data import ensure_spider_databases as e; print('Spider DBs at', e().database_root)"
+imports:  ## Check architecture import contracts
+	$(RUN) lint-imports
 
-eval:  ## Validate and render the tracked public result summary (CPU, model-free)
-	uv run python results/public/reproduce.py
+test:  ## Run CPU unit tests in parallel without network or training dependencies
+	$(RUN) pytest -n auto
 
-eval-full:  ## Re-score restored raw/local artifacts from gitignored results/
-	@test -f results/baseline/reproduce.py || (echo "No local results/ reproduction script found. Restore the external raw bundle under results/ first."; exit 1)
-	uv run python results/baseline/reproduce.py
+test-integration:  ## Run dataset and network checks explicitly
+	$(RUN) pytest -m integration --force-enable-socket
 
-demo:  ## Run a tiny no-GPU verifier demo against a temporary SQLite database
-	uv run python examples/no_gpu_demo.py
+runtime-check:  ## Validate installed training APIs, failing when dependencies are absent
+	$(RUN) pytest -m runtime
+
+check: lock lint typecheck imports test package-check  ## Fast gate; package-check also runs public evidence and the demo from the wheel
+
+verify:  ## Drive the real CLI and Modal launcher on CPU (ARGS=all|list|control|<drive>)
+	@$(RUN) python .agents/skills/verify-llm-rlvr/verify $(ARGS)
+
+slow:  ## Drive every verify drive, then the control that must fail
+	@$(MAKE) --no-print-directory verify ARGS=all
+	@$(MAKE) --no-print-directory verify ARGS=control
+
+eval:  ## Validate and render tracked public evidence
+	$(RUN) llm-rlvr reproduce --mode public
+
+eval-full:  ## Re-score the complete restored external artifact bundle
+	$(RUN) llm-rlvr reproduce --mode full
+
+package-check:  ## Install and verify a wheel outside the source checkout
+	$(RUN) python scripts/verify_package.py
+
+data:  ## Fetch and verify the pinned Spider databases
+	$(RUN) python -c "from llm_rlvr.data import ensure_spider_databases as e; print('Spider DBs at', e().database_root)"
+
+demo:  ## Score a tiny temporary SQLite database without a model
+	$(RUN) python examples/no_gpu_demo.py
